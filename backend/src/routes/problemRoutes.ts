@@ -1,11 +1,10 @@
 import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
-import { JavaExecutor } from '../services/javaExecutor';
+import { CodeExecutorFactory } from '../services/codeExecutorFactory';
 import { RunRequest, SubmitRequest, Testcase } from '../types';
 
 const router = express.Router();
 const problemService = new ProblemService();
-const javaExecutor = new JavaExecutor();
 
 // GET /api/problems - Get list of all problems
 router.get('/problems', async (req: Request, res: Response) => {
@@ -24,10 +23,10 @@ router.get('/problems/:id', async (req: Request, res: Response) => {
         const { id } = req.params;
         const problem = await problemService.getProblem(id);
 
-        // Return metadata, template, and visible testcases only
+        // Return metadata, templates, and visible testcases only
         res.json({
             metadata: problem.metadata,
-            template: problem.template,
+            templates: problem.templates,
             visibleTestcases: problem.visibleTestcases,
             editorial: problem.editorial,
         });
@@ -40,7 +39,7 @@ router.get('/problems/:id', async (req: Request, res: Response) => {
 // POST /api/run - Run code with visible or custom testcases
 router.post('/run', async (req: Request, res: Response) => {
     try {
-        const { problemId, code, inputMode, customInput }: RunRequest = req.body;
+        const { problemId, code, language, inputMode, customInput }: RunRequest = req.body;
 
         let testcases: Testcase[] = [];
 
@@ -62,7 +61,9 @@ router.post('/run', async (req: Request, res: Response) => {
             testcases = await problemService.getVisibleTestcases(problemId);
         }
 
-        const result = await javaExecutor.executeCode(code, testcases, true);
+        // Get appropriate executor based on language
+        const executor = CodeExecutorFactory.getExecutor(language);
+        const result = await executor.executeCode(code, testcases, true);
         res.json(result);
     } catch (error) {
         console.error('Error running code:', error);
@@ -73,13 +74,15 @@ router.post('/run', async (req: Request, res: Response) => {
 // POST /api/submit - Submit code with all testcases
 router.post('/submit', async (req: Request, res: Response) => {
     try {
-        const { problemId, code }: SubmitRequest = req.body;
+        const { problemId, code, language }: SubmitRequest = req.body;
 
         // Get all testcases (visible + hidden)
         const testcases = await problemService.getAllTestcases(problemId);
 
+        // Get appropriate executor based on language
+        const executor = CodeExecutorFactory.getExecutor(language);
         // Don't show hidden inputs in results
-        const result = await javaExecutor.executeCode(code, testcases, false);
+        const result = await executor.executeCode(code, testcases, false);
         res.json(result);
     } catch (error) {
         console.error('Error submitting code:', error);

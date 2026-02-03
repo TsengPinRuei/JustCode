@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ProblemMetadata, Problem, ExecutionResult } from '../types';
+import { ProblemMetadata, Problem, ExecutionResult, Language } from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -25,22 +25,25 @@ export const problemsApi = {
     async runCode(
         problemId: string,
         code: string,
+        language: Language,
         inputMode: 'visible' | 'custom',
         customInput?: string
     ): Promise<ExecutionResult> {
         const response = await apiClient.post('/run', {
             problemId,
             code,
+            language,
             inputMode,
             customInput,
         });
         return response.data;
     },
 
-    async submitCode(problemId: string, code: string): Promise<ExecutionResult> {
+    async submitCode(problemId: string, code: string, language: Language): Promise<ExecutionResult> {
         const response = await apiClient.post('/submit', {
             problemId,
             code,
+            language,
         });
         return response.data;
     },

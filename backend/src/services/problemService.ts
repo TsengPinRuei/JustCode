@@ -19,9 +19,19 @@ export class ProblemService {
         const metadataContent = await fs.readFile(metadataPath, 'utf-8');
         const metadata: ProblemMetadata = JSON.parse(metadataContent);
 
-        // Read template
-        const templatePath = path.join(problemDir, 'template.java');
-        const template = await fs.readFile(templatePath, 'utf-8');
+        // Read templates for all supported languages
+        const templates: Record<string, string> = {};
+        for (const lang of metadata.supportedLanguages) {
+            const ext = lang === 'java' ? 'java' : 'py';
+            const templatePath = path.join(problemDir, `template.${ext}`);
+            try {
+                templates[lang] = await fs.readFile(templatePath, 'utf-8');
+            } catch (error) {
+                console.error(`Template not found for ${lang}:`, error);
+                // If template doesn't exist, use empty string
+                templates[lang] = '';
+            }
+        }
 
         // Read visible testcases
         const visiblePath = path.join(problemDir, 'testcases_visible.json');
@@ -49,7 +59,7 @@ export class ProblemService {
 
         return {
             metadata,
-            template,
+            templates: templates as Record<'java' | 'python3', string>,
             visibleTestcases,
             hiddenTestcases,
             editorial,

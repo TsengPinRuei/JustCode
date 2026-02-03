@@ -1,3 +1,5 @@
+export type Language = 'java' | 'python3';
+
 export interface ProblemMetadata {
     id: string;
     title: string;
@@ -10,7 +12,8 @@ export interface ProblemMetadata {
         explanation?: string;
     }>;
     constraints: string[];
-    functionSignature: string;
+    supportedLanguages: Language[];
+    functionSignatures: Record<Language, string>;
 }
 
 export interface Testcase {
@@ -22,7 +25,7 @@ export interface Testcase {
 
 export interface Problem {
     metadata: ProblemMetadata;
-    template: string;
+    templates: Record<Language, string>;
     visibleTestcases: Testcase[];
     editorial?: string;
 }

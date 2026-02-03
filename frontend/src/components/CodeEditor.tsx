@@ -1,14 +1,16 @@
 import React, { useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
+import { Language } from '../types';
 
 interface CodeEditorProps {
     code: string;
     onChange: (value: string) => void;
     onReset: () => void;
+    language: Language;
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ code, onChange, onReset }) => {
+const CodeEditor: React.FC<CodeEditorProps> = ({ code, onChange, onReset, language }) => {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [fontSize, setFontSize] = useState(14);
 
@@ -64,7 +66,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onChange, onReset }) => {
             <div className="monaco-editor-wrapper">
                 <Editor
                     height="100%"
-                    defaultLanguage="java"
+                    language={language === 'java' ? 'java' : 'python'}
                     value={code}
                     onChange={handleEditorChange}
                     onMount={handleEditorDidMount}

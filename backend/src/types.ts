@@ -1,3 +1,4 @@
+export type Language = 'java' | 'python3';
 
 export interface ProblemMetadata {
     id: string;
@@ -11,7 +12,8 @@ export interface ProblemMetadata {
         explanation?: string;
     }>;
     constraints: string[];
-    functionSignature: string;
+    supportedLanguages: Language[];
+    functionSignatures: Record<Language, string>;
 }
 
 export interface Testcase {
@@ -23,7 +25,7 @@ export interface Testcase {
 
 export interface Problem {
     metadata: ProblemMetadata;
-    template: string;
+    templates: Record<Language, string>;
     visibleTestcases: Testcase[];
     hiddenTestcases?: Testcase[];
     editorial?: string;
@@ -50,6 +52,7 @@ export interface TestcaseResult {
 export interface RunRequest {
     problemId: string;
     code: string;
+    language: Language;
     inputMode: 'visible' | 'custom';
     customInput?: string;
 }
@@ -57,4 +60,5 @@ export interface RunRequest {
 export interface SubmitRequest {
     problemId: string;
     code: string;
+    language: Language;
 }
