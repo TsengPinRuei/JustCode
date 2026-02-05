@@ -40,10 +40,19 @@ export interface TestcaseResult {
     executionTime?: number;
 }
 
+export interface CompilationError {
+    file: string;
+    line: number;
+    column: number;
+    message: string;
+    severity: 'error' | 'warning';
+}
+
 export interface ExecutionResult {
     status: 'AC' | 'WA' | 'CE' | 'RE' | 'TLE';
     message?: string;
     testcaseResults: TestcaseResult[];
     totalTestcases: number;
     passedTestcases: number;
+    compilationErrors?: CompilationError[];
 }

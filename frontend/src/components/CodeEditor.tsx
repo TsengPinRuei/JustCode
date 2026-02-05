@@ -1,16 +1,30 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { Language } from '../types';
+import { Language, CompilationError } from '../types';
 
 interface CodeEditorProps {
     code: string;
     onChange: (value: string) => void;
     onReset: () => void;
     language: Language;
+    compilationErrors?: CompilationError[];
+    // Language selector props
+    selectedLanguage: Language;
+    supportedLanguages: Language[];
+    onLanguageChange: (language: Language) => void;
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ code, onChange, onReset, language }) => {
+const CodeEditor: React.FC<CodeEditorProps> = ({
+    code,
+    onChange,
+    onReset,
+    language,
+    compilationErrors,
+    selectedLanguage,
+    supportedLanguages,
+    onLanguageChange
+}) => {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [fontSize, setFontSize] = useState(14);
 
@@ -35,10 +49,54 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ code, onChange, onReset, langua
         setFontSize(prev => Math.max(prev - 2, MIN_FONT_SIZE));
     };
 
+    // Update Monaco markers when compilation errors change
+    useEffect(() => {
+        if (editorRef.current) {
+            const monaco = (window as any).monaco;
+            if (!monaco) return;
+
+            const model = editorRef.current.getModel();
+            if (!model) return;
+
+            if (compilationErrors && compilationErrors.length > 0) {
+                const markers = compilationErrors.map(error => ({
+                    severity: error.severity === 'error'
+                        ? monaco.MarkerSeverity.Error
+                        : monaco.MarkerSeverity.Warning,
+                    message: error.message,
+                    startLineNumber: error.line,
+                    startColumn: error.column,
+                    endLineNumber: error.line,
+                    endColumn: model.getLineMaxColumn(error.line),
+                }));
+                monaco.editor.setModelMarkers(model, 'compilation', markers);
+            } else {
+                // Clear markers when no errors
+                monaco.editor.setModelMarkers(model, 'compilation', []);
+            }
+        }
+    }, [compilationErrors]);
+
+    const getLanguageLabel = (lang: Language): string => {
+        return lang === 'java' ? 'Java' : 'Python3';
+    };
+
     return (
         <>
             <div className="editor-toolbar">
                 <div className="editor-toolbar-left">
+                    <select
+                        id="language-select"
+                        value={selectedLanguage}
+                        onChange={(e) => onLanguageChange(e.target.value as Language)}
+                        className="language-selector"
+                    >
+                        {supportedLanguages.map(lang => (
+                            <option key={lang} value={lang}>
+                                {getLanguageLabel(lang)}
+                            </option>
+                        ))}
+                    </select>
                     <button className="editor-btn" onClick={onReset}>
                         Reset
                     </button>

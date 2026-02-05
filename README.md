@@ -7,10 +7,12 @@ A single-machine LeetCode-like coding practice platform with offline Java code e
 
 ## Features
 
+- **Multi-Language Support**: Java and Python3 supported with automatic language detection
 - **User Interface**: Familiar and intuitive interface with dark theme
-- **Offline Java Execution**: Run and submit Java code locally without external dependencies
+- **Offline Code Execution**: Run and submit code locally without external dependencies
+- **Error Highlighting**: Real-time compilation error highlighting in the code editor with red squiggly lines
 - **Complete Problem Flow**: Problem browsing, code editing, running, and submission
-- **Monaco Editor**: Professional code editing experience with syntax highlighting
+- **Monaco Editor**: Professional code editing experience with syntax highlighting and error markers
 - **Comprehensive Testing**: Visible testcases for practice, hidden testcases for validation
 - **Real-time Feedback**: Instant results with AC/WA/CE/RE/TLE status indicators
 - **Resizable Layout**: Adjustable split pane for optimal workspace
@@ -19,7 +21,8 @@ A single-machine LeetCode-like coding practice platform with offline Java code e
 ## System Requirements
 
 - **Node.js**: Version 18.x or higher
-- **JDK**: Java Development Kit 11 or higher (for code execution)
+- **JDK**: Java Development Kit 11 or higher (for Java code execution)
+- **Python**: Python 3.x (for Python code execution)
 - **Operating System**: macOS, Linux, or Windows
 
 ### Verify Environment:
@@ -31,6 +34,9 @@ node --version  # Should be >= 18.0.0
 # Check Java version
 java --version  # Should be >= 11
 javac --version # Should be >= 11
+
+# Check Python version
+python3 --version  # Should be >= 3.x
 ```
 
 ## Installation and Execution
@@ -81,7 +87,8 @@ JustCode/
 ├── problems/                       # Problem data (JSON + Markdown)
 │   └── sort-array/
 │       ├── problem.json
-│       ├── template.java
+│       ├── template.java           # Java template
+│       ├── template.py             # Python template
 │       ├── editorial.md            # Problem editorial
 │       ├── testcases_visible.json
 │       └── testcases_hidden.json
@@ -160,10 +167,12 @@ This project is designed for personal learning and local use only, **do not** us
 ## Future Enhancements
 
 - [ ] Add more problems (arrays, trees, graphs, dynamic programming)
-- [ ] Support Python and C++
+- [x] Support Python3
+- [x] Solution Editorial
+- [x] Error highlighting in code editor
+- [ ] Support C++
 - [ ] User accounts and submission history
 - [ ] Difficulty-based filtering
-- [x] Solution Editorial
 - [ ] Code execution statistics and leaderboards
 
 ## Contributing

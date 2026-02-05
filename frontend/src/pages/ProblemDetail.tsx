@@ -5,7 +5,6 @@ import { Problem, ExecutionResult, Language } from '../types';
 import CodeEditor from '../components/CodeEditor';
 import ProblemDescription from '../components/ProblemDescription';
 import ConsolePanel from '../components/ConsolePanel';
-import LanguageSelector from '../components/LanguageSelector';
 import ResizableSplitPane from '../components/ResizableSplitPane';
 
 const ProblemDetail: React.FC = () => {
@@ -116,16 +115,15 @@ const ProblemDetail: React.FC = () => {
                         defaultTopHeight={65}
                         top={
                             <div className="code-editor-section">
-                                <LanguageSelector
-                                    selectedLanguage={selectedLanguage}
-                                    supportedLanguages={problem.metadata.supportedLanguages}
-                                    onLanguageChange={handleLanguageChange}
-                                />
                                 <CodeEditor
                                     code={code}
                                     onChange={setCode}
                                     onReset={handleReset}
                                     language={selectedLanguage}
+                                    compilationErrors={executionResult?.compilationErrors}
+                                    selectedLanguage={selectedLanguage}
+                                    supportedLanguages={problem.metadata.supportedLanguages}
+                                    onLanguageChange={handleLanguageChange}
                                 />
                             </div>
                         }

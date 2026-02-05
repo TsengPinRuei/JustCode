@@ -2,7 +2,7 @@ import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { Testcase, TestcaseResult } from '../types';
+import { Testcase, TestcaseResult, CompilationError } from '../types';
 
 const TIMEOUT_MS = 1000; // 1 second per testcase
 const MAX_OUTPUT_LENGTH = 10000; // Limit output to prevent memory issues
@@ -131,6 +131,34 @@ export class PythonExecutor {
         return true;
     }
 
+    private parsePythonSyntaxErrors(stderr: string): CompilationError[] {
+        const errors: CompilationError[] = [];
+        // Python error format: '  File "solution.py", line 3'
+        // Followed by error message like: 'SyntaxError: invalid syntax'
+        const fileLineRegex = /File "(.+?)", line (\d+)/g;
+        const errorMsgRegex = /(SyntaxError|IndentationError|NameError|TypeError):\s*(.+)/;
+
+        let match;
+        while ((match = fileLineRegex.exec(stderr)) !== null) {
+            const [, file, lineStr] = match;
+            const line = parseInt(lineStr, 10);
+
+            // Try to find the error message
+            const errorMatch = stderr.match(errorMsgRegex);
+            const message = errorMatch ? `${errorMatch[1]}: ${errorMatch[2]}` : 'Syntax error';
+
+            errors.push({
+                file: path.basename(file),
+                line,
+                column: 1,  // Python doesn't always provide column info
+                message: message.trim(),
+                severity: 'error',
+            });
+        }
+
+        return errors;
+    }
+
     async executeCode(
         userCode: string,
         testcases: Testcase[],
@@ -141,6 +169,7 @@ export class PythonExecutor {
         testcaseResults: TestcaseResult[];
         totalTestcases: number;
         passedTestcases: number;
+        compilationErrors?: CompilationError[];
     }> {
         const workspaceDir = await this.createTempWorkspace();
 
@@ -163,6 +192,24 @@ export class PythonExecutor {
             for (let i = 0; i < testcases.length; i++) {
                 const result = await this.runTestcase(workspaceDir, testcases[i]);
                 result.index = i + 1;
+
+                // Check for syntax errors on first run (Python is interpreted)
+                if (i === 0 && result.status === 'Error' && result.errorMessage) {
+                    // Check if this is a syntax error
+                    if (result.errorMessage.includes('SyntaxError') ||
+                        result.errorMessage.includes('IndentationError') ||
+                        result.errorMessage.includes('File "solution.py"')) {
+                        const compilationErrors = this.parsePythonSyntaxErrors(result.errorMessage);
+                        return {
+                            status: 'CE',
+                            message: 'Compilation Error: ' + result.errorMessage.split('\n')[0],
+                            testcaseResults: [],
+                            totalTestcases: testcases.length,
+                            passedTestcases: 0,
+                            compilationErrors,
+                        };
+                    }
+                }
 
                 // For hidden testcases (index >= 3), don't include detailed results when submitting
                 if (!showHiddenInputs && i >= 3) {

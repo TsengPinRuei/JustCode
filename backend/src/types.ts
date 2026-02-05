@@ -31,12 +31,21 @@ export interface Problem {
     editorial?: string;
 }
 
+export interface CompilationError {
+    file: string;          // Error file name (e.g., "Solution.java" or "solution.py")
+    line: number;          // Error line number (1-based)
+    column: number;        // Error column number (1-based)
+    message: string;       // Error message
+    severity: 'error' | 'warning';  // Severity level
+}
+
 export interface ExecutionResult {
     status: 'AC' | 'WA' | 'CE' | 'RE' | 'TLE';
     message?: string;
     testcaseResults?: TestcaseResult[];
     totalTestcases?: number;
     passedTestcases?: number;
+    compilationErrors?: CompilationError[];  // Compilation errors with location info
 }
 
 export interface TestcaseResult {

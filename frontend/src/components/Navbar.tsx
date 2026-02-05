@@ -8,7 +8,7 @@ const Navbar: React.FC = () => {
         <nav className="navbar">
             <div className="navbar-left">
                 <Link to="/" className="navbar-logo">
-                    JustCode
+                    JustCode_
                 </Link>
                 <ul className="navbar-menu">
                     <li>

@@ -2,7 +2,7 @@ import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { Testcase, TestcaseResult } from '../types';
+import { Testcase, TestcaseResult, CompilationError } from '../types';
 
 const TIMEOUT_MS = 1000; // 1 second per testcase
 const MAX_OUTPUT_LENGTH = 10000; // Limit output to prevent memory issues
@@ -52,14 +52,16 @@ export class JavaExecutor {
         });
     }
 
-    private async compile(workspaceDir: string): Promise<{ success: boolean; error?: string }> {
+    private async compile(workspaceDir: string): Promise<{ success: boolean; error?: string; compilationErrors?: CompilationError[] }> {
         const compileCommand = 'javac Solution.java Runner.java';
         const result = await this.executeCommand(compileCommand, workspaceDir, 10000);
 
         if (result.exitCode !== 0) {
+            const compilationErrors = this.parseJavaCompilationErrors(result.stderr);
             return {
                 success: false,
                 error: result.stderr || 'Compilation failed',
+                compilationErrors,
             };
         }
 
@@ -145,6 +147,28 @@ export class JavaExecutor {
         return true;
     }
 
+    private parseJavaCompilationErrors(stderr: string): CompilationError[] {
+        const errors: CompilationError[] = [];
+        // Java error format: "Solution.java:3: error: cannot find symbol"
+        const errorRegex = /^(.+?\.java):(\d+):\s*(error|warning):\s*(.+)$/gm;
+        let match;
+
+        while ((match = errorRegex.exec(stderr)) !== null) {
+            const [, file, lineStr, severity, message] = match;
+            const line = parseInt(lineStr, 10);
+
+            errors.push({
+                file: path.basename(file),  // Extract just the filename
+                line,
+                column: 1,  // Java compiler doesn't always provide column info
+                message: message.trim(),
+                severity: severity as 'error' | 'warning',
+            });
+        }
+
+        return errors;
+    }
+
     async executeCode(
         userCode: string,
         testcases: Testcase[],
@@ -155,6 +179,7 @@ export class JavaExecutor {
         testcaseResults: TestcaseResult[];
         totalTestcases: number;
         passedTestcases: number;
+        compilationErrors?: CompilationError[];
     }> {
         const workspaceDir = await this.createTempWorkspace();
 
@@ -175,6 +200,7 @@ export class JavaExecutor {
                     testcaseResults: [],
                     totalTestcases: testcases.length,
                     passedTestcases: 0,
+                    compilationErrors: compileResult.compilationErrors || [],
                 };
             }
 

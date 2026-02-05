@@ -7,10 +7,12 @@
 
 ## 功能特色
 
+- **多語言支援**：支援 Java 和 Python3，具備自動語言切換
 - **風格介面**：熟悉且直觀的深色主題介面
-- **離線 Java 執行**：在本機執行與提交 Java 程式碼，無需外部依賴
+- **離線程式碼執行**：在本機執行與提交程式碼，無需外部依賴
+- **錯誤高亮顯示**：即時編譯錯誤高亮，在程式碼編輯器中顯示紅色波浪底線
 - **完整題目流程**：題目瀏覽、程式碼編輯、執行及提交
-- **Monaco 編輯器**：順暢的程式碼編輯體驗
+- **Monaco 編輯器**：順暢的程式碼編輯體驗，支援語法高亮和錯誤標記
 - **完整測試系統**：可見測試資料供練習，隱藏測試資料供驗證
 - **即時回饋**：立即顯示 AC／WA／CE／RE／TLE 狀態指標
 - **動態調整版面**：動態調整分割面板，自訂最佳空間
@@ -19,7 +21,8 @@
 ## 系統需求
 
 - **Node.js**：18.x 或更高版本
-- **JDK**：Java Development Kit 11 或更高版本（用於程式碼執行）
+- **JDK**：Java Development Kit 11 或更高版本（用於 Java 程式碼執行）
+- **Python**：Python 3.x（用於 Python 程式碼執行）
 - **作業系統**：macOS、Linux 或 Windows
 
 ### 驗證環境：
@@ -31,6 +34,9 @@ node --version  # 需要 >= 18.0.0
 # 檢查 Java 版本
 java --version  # 需要 >= 11
 javac --version # 需要 >= 11
+
+# 檢查 Python 版本
+python3 --version  # 需要 >= 3.x
 ```
 
 ## 安裝與執行
@@ -81,7 +87,8 @@ JustCode/
 ├── problems/                       # 題目資料（JSON + Markdown）
 │   └── sort-array/
 │       ├── problem.json
-│       ├── template.java
+│       ├── template.java           # Java 範本
+│       ├── template.py             # Python 範本
 │       ├── editorial.md            # 題目解析
 │       ├── testcases_visible.json
 │       └── testcases_hidden.json
@@ -159,11 +166,13 @@ npm install
 
 ## 未來規劃
 
-- [ ] 新增更多題目
-- [ ] 支援 Python 及 C++
+- [ ] 新增更多題目（陣列、樹、圖、動態規劃）
+- [x] 支援 Python3
+- [x] 解題教學
+- [x] 程式碼錯誤高亮顯示
+- [ ] 支援 C++
 - [ ] 使用者帳號及提交記錄
 - [ ] 依難度篩選
-- [x] 解題教學
 - [ ] 程式碼執行統計及排行榜
 
 ## 參與貢獻
