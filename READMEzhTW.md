@@ -8,15 +8,15 @@
 ## 功能特色
 
 - **多語言支援**：支援 Java 和 Python3，具備自動語言切換
+- **LeetCode 匯入**：透過 URL 直接從 LeetCode 匯入題目 — 自動擷取描述、範例、限制條件、程式碼範本及測試資料
 - **風格介面**：熟悉且直觀的深色主題介面
 - **離線程式碼執行**：在本機執行與提交程式碼，無需外部依賴
-- **錯誤高亮顯示**：即時編譯錯誤高亮，在程式碼編輯器中顯示紅色波浪底線
+- **錯誤高亮顯示**：即時編譯錯誤強調，在程式碼編輯器中顯示紅色波浪底線
 - **完整題目流程**：題目瀏覽、程式碼編輯、執行及提交
-- **Monaco 編輯器**：順暢的程式碼編輯體驗，支援語法高亮和錯誤標記
+- **Monaco 編輯器**：順暢的程式碼編輯體驗，支援語法顯示及錯誤顯示
 - **完整測試系統**：可見測試資料供練習，隱藏測試資料供驗證
 - **即時回饋**：立即顯示 AC／WA／CE／RE／TLE 狀態指標
 - **動態調整版面**：動態調整分割面板，自訂最佳空間
-- **題解支援**：完整的題目解析，包含逐步範例和學習路徑指引
 
 ## 系統需求
 
@@ -104,6 +104,7 @@ JustCode/
 │   ├── src/
 │   │   ├── components/             # Navbar、Editor、Console 等元件
 │   │   ├── pages/                  # ProblemList、ProblemDetail 頁面
+│   │   ├── plugins/                # Remark 外掛（分頁式程式碼區塊）
 │   │   ├── services/               # API 客戶端
 │   │   ├── types/                  # TypeScript 介面定義
 │   │   └── App.tsx
@@ -111,16 +112,21 @@ JustCode/
 ├── backend/                        # Node.js + Express + TypeScript
 │   ├── src/
 │   │   ├── routes/                 # API 端點
-│   │   ├── services/               # Java 執行器、題目服務
-│   │   ├── templates/              # Runner.java 範本
+│   │   ├── services/               # 執行器、題目服務、LeetCode 匯入
 │   │   └── server.ts
 │   └── package.json
 ├── problems/                       # 題目資料（JSON + Markdown）
-│   └── sort-array/
+│   ├── sort-array/
+│   │   ├── problem.json
+│   │   ├── template.java           # Java 範本
+│   │   ├── template.py             # Python 範本
+│   │   ├── editorial.md            # 題目解析
+│   │   ├── testcases_visible.json
+│   │   └── testcases_hidden.json
+│   └── two-sum/                    # 從 LeetCode 匯入
 │       ├── problem.json
-│       ├── template.java           # Java 範本
-│       ├── template.py             # Python 範本
-│       ├── editorial.md            # 題目解析
+│       ├── template.java
+│       ├── template.py
 │       ├── testcases_visible.json
 │       └── testcases_hidden.json
 ├── install.sh                      # 安裝指令
@@ -201,11 +207,10 @@ npm install
 
 ## 未來規劃
 
-- [ ] 新增更多題目（陣列、樹、圖、動態規劃）
+- [x] 透過 LeetCode URL 匯入題目
 - [x] 支援 Python3
-- [x] 解題教學
-- [x] 程式碼錯誤高亮顯示
-- [ ] 支援 C++
+- [x] 解題教學（含分頁式多語言程式碼區塊）
+- [x] 程式碼錯誤顯示
 - [ ] 使用者帳號及提交記錄
 - [ ] 依難度篩選
 - [ ] 程式碼執行統計及排行榜

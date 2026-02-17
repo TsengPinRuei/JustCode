@@ -8,6 +8,7 @@ A single-machine LeetCode-like coding practice platform with offline Java code e
 ## Features
 
 - **Multi-Language Support**: Java and Python3 supported with automatic language detection
+- **LeetCode Import**: Import problems directly from LeetCode by URL — auto-extracts description, examples, constraints, templates, and testcases
 - **User Interface**: Familiar and intuitive interface with dark theme
 - **Offline Code Execution**: Run and submit code locally without external dependencies
 - **Error Highlighting**: Real-time compilation error highlighting in the code editor with red squiggly lines
@@ -16,7 +17,6 @@ A single-machine LeetCode-like coding practice platform with offline Java code e
 - **Comprehensive Testing**: Visible testcases for practice, hidden testcases for validation
 - **Real-time Feedback**: Instant results with AC/WA/CE/RE/TLE status indicators
 - **Resizable Layout**: Adjustable split pane for optimal workspace
-- **Editorial Support**: Comprehensive problem editorials with step-by-step examples and learning paths
 
 ## System Requirements
 
@@ -104,6 +104,7 @@ JustCode/
 │   ├── src/
 │   │   ├── components/             # Navbar, Editor, Console, etc.
 │   │   ├── pages/                  # ProblemList, ProblemDetail
+│   │   ├── plugins/                # Remark plugins (tabbed code blocks)
 │   │   ├── services/               # API client
 │   │   ├── types/                  # TypeScript interfaces
 │   │   └── App.tsx
@@ -111,16 +112,21 @@ JustCode/
 ├── backend/                        # Node.js + Express + TypeScript
 │   ├── src/
 │   │   ├── routes/                 # API endpoints
-│   │   ├── services/               # Java executor, problem service
-│   │   ├── templates/              # Runner.java template
+│   │   ├── services/               # Executors, problem service, LeetCode import
 │   │   └── server.ts
 │   └── package.json
 ├── problems/                       # Problem data (JSON + Markdown)
-│   └── sort-array/
+│   ├── sort-array/
+│   │   ├── problem.json
+│   │   ├── template.java           # Java template
+│   │   ├── template.py             # Python template
+│   │   ├── editorial.md            # Problem editorial
+│   │   ├── testcases_visible.json
+│   │   └── testcases_hidden.json
+│   └── two-sum/                    # Imported from LeetCode
 │       ├── problem.json
-│       ├── template.java           # Java template
-│       ├── template.py             # Python template
-│       ├── editorial.md            # Problem editorial
+│       ├── template.java
+│       ├── template.py
 │       ├── testcases_visible.json
 │       └── testcases_hidden.json
 ├── install.sh                      # Installation script
@@ -201,11 +207,10 @@ This project is designed for personal learning and local use only, **do not** us
 
 ## Future Enhancements
 
-- [ ] Add more problems (arrays, trees, graphs, dynamic programming)
+- [x] Import problems via LeetCode URL
 - [x] Support Python3
-- [x] Solution Editorial
+- [x] Solution Editorial with tabbed multi-language code blocks
 - [x] Error highlighting in code editor
-- [ ] Support C++
 - [ ] User accounts and submission history
 - [ ] Difficulty-based filtering
 - [ ] Code execution statistics and leaderboards
