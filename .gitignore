@@ -4,3 +4,5 @@ dist
 temp
 *.log
 .env
+Git.md
+problems/two-sum/
