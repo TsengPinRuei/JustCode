@@ -5,8 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../types';
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH } from '../constants';
 
-
-
 export class PythonExecutor {
     private async createTempWorkspace(): Promise<string> {
         const tmpDir = path.join(process.cwd(), 'temp', uuidv4());

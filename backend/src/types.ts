@@ -19,7 +19,6 @@ export interface ProblemMetadata {
     constraints: string[];
     supportedLanguages: Language[];
     functionSignatures: Record<Language, string>;
-    // New fields for dynamic runner generation
     functionName?: string;
     params?: ParamInfo[];
     returnType?: string;

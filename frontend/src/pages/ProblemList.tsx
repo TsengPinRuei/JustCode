@@ -51,8 +51,9 @@ const ProblemList: React.FC = () => {
                 setShowImportModal(false);
                 setImportSuccess(null);
             }, 2000);
-        } catch (error: any) {
-            const message = error?.response?.data?.error || error?.message || 'Failed to import problem';
+        } catch (error: unknown) {
+            const axiosErr = error as any;
+            const message = axiosErr?.response?.data?.error || axiosErr?.message || 'Failed to import problem';
             setImportError(message);
         } finally {
             setImporting(false);

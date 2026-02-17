@@ -49,8 +49,8 @@ function CodeGroupBlock({ languages }: { languages: string }) {
 /* ---- Custom components map for ReactMarkdown ---- */
 
 const markdownComponents: Record<string, React.FC<any>> = {
-    'code-group': ({ node, ...props }: any) => {
-        const langs = props.languages ?? node?.properties?.languages;
+    'code-group': (props: any) => {
+        const langs = props.languages ?? props.node?.properties?.languages;
         if (!langs) return null;
         return <CodeGroupBlock languages={langs} />;
     },

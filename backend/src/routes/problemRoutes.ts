@@ -113,9 +113,10 @@ router.post('/import-problem', async (req: Request, res: Response) => {
             problemId: result.metadata.id,
             title: result.metadata.title,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error importing problem:', error);
-        res.status(500).json({ error: error.message || 'Failed to import problem' });
+        const message = error instanceof Error ? error.message : 'Failed to import problem';
+        res.status(500).json({ error: message });
     }
 });
 

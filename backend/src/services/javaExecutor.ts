@@ -5,8 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../types';
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH, COMPILE_TIMEOUT_MS } from '../constants';
 
-
-
 export class JavaExecutor {
     private async createTempWorkspace(): Promise<string> {
         const tmpDir = path.join(process.cwd(), 'temp', uuidv4());
@@ -425,9 +423,6 @@ export class JavaExecutor {
         const argsList = params.map(p => p.name).join(', ');
         const serializeExpr = this.getSerializeCode(returnType);
 
-        // Determine if we need the return type declared
-        const returnTypeDecl = returnType;
-
         return `import java.util.*;
 
 public class Runner {
@@ -449,7 +444,7 @@ public class Runner {
 ${parseLines}
             
             Solution solution = new Solution();
-            ${returnTypeDecl} result = solution.${functionName}(${argsList});
+            ${returnType} result = solution.${functionName}(${argsList});
             
             // Output separator before JSON result (to separate from debug output)
             System.out.println("===RESULT_JSON_START===");
