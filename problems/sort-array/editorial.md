@@ -171,6 +171,41 @@ class Solution {
 }
 ```
 
+```python
+class Solution:
+    def sortArray(self, nums: list[int]) -> list[int]:
+        if not nums:
+            return nums
+        self._quick_sort(nums, 0, len(nums) - 1)
+        return nums
+
+    def _quick_sort(self, nums: list[int], left: int, right: int) -> None:
+        if left >= right:
+            return
+        pivot_index = self._partition(nums, left, right)
+        self._quick_sort(nums, left, pivot_index - 1)
+        self._quick_sort(nums, pivot_index + 1, right)
+
+    def _partition(self, nums: list[int], left: int, right: int) -> int:
+        # Median-of-three optimization
+        mid = left + (right - left) // 2
+        if nums[mid] < nums[left]:
+            nums[left], nums[mid] = nums[mid], nums[left]
+        if nums[right] < nums[left]:
+            nums[left], nums[right] = nums[right], nums[left]
+        if nums[mid] < nums[right]:
+            nums[mid], nums[right] = nums[right], nums[mid]
+
+        pivot = nums[right]
+        i = left - 1
+        for j in range(left, right):
+            if nums[j] <= pivot:
+                i += 1
+                nums[i], nums[j] = nums[j], nums[i]
+        nums[i + 1], nums[right] = nums[right], nums[i + 1]
+        return i + 1
+```
+
 ### Complexity Analysis
 
 - **Time Complexity:**
@@ -255,6 +290,48 @@ class Solution {
 }
 ```
 
+```python
+class Solution:
+    def sortArray(self, nums: list[int]) -> list[int]:
+        if len(nums) <= 1:
+            return nums
+        self._merge_sort(nums, 0, len(nums) - 1)
+        return nums
+
+    def _merge_sort(self, nums: list[int], left: int, right: int) -> None:
+        if left >= right:
+            return
+        mid = left + (right - left) // 2
+        self._merge_sort(nums, left, mid)
+        self._merge_sort(nums, mid + 1, right)
+        self._merge(nums, left, mid, right)
+
+    def _merge(self, nums: list[int], left: int, mid: int, right: int) -> None:
+        temp = nums[left:right + 1]
+        i = 0                  # Left half pointer
+        j = mid - left + 1     # Right half pointer
+        k = left               # Merged array pointer
+        length = right - left + 1
+
+        while i <= mid - left and j < length:
+            if temp[i] <= temp[j]:
+                nums[k] = temp[i]
+                i += 1
+            else:
+                nums[k] = temp[j]
+                j += 1
+            k += 1
+
+        while i <= mid - left:
+            nums[k] = temp[i]
+            i += 1
+            k += 1
+        while j < length:
+            nums[k] = temp[j]
+            j += 1
+            k += 1
+```
+
 ### Complexity Analysis
 
 - **Time Complexity:** O(n log n) in all cases - very predictable performance!
@@ -334,6 +411,40 @@ class Solution {
 }
 ```
 
+```python
+class Solution:
+    def sortArray(self, nums: list[int]) -> list[int]:
+        if len(nums) <= 1:
+            return nums
+
+        n = len(nums)
+
+        # Build heap: start from last non-leaf node
+        for i in range(n // 2 - 1, -1, -1):
+            self._heapify(nums, n, i)
+
+        # Extract elements from heap one by one
+        for i in range(n - 1, 0, -1):
+            nums[0], nums[i] = nums[i], nums[0]
+            self._heapify(nums, i, 0)
+
+        return nums
+
+    def _heapify(self, nums: list[int], n: int, i: int) -> None:
+        largest = i
+        left = 2 * i + 1
+        right = 2 * i + 2
+
+        if left < n and nums[left] > nums[largest]:
+            largest = left
+        if right < n and nums[right] > nums[largest]:
+            largest = right
+
+        if largest != i:
+            nums[i], nums[largest] = nums[largest], nums[i]
+            self._heapify(nums, n, largest)
+```
+
 ### Complexity Analysis
 
 - **Time Complexity:** O(n log n) in all cases
@@ -397,6 +508,31 @@ class Solution {
         return nums;
     }
 }
+```
+
+```python
+class Solution:
+    def sortArray(self, nums: list[int]) -> list[int]:
+        if len(nums) <= 1:
+            return nums
+
+        # Find min and max values to determine range
+        min_val = min(nums)
+        max_val = max(nums)
+
+        # Count occurrences
+        count = [0] * (max_val - min_val + 1)
+        for num in nums:
+            count[num - min_val] += 1
+
+        # Fill back into original array
+        index = 0
+        for i, cnt in enumerate(count):
+            for _ in range(cnt):
+                nums[index] = i + min_val
+                index += 1
+
+        return nums
 ```
 
 ### Complexity Analysis
@@ -515,6 +651,64 @@ class Solution {
 }
 ```
 
+```python
+class Solution:
+    def sortArray(self, nums: list[int]) -> list[int]:
+        if len(nums) <= 1:
+            return nums
+
+        # Separate positive and negative numbers
+        positive = [n for n in nums if n >= 0]
+        negative = [-n for n in nums if n < 0]  # Convert to positive for sorting
+
+        if positive:
+            self._radix_sort(positive)
+        if negative:
+            self._radix_sort(negative)
+            negative.reverse()  # Reverse to get correct negative order
+
+        # Merge results: negatives first, then positives
+        index = 0
+        for num in negative:
+            nums[index] = -num
+            index += 1
+        for num in positive:
+            nums[index] = num
+            index += 1
+
+        return nums
+
+    def _radix_sort(self, lst: list[int]) -> None:
+        if not lst:
+            return
+        max_val = max(lst)
+        exp = 1
+        while max_val // exp > 0:
+            self._counting_sort_by_digit(lst, exp)
+            exp *= 10
+
+    def _counting_sort_by_digit(self, lst: list[int], exp: int) -> None:
+        n = len(lst)
+        output = [0] * n
+        count = [0] * 10  # Digits 0-9
+
+        for num in lst:
+            digit = (num // exp) % 10
+            count[digit] += 1
+
+        for i in range(1, 10):
+            count[i] += count[i - 1]
+
+        # Build output array (backwards to maintain stability)
+        for i in range(n - 1, -1, -1):
+            digit = (lst[i] // exp) % 10
+            output[count[digit] - 1] = lst[i]
+            count[digit] -= 1
+
+        for i in range(n):
+            lst[i] = output[i]
+```
+
 ### Complexity Analysis
 
 - **Time Complexity:** O(d × n) where d is the number of digits
@@ -589,6 +783,9 @@ Start
 ```java
 int pivot = nums[right];  // Degrades to O(n²) for sorted arrays
 ```
+```python
+pivot = nums[right]  # Degrades to O(n²) for sorted arrays
+```
 
 **Correct:** Use median-of-three or random selection
 
@@ -596,6 +793,11 @@ int pivot = nums[right];  // Degrades to O(n²) for sorted arrays
 int mid = left + (right - left) / 2;
 // Choose median of first, middle, and last elements
 // This avoids worst-case on sorted/reverse-sorted arrays
+```
+```python
+mid = left + (right - left) // 2
+# Choose median of first, middle, and last elements
+# This avoids worst-case on sorted/reverse-sorted arrays
 ```
 
 ### 2. Merge Sort Memory Allocation
@@ -605,11 +807,17 @@ int mid = left + (right - left) / 2;
 ```java
 int[] temp = new int[right - left + 1];  // Creates many arrays!
 ```
+```python
+temp = nums[left:right + 1]  # Creates a new list every call!
+```
 
 **Correct:** Reuse temporary array
 
 ```java
 int[] temp = new int[nums.length];  // Allocate once, reuse throughout
+```
+```python
+temp = [0] * len(nums)  # Allocate once, pass to recursive calls
 ```
 
 ### 3. Heap Sort Index Calculation
@@ -620,12 +828,20 @@ int[] temp = new int[nums.length];  // Allocate once, reuse throughout
 int left = i * 2;      // Wrong for 0-indexed arrays
 int right = i * 2 + 1; // Wrong
 ```
+```python
+left = i * 2       # Wrong for 0-indexed arrays
+right = i * 2 + 1   # Wrong
+```
 
 **Correct:** Proper 0-indexed calculation
 
 ```java
 int left = 2 * i + 1;   // Correct for 0-indexed
 int right = 2 * i + 2;  // Correct for 0-indexed
+```
+```python
+left = 2 * i + 1    # Correct for 0-indexed
+right = 2 * i + 2   # Correct for 0-indexed
 ```
 
 ### 4. Integer Overflow
@@ -640,6 +856,11 @@ int mid = (left + right) / 2;  // left + right may overflow!
 
 ```java
 int mid = left + (right - left) / 2;  // Avoids overflow
+```
+```python
+mid = left + (right - left) // 2  # Same pattern applies in Python
+# Note: Python integers have arbitrary precision so overflow isn't
+# a concern, but this pattern is still good practice for readability.
 ```
 
 ---
@@ -659,6 +880,20 @@ int mid = left + (right - left) / 2;  // Avoids overflow
 [8, 7, 6, 5, 4, 3, 2, 1]
 
 // Case 4: Many duplicates
+[5, 5, 5, 1, 1, 1, 3, 3]
+```
+
+```python
+# Case 1: Random array
+[5, 2, 3, 1, 8, 7, 6, 4]
+
+# Case 2: Already sorted
+[1, 2, 3, 4, 5, 6, 7, 8]
+
+# Case 3: Reverse sorted
+[8, 7, 6, 5, 4, 3, 2, 1]
+
+# Case 4: Many duplicates
 [5, 5, 5, 1, 1, 1, 3, 3]
 ```
 

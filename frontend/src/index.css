@@ -377,6 +377,54 @@ body {
   color: var(--text-primary);
 }
 
+/* ---- Code Group (tabbed code blocks) ---- */
+
+.code-group {
+  margin-bottom: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.code-group-tabs {
+  display: flex;
+  gap: 0;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-default);
+  padding: 0 4px;
+}
+
+.code-group-tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.code-group-tab:hover {
+  color: var(--text-primary);
+}
+
+.code-group-tab.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}
+
+.code-group-pre {
+  margin: 0;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  overflow-x: auto;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .problem-description ul,
 .problem-description ol {
   margin-left: 24px;

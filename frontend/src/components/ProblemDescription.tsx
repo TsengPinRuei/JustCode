@@ -1,11 +1,62 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkCodeGroup from '../plugins/remarkCodeGroup';
 import { Problem } from '../types';
 
 interface ProblemDescriptionProps {
     problem: Problem;
 }
+
+/* ---- Tabbed code-group renderer ---- */
+
+const LANG_LABELS: Record<string, string> = {
+    java: 'Java',
+    python: 'Python',
+    py: 'Python',
+    javascript: 'JavaScript',
+    js: 'JavaScript',
+    typescript: 'TypeScript',
+    ts: 'TypeScript',
+    cpp: 'C++',
+    c: 'C',
+};
+
+function CodeGroupBlock({ languages }: { languages: string }) {
+    const items: { lang: string; value: string }[] = JSON.parse(languages);
+    const [active, setActive] = useState(0);
+
+    return (
+        <div className="code-group">
+            <div className="code-group-tabs">
+                {items.map((item, idx) => (
+                    <button
+                        key={item.lang}
+                        className={`code-group-tab ${idx === active ? 'active' : ''}`}
+                        onClick={() => setActive(idx)}
+                    >
+                        {LANG_LABELS[item.lang] ?? item.lang}
+                    </button>
+                ))}
+            </div>
+            <pre className="code-group-pre">
+                <code>{items[active].value}</code>
+            </pre>
+        </div>
+    );
+}
+
+/* ---- Custom components map for ReactMarkdown ---- */
+
+const markdownComponents: Record<string, React.FC<any>> = {
+    'code-group': ({ node, ...props }: any) => {
+        const langs = props.languages ?? node?.properties?.languages;
+        if (!langs) return null;
+        return <CodeGroupBlock languages={langs} />;
+    },
+};
+
+/* ---- Main component ---- */
 
 const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem }) => {
     const [activeTab, setActiveTab] = useState<'description' | 'editorial'>('description');
@@ -80,7 +131,12 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem }) => {
                 ) : (
                     <div className="problem-description">
                         {problem.editorial ? (
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{problem.editorial}</ReactMarkdown>
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm, remarkCodeGroup]}
+                                components={markdownComponents}
+                            >
+                                {problem.editorial}
+                            </ReactMarkdown>
                         ) : (
                             <p className="editorial-placeholder">
                                 Editorial coming soon...
