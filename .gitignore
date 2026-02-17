@@ -1,8 +1,8 @@
-node_modules
-dist
-.DS_Store
-temp
 *.log
+.DS_Store
 .env
+dist
 Git.md
+node_modules
 problems/two-sum/
+temp
