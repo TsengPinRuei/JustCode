@@ -2,7 +2,7 @@ import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { Testcase, TestcaseResult, CompilationError } from '../types';
+import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../types';
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH } from '../constants';
 
 
@@ -110,8 +110,8 @@ export class PythonExecutor {
             const parsed = JSON.parse(jsonOutput);
             const actual = parsed.result;
 
-            // Compare arrays
-            const isCorrect = this.compareArrays(testcase.output, actual);
+            // Deep compare outputs
+            const isCorrect = this.compareOutputs(testcase.output, actual);
 
             return {
                 result: {
@@ -139,16 +139,8 @@ export class PythonExecutor {
         }
     }
 
-    private compareArrays(expected: number[], actual: number[]): boolean {
-        if (!actual || expected.length !== actual.length) {
-            return false;
-        }
-        for (let i = 0; i < expected.length; i++) {
-            if (expected[i] !== actual[i]) {
-                return false;
-            }
-        }
-        return true;
+    private compareOutputs(expected: unknown, actual: unknown): boolean {
+        return JSON.stringify(expected) === JSON.stringify(actual);
     }
 
     private parsePythonSyntaxErrors(stderr: string): CompilationError[] {
@@ -182,7 +174,8 @@ export class PythonExecutor {
     async executeCode(
         userCode: string,
         testcases: Testcase[],
-        showHiddenInputs: boolean = true
+        showHiddenInputs: boolean = true,
+        metadata?: ProblemMetadata
     ): Promise<{
         status: 'AC' | 'WA' | 'CE' | 'RE' | 'TLE';
         message?: string;
@@ -199,7 +192,7 @@ export class PythonExecutor {
             await fs.writeFile(path.join(workspaceDir, 'solution.py'), userCode);
 
             // Write Runner template
-            const runnerCode = this.getRunnerTemplate();
+            const runnerCode = this.getRunnerTemplate(metadata);
             await fs.writeFile(path.join(workspaceDir, 'runner.py'), runnerCode);
 
             // No compilation step for Python (interpreted language)
@@ -302,7 +295,14 @@ export class PythonExecutor {
         }
     }
 
-    private getRunnerTemplate(): string {
+    private getRunnerTemplate(metadata?: ProblemMetadata): string {
+        const functionName = metadata?.functionName || 'sortArray';
+        const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
+
+        // Build parameter extraction lines
+        const paramLines = params.map(p => `    ${p.name} = data['${p.name}']`).join('\n');
+        const argsList = params.map(p => p.name).join(', ');
+
         return `import json
 import sys
 from solution import Solution
@@ -312,11 +312,13 @@ def main():
         # Read input from stdin
         input_json = sys.stdin.read().strip()
         data = json.loads(input_json)
-        nums = data['nums']
+        
+        # Extract parameters
+${paramLines}
         
         # Call user's solution
         solution = Solution()
-        result = solution.sortArray(nums)
+        result = solution.${functionName}(${argsList})
         
         # Print separator before JSON result (to separate from debug output)
         print("===RESULT_JSON_START===")

@@ -2,7 +2,7 @@ import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { Testcase, TestcaseResult, CompilationError } from '../types';
+import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../types';
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH, COMPILE_TIMEOUT_MS } from '../constants';
 
 
@@ -126,8 +126,8 @@ export class JavaExecutor {
             const parsed = JSON.parse(jsonOutput);
             const actual = parsed.result;
 
-            // Compare arrays
-            const isCorrect = this.compareArrays(testcase.output, actual);
+            // Deep compare outputs
+            const isCorrect = this.compareOutputs(testcase.output, actual);
 
             return {
                 result: {
@@ -155,16 +155,8 @@ export class JavaExecutor {
         }
     }
 
-    private compareArrays(expected: number[], actual: number[]): boolean {
-        if (!actual || expected.length !== actual.length) {
-            return false;
-        }
-        for (let i = 0; i < expected.length; i++) {
-            if (expected[i] !== actual[i]) {
-                return false;
-            }
-        }
-        return true;
+    private compareOutputs(expected: unknown, actual: unknown): boolean {
+        return JSON.stringify(expected) === JSON.stringify(actual);
     }
 
     private parseJavaCompilationErrors(stderr: string): CompilationError[] {
@@ -192,7 +184,8 @@ export class JavaExecutor {
     async executeCode(
         userCode: string,
         testcases: Testcase[],
-        showHiddenInputs: boolean = true
+        showHiddenInputs: boolean = true,
+        metadata?: ProblemMetadata
     ): Promise<{
         status: 'AC' | 'WA' | 'CE' | 'RE' | 'TLE';
         message?: string;
@@ -209,7 +202,7 @@ export class JavaExecutor {
             await fs.writeFile(path.join(workspaceDir, 'Solution.java'), userCode);
 
             // Write Runner template
-            const runnerCode = this.getRunnerTemplate();
+            const runnerCode = this.getRunnerTemplate(metadata);
             await fs.writeFile(path.join(workspaceDir, 'Runner.java'), runnerCode);
 
             // Compile
@@ -305,7 +298,136 @@ export class JavaExecutor {
         }
     }
 
-    private getRunnerTemplate(): string {
+    // Map a type string from problem metadata to Java type declarations
+    private mapTypeToJava(typeStr: string): string {
+        const t = typeStr.toLowerCase().trim();
+        if (t === 'integer' || t === 'int') return 'int';
+        if (t === 'integer[]' || t === 'int[]') return 'int[]';
+        if (t === 'integer[][]' || t === 'int[][]') return 'int[][]';
+        if (t === 'string') return 'String';
+        if (t === 'string[]') return 'String[]';
+        if (t === 'string[][]') return 'String[][]';
+        if (t === 'boolean' || t === 'bool') return 'boolean';
+        if (t === 'boolean[]' || t === 'bool[]') return 'boolean[]';
+        if (t === 'double' || t === 'float') return 'double';
+        if (t === 'double[]' || t === 'float[]') return 'double[]';
+        if (t === 'long') return 'long';
+        if (t === 'long[]') return 'long[]';
+        if (t === 'char') return 'char';
+        if (t === 'char[]') return 'char[]';
+        if (t === 'char[][]') return 'char[][]';
+        if (t === 'list<integer>' || t === 'list<int>') return 'List<Integer>';
+        if (t === 'list<string>') return 'List<String>';
+        if (t === 'list<list<integer>>' || t === 'list<list<int>>') return 'List<List<Integer>>';
+        if (t === 'list<list<string>>') return 'List<List<String>>';
+        if (t === 'list<boolean>' || t === 'list<bool>') return 'List<Boolean>';
+        // Default: return as-is
+        return typeStr;
+    }
+
+    // Generate Java code to parse a JSON value into the appropriate Java type
+    private getParseCode(paramName: string, javaType: string): string {
+        switch (javaType) {
+            case 'int':
+                return `        int ${paramName} = ((Number) data.get("${paramName}")).intValue();`;
+            case 'long':
+                return `        long ${paramName} = ((Number) data.get("${paramName}")).longValue();`;
+            case 'double':
+                return `        double ${paramName} = ((Number) data.get("${paramName}")).doubleValue();`;
+            case 'boolean':
+                return `        boolean ${paramName} = (Boolean) data.get("${paramName}");`;
+            case 'String':
+                return `        String ${paramName} = (String) data.get("${paramName}");`;
+            case 'char':
+                return `        char ${paramName} = ((String) data.get("${paramName}")).charAt(0);`;
+            case 'int[]':
+                return `        int[] ${paramName} = toIntArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'long[]':
+                return `        long[] ${paramName} = toLongArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'double[]':
+                return `        double[] ${paramName} = toDoubleArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'boolean[]':
+                return `        boolean[] ${paramName} = toBooleanArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'String[]':
+                return `        String[] ${paramName} = toStringArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'char[]':
+                return `        char[] ${paramName} = toCharArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'int[][]':
+                return `        int[][] ${paramName} = toInt2DArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'char[][]':
+                return `        char[][] ${paramName} = toChar2DArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'String[][]':
+                return `        String[][] ${paramName} = toString2DArray((java.util.List<?>) data.get("${paramName}"));`;
+            case 'List<Integer>':
+                return `        List<Integer> ${paramName} = toIntegerList((java.util.List<?>) data.get("${paramName}"));`;
+            case 'List<String>':
+                return `        List<String> ${paramName} = toStringList((java.util.List<?>) data.get("${paramName}"));`;
+            case 'List<List<Integer>>':
+                return `        List<List<Integer>> ${paramName} = toIntegerListList((java.util.List<?>) data.get("${paramName}"));`;
+            case 'List<List<String>>':
+                return `        List<List<String>> ${paramName} = toStringListList((java.util.List<?>) data.get("${paramName}"));`;
+            case 'List<Boolean>':
+                return `        List<Boolean> ${paramName} = toBooleanList((java.util.List<?>) data.get("${paramName}"));`;
+            default:
+                return `        // Unsupported type: ${javaType} for ${paramName}
+        Object ${paramName} = data.get("${paramName}");`;
+        }
+    }
+
+    // Generate Java code to serialize the result to JSON
+    private getSerializeCode(javaType: string): string {
+        switch (javaType) {
+            case 'int':
+            case 'long':
+            case 'double':
+            case 'boolean':
+                return `String.valueOf(result)`;
+            case 'String':
+                return `"\\"" + result.replace("\\\\", "\\\\\\\\").replace("\\"", "\\\\\\"") + "\\""`;
+            case 'char':
+                return `"\\"" + result + "\\""`;
+            case 'int[]':
+            case 'long[]':
+            case 'double[]':
+                return `arrayToJson(result)`;
+            case 'boolean[]':
+                return `boolArrayToJson(result)`;
+            case 'String[]':
+                return `stringArrayToJson(result)`;
+            case 'char[]':
+                return `charArrayToJson(result)`;
+            case 'int[][]':
+                return `array2DToJson(result)`;
+            case 'char[][]':
+                return `char2DArrayToJson(result)`;
+            case 'String[][]':
+                return `string2DArrayToJson(result)`;
+            case 'List<Integer>':
+            case 'List<String>':
+            case 'List<Boolean>':
+                return `listToJson(result)`;
+            case 'List<List<Integer>>':
+            case 'List<List<String>>':
+                return `listListToJson(result)`;
+            default:
+                return `String.valueOf(result)`;
+        }
+    }
+
+    private getRunnerTemplate(metadata?: ProblemMetadata): string {
+        // Fallback for legacy problems without metadata
+        const functionName = metadata?.functionName || 'sortArray';
+        const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
+        const returnType = this.mapTypeToJava(metadata?.returnType || 'int[]');
+
+        // Build parsing lines
+        const parseLines = params.map(p => this.getParseCode(p.name, this.mapTypeToJava(p.type))).join('\n');
+        const argsList = params.map(p => p.name).join(', ');
+        const serializeExpr = this.getSerializeCode(returnType);
+
+        // Determine if we need the return type declared
+        const returnTypeDecl = returnType;
+
         return `import java.util.*;
 
 public class Runner {
@@ -320,18 +442,21 @@ public class Runner {
             
             String inputJson = inputBuilder.toString().trim();
             
-            // Simple JSON parsing for {"nums":[1,2,3]}
-            int[] nums = parseNumsArray(inputJson);
+            // Parse JSON input using simple parser
+            java.util.Map<String, Object> data = parseJson(inputJson);
+            
+            // Extract parameters
+${parseLines}
             
             Solution solution = new Solution();
-            int[] result = solution.sortArray(nums);
+            ${returnTypeDecl} result = solution.${functionName}(${argsList});
             
             // Output separator before JSON result (to separate from debug output)
             System.out.println("===RESULT_JSON_START===");
             
             // Output as JSON
             System.out.print("{\\"result\\":");
-            System.out.print(arrayToJson(result));
+            System.out.print(${serializeExpr});
             System.out.println("}");
             
         } catch (Exception e) {
@@ -341,23 +466,207 @@ public class Runner {
         }
     }
     
-    static int[] parseNumsArray(String json) {
-        // Extract array from {"nums":[1,2,3]}
-        int start = json.indexOf("[");
-        int end = json.indexOf("]");
-        String arrayStr = json.substring(start + 1, end);
-        
-        if (arrayStr.trim().isEmpty()) {
-            return new int[0];
+    // ======================== JSON Parser ========================
+    
+    @SuppressWarnings("unchecked")
+    static java.util.Map<String, Object> parseJson(String json) {
+        json = json.trim();
+        if (!json.startsWith("{") || !json.endsWith("}")) {
+            throw new RuntimeException("Invalid JSON object");
         }
+        java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+        json = json.substring(1, json.length() - 1).trim();
+        if (json.isEmpty()) return map;
         
-        String[] parts = arrayStr.split(",");
-        int[] result = new int[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            result[i] = Integer.parseInt(parts[i].trim());
+        int i = 0;
+        while (i < json.length()) {
+            // Skip whitespace
+            while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
+            
+            // Parse key
+            if (json.charAt(i) != '"') break;
+            i++; // skip opening quote
+            int keyStart = i;
+            while (i < json.length() && json.charAt(i) != '"') i++;
+            String key = json.substring(keyStart, i);
+            i++; // skip closing quote
+            
+            // Skip colon
+            while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
+            i++; // skip colon
+            while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
+            
+            // Parse value
+            Object[] valueAndEnd = parseJsonValue(json, i);
+            map.put(key, valueAndEnd[0]);
+            i = (Integer) valueAndEnd[1];
+            
+            // Skip comma
+            while (i < json.length() && (Character.isWhitespace(json.charAt(i)) || json.charAt(i) == ',')) i++;
         }
+        return map;
+    }
+    
+    static Object[] parseJsonValue(String json, int start) {
+        char c = json.charAt(start);
+        if (c == '"') {
+            // String
+            int i = start + 1;
+            StringBuilder sb = new StringBuilder();
+            while (i < json.length()) {
+                char ch = json.charAt(i);
+                if (ch == '\\\\') {
+                    i++;
+                    sb.append(json.charAt(i));
+                } else if (ch == '"') {
+                    break;
+                } else {
+                    sb.append(ch);
+                }
+                i++;
+            }
+            return new Object[]{sb.toString(), i + 1};
+        } else if (c == '[') {
+            // Array
+            java.util.List<Object> list = new java.util.ArrayList<>();
+            int i = start + 1;
+            while (i < json.length()) {
+                while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
+                if (json.charAt(i) == ']') { i++; break; }
+                Object[] valueAndEnd = parseJsonValue(json, i);
+                list.add(valueAndEnd[0]);
+                i = (Integer) valueAndEnd[1];
+                while (i < json.length() && (Character.isWhitespace(json.charAt(i)) || json.charAt(i) == ',')) i++;
+            }
+            return new Object[]{list, i};
+        } else if (c == '{') {
+            // Nested object
+            int depth = 1;
+            int i = start + 1;
+            while (i < json.length() && depth > 0) {
+                if (json.charAt(i) == '{') depth++;
+                else if (json.charAt(i) == '}') depth--;
+                i++;
+            }
+            String nestedJson = json.substring(start, i);
+            return new Object[]{parseJson(nestedJson), i};
+        } else if (c == 't' || c == 'f') {
+            // Boolean
+            if (json.startsWith("true", start)) return new Object[]{true, start + 4};
+            else return new Object[]{false, start + 5};
+        } else if (c == 'n') {
+            // Null
+            return new Object[]{null, start + 4};
+        } else {
+            // Number
+            int i = start;
+            while (i < json.length() && (Character.isDigit(json.charAt(i)) || json.charAt(i) == '-' || json.charAt(i) == '.' || json.charAt(i) == 'e' || json.charAt(i) == 'E' || json.charAt(i) == '+')) i++;
+            String numStr = json.substring(start, i);
+            if (numStr.contains(".") || numStr.contains("e") || numStr.contains("E")) {
+                return new Object[]{Double.parseDouble(numStr), i};
+            } else {
+                long val = Long.parseLong(numStr);
+                if (val >= Integer.MIN_VALUE && val <= Integer.MAX_VALUE) {
+                    return new Object[]{(int) val, i};
+                }
+                return new Object[]{val, i};
+            }
+        }
+    }
+    
+    // ======================== Type Converters ========================
+    
+    static int[] toIntArray(java.util.List<?> list) {
+        int[] arr = new int[list.size()];
+        for (int i = 0; i < list.size(); i++) arr[i] = ((Number) list.get(i)).intValue();
+        return arr;
+    }
+    
+    static long[] toLongArray(java.util.List<?> list) {
+        long[] arr = new long[list.size()];
+        for (int i = 0; i < list.size(); i++) arr[i] = ((Number) list.get(i)).longValue();
+        return arr;
+    }
+    
+    static double[] toDoubleArray(java.util.List<?> list) {
+        double[] arr = new double[list.size()];
+        for (int i = 0; i < list.size(); i++) arr[i] = ((Number) list.get(i)).doubleValue();
+        return arr;
+    }
+    
+    static boolean[] toBooleanArray(java.util.List<?> list) {
+        boolean[] arr = new boolean[list.size()];
+        for (int i = 0; i < list.size(); i++) arr[i] = (Boolean) list.get(i);
+        return arr;
+    }
+    
+    static String[] toStringArray(java.util.List<?> list) {
+        String[] arr = new String[list.size()];
+        for (int i = 0; i < list.size(); i++) arr[i] = (String) list.get(i);
+        return arr;
+    }
+    
+    static char[] toCharArray(java.util.List<?> list) {
+        char[] arr = new char[list.size()];
+        for (int i = 0; i < list.size(); i++) arr[i] = ((String) list.get(i)).charAt(0);
+        return arr;
+    }
+    
+    static int[][] toInt2DArray(java.util.List<?> list) {
+        int[][] arr = new int[list.size()][];
+        for (int i = 0; i < list.size(); i++) {
+            arr[i] = toIntArray((java.util.List<?>) list.get(i));
+        }
+        return arr;
+    }
+    
+    static char[][] toChar2DArray(java.util.List<?> list) {
+        char[][] arr = new char[list.size()][];
+        for (int i = 0; i < list.size(); i++) {
+            arr[i] = toCharArray((java.util.List<?>) list.get(i));
+        }
+        return arr;
+    }
+    
+    static String[][] toString2DArray(java.util.List<?> list) {
+        String[][] arr = new String[list.size()][];
+        for (int i = 0; i < list.size(); i++) {
+            arr[i] = toStringArray((java.util.List<?>) list.get(i));
+        }
+        return arr;
+    }
+    
+    static List<Integer> toIntegerList(java.util.List<?> list) {
+        List<Integer> result = new ArrayList<>();
+        for (Object o : list) result.add(((Number) o).intValue());
         return result;
     }
+    
+    static List<String> toStringList(java.util.List<?> list) {
+        List<String> result = new ArrayList<>();
+        for (Object o : list) result.add((String) o);
+        return result;
+    }
+    
+    static List<Boolean> toBooleanList(java.util.List<?> list) {
+        List<Boolean> result = new ArrayList<>();
+        for (Object o : list) result.add((Boolean) o);
+        return result;
+    }
+    
+    static List<List<Integer>> toIntegerListList(java.util.List<?> list) {
+        List<List<Integer>> result = new ArrayList<>();
+        for (Object o : list) result.add(toIntegerList((java.util.List<?>) o));
+        return result;
+    }
+    
+    static List<List<String>> toStringListList(java.util.List<?> list) {
+        List<List<String>> result = new ArrayList<>();
+        for (Object o : list) result.add(toStringList((java.util.List<?>) o));
+        return result;
+    }
+    
+    // ======================== Serializers ========================
     
     static String arrayToJson(int[] arr) {
         if (arr.length == 0) return "[]";
@@ -365,6 +674,125 @@ public class Runner {
         for (int i = 0; i < arr.length; i++) {
             if (i > 0) sb.append(",");
             sb.append(arr[i]);
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    static String arrayToJson(long[] arr) {
+        if (arr.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(arr[i]);
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    static String arrayToJson(double[] arr) {
+        if (arr.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(arr[i]);
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    static String boolArrayToJson(boolean[] arr) {
+        if (arr.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(arr[i]);
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    static String stringArrayToJson(String[] arr) {
+        if (arr.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\\"").append(arr[i].replace("\\\\", "\\\\\\\\").replace("\\"", "\\\\\\"")).append("\\"");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    static String charArrayToJson(char[] arr) {
+        if (arr.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\\"").append(arr[i]).append("\\"");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    static String array2DToJson(int[][] arr) {
+        if (arr.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(arrayToJson(arr[i]));
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    static String char2DArrayToJson(char[][] arr) {
+        if (arr.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(charArrayToJson(arr[i]));
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    static String string2DArrayToJson(String[][] arr) {
+        if (arr.length == 0) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(stringArrayToJson(arr[i]));
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    @SuppressWarnings("unchecked")
+    static String listToJson(java.util.List<?> list) {
+        if (list.isEmpty()) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < list.size(); i++) {
+            if (i > 0) sb.append(",");
+            Object item = list.get(i);
+            if (item instanceof String) {
+                sb.append("\\"").append(((String) item).replace("\\\\", "\\\\\\\\").replace("\\"", "\\\\\\"")).append("\\"");
+            } else if (item instanceof Boolean) {
+                sb.append(item);
+            } else {
+                sb.append(item);
+            }
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    @SuppressWarnings("unchecked")
+    static String listListToJson(java.util.List<?> list) {
+        if (list.isEmpty()) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < list.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append(listToJson((java.util.List<?>) list.get(i)));
         }
         sb.append("]");
         return sb.toString();

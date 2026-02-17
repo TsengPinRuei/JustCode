@@ -1,5 +1,10 @@
 export type Language = 'java' | 'python3';
 
+export interface ParamInfo {
+    name: string;
+    type: string;
+}
+
 export interface ProblemMetadata {
     id: string;
     title: string;
@@ -14,13 +19,14 @@ export interface ProblemMetadata {
     constraints: string[];
     supportedLanguages: Language[];
     functionSignatures: Record<Language, string>;
+    functionName?: string;
+    params?: ParamInfo[];
+    returnType?: string;
 }
 
 export interface Testcase {
-    input: {
-        nums: number[];
-    };
-    output: number[];
+    input: Record<string, unknown>;
+    output: unknown;
 }
 
 export interface Problem {

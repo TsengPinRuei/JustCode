@@ -47,4 +47,9 @@ export const problemsApi = {
         });
         return response.data;
     },
+
+    async importProblem(url: string): Promise<{ success: boolean; problemId: string; title: string }> {
+        const response = await apiClient.post('/import-problem', { url });
+        return response.data;
+    },
 };

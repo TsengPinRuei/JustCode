@@ -6,9 +6,26 @@ const PROBLEMS_DIR = path.join(process.cwd(), '..', 'problems');
 
 export class ProblemService {
     async getAllProblems(): Promise<ProblemMetadata[]> {
-        // For now, just return the sort-array problem
-        const problem = await this.getProblem('sort-array');
-        return [problem.metadata];
+        // Scan all subdirectories in the problems folder
+        const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
+        const problems: ProblemMetadata[] = [];
+
+        for (const entry of entries) {
+            if (entry.isDirectory()) {
+                try {
+                    const problem = await this.getProblem(entry.name);
+                    problems.push(problem.metadata);
+                } catch (error) {
+                    // Skip directories without valid problem.json
+                    console.warn(`Skipping invalid problem directory: ${entry.name}`);
+                }
+            }
+        }
+
+        // Sort by title so numbering is in order
+        problems.sort((a, b) => a.title.localeCompare(b.title));
+
+        return problems;
     }
 
     async getProblem(problemId: string): Promise<Problem> {
@@ -74,5 +91,45 @@ export class ProblemService {
     async getAllTestcases(problemId: string): Promise<Testcase[]> {
         const problem = await this.getProblem(problemId);
         return [...problem.visibleTestcases, ...(problem.hiddenTestcases || [])];
+    }
+
+    async saveProblem(problemId: string, data: {
+        metadata: ProblemMetadata;
+        templates: Record<string, string>;
+        visibleTestcases: Testcase[];
+    }): Promise<void> {
+        const problemDir = path.join(PROBLEMS_DIR, problemId);
+        await fs.mkdir(problemDir, { recursive: true });
+
+        // Write problem.json
+        await fs.writeFile(
+            path.join(problemDir, 'problem.json'),
+            JSON.stringify(data.metadata, null, 4),
+            'utf-8'
+        );
+
+        // Write templates
+        for (const [lang, template] of Object.entries(data.templates)) {
+            const ext = lang === 'java' ? 'java' : 'py';
+            await fs.writeFile(
+                path.join(problemDir, `template.${ext}`),
+                template,
+                'utf-8'
+            );
+        }
+
+        // Write visible testcases
+        await fs.writeFile(
+            path.join(problemDir, 'testcases_visible.json'),
+            JSON.stringify(data.visibleTestcases, null, 4),
+            'utf-8'
+        );
+
+        // Write empty hidden testcases
+        await fs.writeFile(
+            path.join(problemDir, 'testcases_hidden.json'),
+            JSON.stringify([], null, 4),
+            'utf-8'
+        );
     }
 }

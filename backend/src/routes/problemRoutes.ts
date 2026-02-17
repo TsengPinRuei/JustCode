@@ -1,10 +1,12 @@
 import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
 import { CodeExecutorFactory } from '../services/codeExecutorFactory';
+import { LeetCodeService } from '../services/leetcodeService';
 import { RunRequest, SubmitRequest, Testcase } from '../types';
 
 const router = express.Router();
 const problemService = new ProblemService();
+const leetcodeService = new LeetCodeService();
 
 // GET /api/problems - Get list of all problems
 router.get('/problems', async (req: Request, res: Response) => {
@@ -41,6 +43,8 @@ router.post('/run', async (req: Request, res: Response) => {
     try {
         const { problemId, code, language, inputMode, customInput }: RunRequest = req.body;
 
+        // Load problem for metadata
+        const problem = await problemService.getProblem(problemId);
         let testcases: Testcase[] = [];
 
         if (inputMode === 'custom' && customInput) {
@@ -63,7 +67,7 @@ router.post('/run', async (req: Request, res: Response) => {
 
         // Get appropriate executor based on language
         const executor = CodeExecutorFactory.getExecutor(language);
-        const result = await executor.executeCode(code, testcases, true);
+        const result = await executor.executeCode(code, testcases, true, problem.metadata);
         res.json(result);
     } catch (error) {
         console.error('Error running code:', error);
@@ -76,17 +80,42 @@ router.post('/submit', async (req: Request, res: Response) => {
     try {
         const { problemId, code, language }: SubmitRequest = req.body;
 
+        // Load problem for metadata
+        const problem = await problemService.getProblem(problemId);
+
         // Get all testcases (visible + hidden)
         const testcases = await problemService.getAllTestcases(problemId);
 
         // Get appropriate executor based on language
         const executor = CodeExecutorFactory.getExecutor(language);
         // Don't show hidden inputs in results
-        const result = await executor.executeCode(code, testcases, false);
+        const result = await executor.executeCode(code, testcases, false, problem.metadata);
         res.json(result);
     } catch (error) {
         console.error('Error submitting code:', error);
         res.status(500).json({ error: 'Failed to submit code' });
+    }
+});
+
+// POST /api/import-problem - Import a LeetCode problem by URL
+router.post('/import-problem', async (req: Request, res: Response) => {
+    try {
+        const { url } = req.body;
+        if (!url || typeof url !== 'string') {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        const result = await leetcodeService.importProblem(url);
+        await problemService.saveProblem(result.metadata.id, result);
+
+        res.json({
+            success: true,
+            problemId: result.metadata.id,
+            title: result.metadata.title,
+        });
+    } catch (error: any) {
+        console.error('Error importing problem:', error);
+        res.status(500).json({ error: error.message || 'Failed to import problem' });
     }
 });
 
