@@ -298,7 +298,7 @@ export class PythonExecutor {
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
 
         // Build parameter extraction lines
-        const paramLines = params.map(p => `    ${p.name} = data['${p.name}']`).join('\n');
+        const paramLines = params.map(p => `        ${p.name} = data['${p.name}']`).join('\n');
         const argsList = params.map(p => p.name).join(', ');
 
         return `import json
