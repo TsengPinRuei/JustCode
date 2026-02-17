@@ -1,0 +1,44 @@
+{
+    "id": "add-two-integers",
+    "title": "2235. Add Two Integers",
+    "difficulty": "Easy",
+    "tags": [
+        "Math"
+    ],
+    "description": "Given two integers `num1` and `num2`, return *the **sum** of the two integers*.",
+    "examples": [
+        {
+            "input": "num1 = 12, num2 = 5",
+            "output": "17",
+            "explanation": "num1 is 12, num2 is 5, and their sum is 12 + 5 = 17, so 17 is returned."
+        },
+        {
+            "input": "num1 = -10, num2 = 4",
+            "output": "-6",
+            "explanation": "num1 + num2 = -6, so -6 is returned."
+        }
+    ],
+    "constraints": [
+        "-100"
+    ],
+    "supportedLanguages": [
+        "java",
+        "python3"
+    ],
+    "functionSignatures": {
+        "java": "public int sum(int num1, int num2)",
+        "python3": "def sum(self, num1: int, num2: int) -> int"
+    },
+    "functionName": "sum",
+    "params": [
+        {
+            "name": "num1",
+            "type": "int"
+        },
+        {
+            "name": "num2",
+            "type": "int"
+        }
+    ],
+    "returnType": "int"
+}
