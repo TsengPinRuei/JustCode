@@ -1,13 +1,12 @@
 {
     "id": "sort-array",
-    "title": "0. Sort an Array",
+    "title": "-09. Sort an Array",
     "difficulty": "Medium",
     "tags": [
         "Array",
         "Divide and Conquer",
         "Sorting",
-        "Heap (Priority Queue)",
-        "Merge Sort"
+        "Heap (Priority Queue)"
     ],
     "description": "Given an array of integers `nums`, sort the array in ascending order and return it.\n\nYou must solve the problem **without using any built-in** functions in O(nlog(n)) time complexity and with the smallest space complexity possible.",
     "examples": [
