@@ -31,7 +31,7 @@
     ],
     "functionSignatures": {
         "java": "public int[] sortArray(int[] nums)",
-        "python3": "def sortArray(self, nums: List[int]) -> List[int]"
+        "python3": "def sortArray(self, nums: list[int]) -> list[int]"
     },
     "functionName": "sortArray",
     "params": [

@@ -12,8 +12,8 @@ interface ProblemDescriptionProps {
 
 const LANG_LABELS: Record<string, string> = {
     java: 'Java',
-    python: 'Python',
-    py: 'Python',
+    python: 'Python3',
+    py: 'Python3',
     javascript: 'JavaScript',
     js: 'JavaScript',
     typescript: 'TypeScript',

@@ -8,4 +8,4 @@ export const TESTCASE_TIMEOUT_MS = 1000; // 1 second per testcase
 export const COMPILE_TIMEOUT_MS = 10000; // 10 seconds for compilation
 
 // Output limits
-export const MAX_OUTPUT_LENGTH = 10000; // Limit output to prevent memory issues
+export const MAX_OUTPUT_LENGTH = 10 * 1024 * 1024; // 10 MB to handle large outputs
