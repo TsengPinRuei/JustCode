@@ -1,1 +1,352 @@
-[]
+[
+    {
+        "input": {
+            "num1": 0,
+            "num2": 0
+        },
+        "output": 0
+    },
+    {
+        "input": {
+            "num1": 1,
+            "num2": 0
+        },
+        "output": 1
+    },
+    {
+        "input": {
+            "num1": 0,
+            "num2": 1
+        },
+        "output": 1
+    },
+    {
+        "input": {
+            "num1": -1,
+            "num2": 0
+        },
+        "output": -1
+    },
+    {
+        "input": {
+            "num1": 0,
+            "num2": -1
+        },
+        "output": -1
+    },
+    {
+        "input": {
+            "num1": 1,
+            "num2": -1
+        },
+        "output": 0
+    },
+    {
+        "input": {
+            "num1": -1,
+            "num2": 1
+        },
+        "output": 0
+    },
+    {
+        "input": {
+            "num1": 100,
+            "num2": 100
+        },
+        "output": 200
+    },
+    {
+        "input": {
+            "num1": -100,
+            "num2": -100
+        },
+        "output": -200
+    },
+    {
+        "input": {
+            "num1": 100,
+            "num2": -100
+        },
+        "output": 0
+    },
+    {
+        "input": {
+            "num1": -100,
+            "num2": 100
+        },
+        "output": 0
+    },
+    {
+        "input": {
+            "num1": 100,
+            "num2": 0
+        },
+        "output": 100
+    },
+    {
+        "input": {
+            "num1": 0,
+            "num2": 100
+        },
+        "output": 100
+    },
+    {
+        "input": {
+            "num1": -100,
+            "num2": 0
+        },
+        "output": -100
+    },
+    {
+        "input": {
+            "num1": 0,
+            "num2": -100
+        },
+        "output": -100
+    },
+    {
+        "input": {
+            "num1": 100,
+            "num2": -1
+        },
+        "output": 99
+    },
+    {
+        "input": {
+            "num1": -100,
+            "num2": 1
+        },
+        "output": -99
+    },
+    {
+        "input": {
+            "num1": 99,
+            "num2": 100
+        },
+        "output": 199
+    },
+    {
+        "input": {
+            "num1": -99,
+            "num2": -100
+        },
+        "output": -199
+    },
+    {
+        "input": {
+            "num1": 50,
+            "num2": 50
+        },
+        "output": 100
+    },
+    {
+        "input": {
+            "num1": -50,
+            "num2": -50
+        },
+        "output": -100
+    },
+    {
+        "input": {
+            "num1": 50,
+            "num2": -50
+        },
+        "output": 0
+    },
+    {
+        "input": {
+            "num1": 1,
+            "num2": 1
+        },
+        "output": 2
+    },
+    {
+        "input": {
+            "num1": -1,
+            "num2": -1
+        },
+        "output": -2
+    },
+    {
+        "input": {
+            "num1": 33,
+            "num2": 67
+        },
+        "output": 100
+    },
+    {
+        "input": {
+            "num1": -33,
+            "num2": -67
+        },
+        "output": -100
+    },
+    {
+        "input": {
+            "num1": 1,
+            "num2": 2
+        },
+        "output": 3
+    },
+    {
+        "input": {
+            "num1": 2,
+            "num2": 1
+        },
+        "output": 3
+    },
+    {
+        "input": {
+            "num1": -1,
+            "num2": -2
+        },
+        "output": -3
+    },
+    {
+        "input": {
+            "num1": 7,
+            "num2": -3
+        },
+        "output": 4
+    },
+    {
+        "input": {
+            "num1": -7,
+            "num2": 3
+        },
+        "output": -4
+    },
+    {
+        "input": {
+            "num1": 99,
+            "num2": 1
+        },
+        "output": 100
+    },
+    {
+        "input": {
+            "num1": -99,
+            "num2": -1
+        },
+        "output": -100
+    },
+    {
+        "input": {
+            "num1": 100,
+            "num2": 99
+        },
+        "output": 199
+    },
+    {
+        "input": {
+            "num1": -100,
+            "num2": -99
+        },
+        "output": -199
+    },
+    {
+        "input": {
+            "num1": 42,
+            "num2": -17
+        },
+        "output": 25
+    },
+    {
+        "input": {
+            "num1": -42,
+            "num2": 17
+        },
+        "output": -25
+    },
+    {
+        "input": {
+            "num1": 73,
+            "num2": 27
+        },
+        "output": 100
+    },
+    {
+        "input": {
+            "num1": -73,
+            "num2": -27
+        },
+        "output": -100
+    },
+    {
+        "input": {
+            "num1": 1,
+            "num2": 100
+        },
+        "output": 101
+    },
+    {
+        "input": {
+            "num1": -1,
+            "num2": -100
+        },
+        "output": -101
+    },
+    {
+        "input": {
+            "num1": 51,
+            "num2": -49
+        },
+        "output": 2
+    },
+    {
+        "input": {
+            "num1": -51,
+            "num2": 49
+        },
+        "output": -2
+    },
+    {
+        "input": {
+            "num1": 13,
+            "num2": 87
+        },
+        "output": 100
+    },
+    {
+        "input": {
+            "num1": -13,
+            "num2": -87
+        },
+        "output": -100
+    },
+    {
+        "input": {
+            "num1": 2,
+            "num2": -1
+        },
+        "output": 1
+    },
+    {
+        "input": {
+            "num1": -2,
+            "num2": 1
+        },
+        "output": -1
+    },
+    {
+        "input": {
+            "num1": 10,
+            "num2": -10
+        },
+        "output": 0
+    },
+    {
+        "input": {
+            "num1": 100,
+            "num2": 1
+        },
+        "output": 101
+    },
+    {
+        "input": {
+            "num1": -100,
+            "num2": -1
+        },
+        "output": -101
+    }
+]
