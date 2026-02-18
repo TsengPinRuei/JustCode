@@ -4,3 +4,9 @@
 dist
 node_modules
 temp
+
+problems/**
+!problems/sort-array/
+!problems/sort-array/**
+!problems/add-two-integers/
+!problems/add-two-integers/**
