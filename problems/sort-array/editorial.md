@@ -172,38 +172,42 @@ class Solution {
 ```
 
 ```python
+import random
+
 class Solution:
     def sortArray(self, nums: list[int]) -> list[int]:
-        if not nums:
+        if len(nums) <= 1:
             return nums
-        self._quick_sort(nums, 0, len(nums) - 1)
+        # Iterative quick sort using explicit stack (avoids recursion limit)
+        stack = [(0, len(nums) - 1)]
+        while stack:
+            left, right = stack.pop()
+            if left >= right:
+                continue
+            lt, gt = self._three_way_partition(nums, left, right)
+            stack.append((left, lt - 1))
+            stack.append((gt + 1, right))
         return nums
 
-    def _quick_sort(self, nums: list[int], left: int, right: int) -> None:
-        if left >= right:
-            return
-        pivot_index = self._partition(nums, left, right)
-        self._quick_sort(nums, left, pivot_index - 1)
-        self._quick_sort(nums, pivot_index + 1, right)
-
-    def _partition(self, nums: list[int], left: int, right: int) -> int:
-        # Median-of-three optimization
-        mid = left + (right - left) // 2
-        if nums[mid] < nums[left]:
-            nums[left], nums[mid] = nums[mid], nums[left]
-        if nums[right] < nums[left]:
-            nums[left], nums[right] = nums[right], nums[left]
-        if nums[mid] < nums[right]:
-            nums[mid], nums[right] = nums[right], nums[mid]
-
-        pivot = nums[right]
-        i = left - 1
-        for j in range(left, right):
-            if nums[j] <= pivot:
+    def _three_way_partition(self, nums: list[int], left: int, right: int) -> tuple[int, int]:
+        # Randomized pivot to avoid worst-case on sorted arrays
+        pivot_idx = random.randint(left, right)
+        pivot = nums[pivot_idx]
+        # Dutch National Flag: partition into [< pivot | == pivot | > pivot]
+        lt = left   # nums[left..lt-1]  < pivot
+        i = left    # nums[lt..i-1]    == pivot
+        gt = right  # nums[gt+1..right] > pivot
+        while i <= gt:
+            if nums[i] < pivot:
+                nums[lt], nums[i] = nums[i], nums[lt]
+                lt += 1
                 i += 1
-                nums[i], nums[j] = nums[j], nums[i]
-        nums[i + 1], nums[right] = nums[right], nums[i + 1]
-        return i + 1
+            elif nums[i] > pivot:
+                nums[gt], nums[i] = nums[i], nums[gt]
+                gt -= 1
+            else:
+                i += 1
+        return lt, gt
 ```
 
 ### Complexity Analysis
