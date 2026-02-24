@@ -1,0 +1,9 @@
+{
+    "status": "solved",
+    "code": {
+        "java": "class Solution {\n    public int[] sortArray(int[] nums) {\n        \n    }\n}\n",
+        "python3": "class Solution:\n    def sortArray(self, nums: list[int]) -> list[int]:\n        \n"
+    },
+    "selectedLanguage": "java",
+    "lastUpdated": "2026-02-24T08:34:47.283Z"
+}
