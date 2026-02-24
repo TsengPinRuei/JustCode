@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { problemsApi } from '../services/apiClient';
-import { ProblemMetadata } from '../types';
+import { ProblemMetadata, ProblemProgress } from '../types';
 
 const ProblemList: React.FC = () => {
     const [problems, setProblems] = useState<ProblemMetadata[]>([]);
+    const [progress, setProgress] = useState<Record<string, ProblemProgress>>({});
     const [loading, setLoading] = useState(true);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importUrl, setImportUrl] = useState('');
@@ -19,8 +20,12 @@ const ProblemList: React.FC = () => {
 
     const loadProblems = async () => {
         try {
-            const data = await problemsApi.getProblems();
+            const [data, progressData] = await Promise.all([
+                problemsApi.getProblems(),
+                problemsApi.getAllProgress(),
+            ]);
             setProblems(data);
+            setProgress(progressData);
         } catch (error) {
             // Error handled silently
         } finally {
@@ -69,6 +74,18 @@ const ProblemList: React.FC = () => {
         }
     };
 
+    const handleDelete = async (e: React.MouseEvent, problemId: string, title: string) => {
+        e.stopPropagation();
+        const confirmed = window.confirm(`Are you sure you want to delete "${title}"?`);
+        if (!confirmed) return;
+        try {
+            await problemsApi.deleteProblem(problemId);
+            setProblems(prev => prev.filter(p => p.id !== problemId));
+        } catch (error) {
+            // Error handled silently
+        }
+    };
+
     if (loading) {
         return (
             <div className="loading">
@@ -103,12 +120,20 @@ const ProblemList: React.FC = () => {
                             <th>Title</th>
                             <th className="col-difficulty">Difficulty</th>
                             <th className="col-tags">Tags</th>
+                            <th className="col-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {problems.map((problem) => (
                             <tr key={problem.id} onClick={() => handleProblemClick(problem.id)}>
-                                <td></td>
+                                <td className="col-status">
+                                    {progress[problem.id]?.status === 'solved' && (
+                                        <span className="status-icon status-solved" title="Solved">✓</span>
+                                    )}
+                                    {progress[problem.id]?.status === 'attempted' && (
+                                        <span className="status-icon status-attempted" title="Attempted">◐</span>
+                                    )}
+                                </td>
                                 <td className="problem-title">{problem.title}</td>
                                 <td>
                                     <span className={`difficulty-badge difficulty-${problem.difficulty.toLowerCase()}`}>
@@ -121,6 +146,17 @@ const ProblemList: React.FC = () => {
                                             {tag}
                                         </span>
                                     ))}
+                                </td>
+                                <td>
+                                    {!['sort-array', 'add-two-integers'].includes(problem.id) && (
+                                        <button
+                                            className="delete-btn"
+                                            title="Delete problem"
+                                            onClick={(e) => handleDelete(e, problem.id, problem.title)}
+                                        >
+                                            <img src="/trash-icon.png" alt="Delete" className="delete-icon" />
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

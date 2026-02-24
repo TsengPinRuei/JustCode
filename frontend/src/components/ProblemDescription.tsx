@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkCodeGroup from '../plugins/remarkCodeGroup';
@@ -22,6 +22,30 @@ const LANG_LABELS: Record<string, string> = {
     c: 'C',
 };
 
+function CopyButton({ getText }: { getText: () => string }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = useCallback(async () => {
+        try {
+            await navigator.clipboard.writeText(getText());
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // Fallback ignored
+        }
+    }, [getText]);
+
+    return (
+        <button
+            className={`code-copy-btn ${copied ? 'copied' : ''}`}
+            onClick={handleCopy}
+            title={copied ? 'Copied!' : 'Copy code'}
+        >
+            {copied ? '✓' : '⧉'}
+        </button>
+    );
+}
+
 function CodeGroupBlock({ languages }: { languages: string }) {
     const items: { lang: string; value: string }[] = JSON.parse(languages);
     const [active, setActive] = useState(0);
@@ -39,9 +63,12 @@ function CodeGroupBlock({ languages }: { languages: string }) {
                     </button>
                 ))}
             </div>
-            <pre className="code-group-pre">
-                <code>{items[active].value}</code>
-            </pre>
+            <div className="code-block-wrapper">
+                <CopyButton getText={() => items[active].value} />
+                <pre className="code-group-pre">
+                    <code>{items[active].value}</code>
+                </pre>
+            </div>
         </div>
     );
 }
@@ -53,6 +80,21 @@ const markdownComponents: Record<string, React.FC<any>> = {
         const langs = props.languages ?? props.node?.properties?.languages;
         if (!langs) return null;
         return <CodeGroupBlock languages={langs} />;
+    },
+    pre: (props: any) => {
+        const codeChild = props.children;
+        const getText = () => {
+            // Extract text content from the code element
+            const code = codeChild?.props?.children;
+            if (typeof code === 'string') return code;
+            return '';
+        };
+        return (
+            <div className="code-block-wrapper">
+                <CopyButton getText={getText} />
+                <pre {...props} />
+            </div>
+        );
     },
 };
 

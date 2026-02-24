@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
 import { CodeExecutorFactory } from '../services/codeExecutorFactory';
 import { LeetCodeService } from '../services/leetcodeService';
-import { RunRequest, SubmitRequest, Testcase } from '../types';
+import { RunRequest, SubmitRequest, Testcase, ProblemProgress } from '../types';
 
 const router = express.Router();
 const problemService = new ProblemService();
@@ -117,6 +117,60 @@ router.post('/import-problem', async (req: Request, res: Response) => {
         console.error('Error importing problem:', error);
         const message = error instanceof Error ? error.message : 'Failed to import problem';
         res.status(500).json({ error: message });
+    }
+});
+
+// GET /api/progress - Get progress for all problems
+router.get('/progress', async (req: Request, res: Response) => {
+    try {
+        const progress = await problemService.getAllProgress();
+        res.json(progress);
+    } catch (error) {
+        console.error('Error fetching progress:', error);
+        res.status(500).json({ error: 'Failed to fetch progress' });
+    }
+});
+
+// GET /api/progress/:id - Get progress for a specific problem
+router.get('/progress/:id', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const progress = await problemService.getProgress(id);
+        res.json(progress);
+    } catch (error) {
+        console.error('Error fetching progress:', error);
+        res.status(500).json({ error: 'Failed to fetch progress' });
+    }
+});
+
+// PUT /api/progress/:id - Save progress for a specific problem
+router.put('/progress/:id', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const progress: ProblemProgress = req.body;
+        progress.lastUpdated = new Date().toISOString();
+        await problemService.saveProgress(id, progress);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving progress:', error);
+        res.status(500).json({ error: 'Failed to save progress' });
+    }
+});
+
+// DELETE /api/problems/:id - Delete a problem
+const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
+
+router.delete('/problems/:id', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        if (PROTECTED_PROBLEMS.has(id)) {
+            return res.status(403).json({ error: 'Cannot delete built-in problems' });
+        }
+        await problemService.deleteProblem(id);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting problem:', error);
+        res.status(500).json({ error: 'Failed to delete problem' });
     }
 });
 

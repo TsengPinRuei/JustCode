@@ -9,11 +9,14 @@ A single-machine LeetCode-like coding practice platform with offline Java code e
 
 - **Multi-Language Support**: Java and Python3 supported with automatic language detection
 - **LeetCode Import**: Import problems directly from LeetCode by URL — auto-extracts description, examples, constraints, templates, and testcases
+- **Progress Persistence**: Auto-saves your code, selected language, and problem status (solved/attempted) — restored on revisit
+- **Problem Management**: Delete imported problems with confirmation; built-in problems are protected
 - **User Interface**: Familiar and intuitive interface with dark theme
 - **Offline Code Execution**: Run and submit code locally without external dependencies
 - **Error Highlighting**: Real-time compilation error highlighting in the code editor with red squiggly lines
 - **Complete Problem Flow**: Problem browsing, code editing, running, and submission
 - **Monaco Editor**: Professional code editing experience with syntax highlighting and error markers
+- **Editorial with Copy**: Solution editorials with tabbed multi-language code blocks and one-click copy buttons
 - **Comprehensive Testing**: Visible testcases for practice, hidden testcases for validation
 - **Real-time Feedback**: Instant results with AC/WA/CE/RE/TLE status indicators
 - **Resizable Layout**: Adjustable split pane for optimal workspace
@@ -121,12 +124,14 @@ JustCode/
 │   │   ├── template.java           # Java template
 │   │   ├── template.py             # Python template
 │   │   ├── editorial.md            # Problem editorial
+│   │   ├── progress.json           # User progress (git-ignored)
 │   │   ├── testcases_visible.json
 │   │   └── testcases_hidden.json
-│   └── two-sum/                    # Imported from LeetCode
+│   └── add-two-integers/           # Built-in problem
 │       ├── problem.json
 │       ├── template.java
 │       ├── template.py
+│       ├── editorial.md
 │       ├── testcases_visible.json
 │       └── testcases_hidden.json
 ├── install.sh                      # Installation script
@@ -211,9 +216,10 @@ This project is designed for personal learning and local use only, **do not** us
 - [x] Support Python3
 - [x] Solution Editorial with tabbed multi-language code blocks
 - [x] Error highlighting in code editor
-- [ ] User accounts and submission history
-- [ ] Difficulty-based filtering
-- [ ] Code execution statistics and leaderboards
+- [x] Progress persistence (auto-save code, status tracking)
+- [x] Problem deletion with built-in problem protection
+- [x] Copy-to-clipboard button on editorial code blocks
+- [x] Problem status and code history
 
 ## Contributing
 

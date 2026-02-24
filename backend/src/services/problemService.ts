@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { Problem, ProblemMetadata, Testcase } from '../types';
+import { Problem, ProblemMetadata, Testcase, ProblemProgress } from '../types';
 
 const PROBLEMS_DIR = path.join(process.cwd(), '..', 'problems');
 
@@ -131,5 +131,41 @@ export class ProblemService {
             JSON.stringify([], null, 4),
             'utf-8'
         );
+    }
+
+    async getProgress(problemId: string): Promise<ProblemProgress | null> {
+        const progressPath = path.join(PROBLEMS_DIR, problemId, 'progress.json');
+        try {
+            const content = await fs.readFile(progressPath, 'utf-8');
+            return JSON.parse(content) as ProblemProgress;
+        } catch {
+            return null;
+        }
+    }
+
+    async saveProgress(problemId: string, progress: ProblemProgress): Promise<void> {
+        const progressPath = path.join(PROBLEMS_DIR, problemId, 'progress.json');
+        await fs.writeFile(progressPath, JSON.stringify(progress, null, 4), 'utf-8');
+    }
+
+    async getAllProgress(): Promise<Record<string, ProblemProgress>> {
+        const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
+        const result: Record<string, ProblemProgress> = {};
+
+        for (const entry of entries) {
+            if (entry.isDirectory()) {
+                const progress = await this.getProgress(entry.name);
+                if (progress) {
+                    result[entry.name] = progress;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    async deleteProblem(problemId: string): Promise<void> {
+        const problemDir = path.join(PROBLEMS_DIR, problemId);
+        await fs.rm(problemDir, { recursive: true, force: true });
     }
 }

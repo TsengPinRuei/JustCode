@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ProblemMetadata, Problem, ExecutionResult, Language } from '../types';
+import { ProblemMetadata, Problem, ExecutionResult, Language, ProblemProgress } from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -51,5 +51,23 @@ export const problemsApi = {
     async importProblem(url: string): Promise<{ success: boolean; problemId: string; title: string }> {
         const response = await apiClient.post('/import-problem', { url });
         return response.data;
+    },
+
+    async getProgress(id: string): Promise<ProblemProgress | null> {
+        const response = await apiClient.get(`/progress/${id}`);
+        return response.data;
+    },
+
+    async getAllProgress(): Promise<Record<string, ProblemProgress>> {
+        const response = await apiClient.get('/progress');
+        return response.data;
+    },
+
+    async saveProgress(id: string, progress: ProblemProgress): Promise<void> {
+        await apiClient.put(`/progress/${id}`, progress);
+    },
+
+    async deleteProblem(id: string): Promise<void> {
+        await apiClient.delete(`/problems/${id}`);
     },
 };

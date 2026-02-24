@@ -78,3 +78,12 @@ export interface SubmitRequest {
     code: string;
     language: Language;
 }
+
+export type ProblemStatus = 'none' | 'attempted' | 'solved';
+
+export interface ProblemProgress {
+    status: ProblemStatus;
+    code: Record<string, string>;       // saved code per language
+    selectedLanguage: Language;
+    lastUpdated: string;                 // ISO timestamp
+}

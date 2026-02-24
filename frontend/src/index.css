@@ -48,6 +48,7 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
+  zoom: 1.15;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -423,6 +424,42 @@ body {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.code-block-wrapper {
+  position: relative;
+}
+
+.code-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+.code-block-wrapper:hover .code-copy-btn {
+  opacity: 1;
+}
+
+.code-copy-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.code-copy-btn.copied {
+  opacity: 1;
+  color: var(--accent-green);
+  border-color: var(--accent-green);
 }
 
 .problem-description ul,
@@ -957,12 +994,62 @@ body {
   width: 60px;
 }
 
+.problem-table td.col-status {
+  text-align: center;
+}
+
+.status-icon {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.status-solved {
+  color: var(--status-ac);
+}
+
+.status-attempted {
+  color: var(--accent-yellow);
+}
+
 .problem-table th.col-difficulty {
   width: 120px;
 }
 
 .problem-table th.col-tags {
   width: 300px;
+}
+
+.problem-table th.col-actions {
+  width: 70px;
+}
+
+.delete-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 6px 10px;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+  background-color: rgba(239, 71, 67, 0.1);
+  border-color: rgba(239, 71, 67, 0.3);
+}
+
+.delete-icon {
+  width: 28px;
+  height: 28px;
+  display: block;
+  filter: brightness(0) invert(0.55);
+  transition: filter 0.2s ease;
+}
+
+.delete-btn:hover .delete-icon {
+  filter: brightness(0) saturate(100%) invert(38%) sepia(82%) saturate(1700%) hue-rotate(338deg) brightness(95%) contrast(95%);
 }
 
 /* Editorial Placeholder */

@@ -63,3 +63,12 @@ export interface ExecutionResult {
     compilationErrors?: CompilationError[];
     debugOutput?: string;
 }
+
+export type ProblemStatus = 'none' | 'attempted' | 'solved';
+
+export interface ProblemProgress {
+    status: ProblemStatus;
+    code: Record<string, string>;
+    selectedLanguage: Language;
+    lastUpdated: string;
+}

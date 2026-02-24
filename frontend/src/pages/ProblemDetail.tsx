@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { problemsApi } from '../services/apiClient';
-import { Problem, ExecutionResult, Language } from '../types';
+import { Problem, ExecutionResult, Language, ProblemProgress } from '../types';
 import CodeEditor from '../components/CodeEditor';
 import ProblemDescription from '../components/ProblemDescription';
 import ConsolePanel from '../components/ConsolePanel';
@@ -17,6 +17,55 @@ const ProblemDetail: React.FC = () => {
     const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
     const [activeTab, setActiveTab] = useState<'testcase' | 'result'>('testcase');
 
+    // Progress tracking
+    const progressRef = useRef<ProblemProgress | null>(null);
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Save progress to backend
+    const saveProgress = useCallback(async (updates: Partial<ProblemProgress>) => {
+        if (!id) return;
+        const current = progressRef.current || {
+            status: 'none' as const,
+            code: {},
+            selectedLanguage: 'java' as Language,
+            lastUpdated: '',
+        };
+        const updated: ProblemProgress = { ...current, ...updates };
+        progressRef.current = updated;
+        try {
+            await problemsApi.saveProgress(id, updated);
+        } catch {
+            // Silently ignore save errors
+        }
+    }, [id]);
+
+    // Debounced auto-save on code change
+    const debouncedSave = useCallback((newCode: string, lang: Language) => {
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+        }
+        saveTimerRef.current = setTimeout(() => {
+            const currentProgress = progressRef.current;
+            const codeMap = { ...(currentProgress?.code || {}) };
+            codeMap[lang] = newCode;
+            const newStatus = currentProgress?.status === 'solved' ? 'solved' : 'attempted';
+            saveProgress({
+                status: newStatus,
+                code: codeMap,
+                selectedLanguage: lang,
+            });
+        }, 1000);
+    }, [saveProgress]);
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+            }
+        };
+    }, []);
+
     useEffect(() => {
         if (id) {
             loadProblem(id);
@@ -25,17 +74,37 @@ const ProblemDetail: React.FC = () => {
 
     const loadProblem = async (problemId: string) => {
         try {
-            const data = await problemsApi.getProblem(problemId);
+            const [data, progress] = await Promise.all([
+                problemsApi.getProblem(problemId),
+                problemsApi.getProgress(problemId),
+            ]);
             setProblem(data);
-            // Set initial language (first supported language)
-            const initialLang = data.metadata.supportedLanguages[0] || 'java';
-            setSelectedLanguage(initialLang);
-            setCode(data.templates[initialLang]);
+
+            if (progress && progress.status !== 'none') {
+                // Restore saved progress
+                progressRef.current = progress;
+                const lang = progress.selectedLanguage || data.metadata.supportedLanguages[0] || 'java';
+                setSelectedLanguage(lang);
+                // Use saved code if available, otherwise fall back to template
+                const savedCode = progress.code?.[lang];
+                setCode(savedCode !== undefined ? savedCode : data.templates[lang]);
+            } else {
+                // First visit — use defaults
+                const initialLang = data.metadata.supportedLanguages[0] || 'java';
+                setSelectedLanguage(initialLang);
+                setCode(data.templates[initialLang]);
+            }
         } catch (error) {
             // Error handled silently
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle code change from editor
+    const handleCodeChange = (value: string) => {
+        setCode(value);
+        debouncedSave(value, selectedLanguage);
     };
 
     // Handle language change
@@ -51,8 +120,25 @@ const ProblemDetail: React.FC = () => {
             if (!confirmSwitch) return;
         }
 
+        // Save current language's code before switching
+        const currentProgress = progressRef.current;
+        const codeMap = { ...(currentProgress?.code || {}) };
+        codeMap[selectedLanguage] = code;
+
+        // Switch language — restore saved code or use template
+        const savedCode = codeMap[newLanguage];
+        const newCode = savedCode !== undefined ? savedCode : problem.templates[newLanguage];
+
+        codeMap[newLanguage] = newCode;
+
         setSelectedLanguage(newLanguage);
-        setCode(problem.templates[newLanguage]);
+        setCode(newCode);
+
+        saveProgress({
+            status: currentProgress?.status === 'solved' ? 'solved' : (currentProgress?.status || 'none'),
+            code: codeMap,
+            selectedLanguage: newLanguage,
+        });
     };
 
     const handleRun = async (inputMode: 'visible' | 'custom', customInput?: string) => {
@@ -78,6 +164,18 @@ const ProblemDetail: React.FC = () => {
         try {
             const result = await problemsApi.submitCode(id, code, selectedLanguage);
             setExecutionResult(result);
+
+            // If all tests passed, mark as solved
+            if (result.status === 'AC') {
+                const currentProgress = progressRef.current;
+                const codeMap = { ...(currentProgress?.code || {}) };
+                codeMap[selectedLanguage] = code;
+                saveProgress({
+                    status: 'solved',
+                    code: codeMap,
+                    selectedLanguage,
+                });
+            }
         } catch (error) {
             // Error handled silently
         } finally {
@@ -117,7 +215,7 @@ const ProblemDetail: React.FC = () => {
                             <div className="code-editor-section">
                                 <CodeEditor
                                     code={code}
-                                    onChange={setCode}
+                                    onChange={handleCodeChange}
                                     onReset={handleReset}
                                     language={selectedLanguage}
                                     compilationErrors={executionResult?.compilationErrors}

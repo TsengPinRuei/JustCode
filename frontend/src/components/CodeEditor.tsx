@@ -31,6 +31,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     const preventOnChangeRef = useRef(false);
     // Track the previous code prop to detect external changes
     const prevCodeRef = useRef(code);
+    // Track whether the change originated from user typing
+    const isUserEditRef = useRef(false);
 
     const MIN_FONT_SIZE = 12;
     const MAX_FONT_SIZE = 24;
@@ -42,6 +44,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     const handleEditorChange = (value: string | undefined) => {
         if (preventOnChangeRef.current) return;
         if (value !== undefined) {
+            isUserEditRef.current = true;
             onChange(value);
         }
     };
@@ -58,11 +61,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // User typing goes directly through Monaco without this path.
     useEffect(() => {
         if (editorRef.current && code !== prevCodeRef.current) {
-            const currentValue = editorRef.current.getValue();
-            if (code !== currentValue) {
-                preventOnChangeRef.current = true;
-                editorRef.current.setValue(code);
-                preventOnChangeRef.current = false;
+            if (isUserEditRef.current) {
+                // Change originated from user typing — skip setValue to preserve cursor
+                isUserEditRef.current = false;
+            } else {
+                // External change (reset, language switch) — sync to editor
+                const currentValue = editorRef.current.getValue();
+                if (code !== currentValue) {
+                    preventOnChangeRef.current = true;
+                    editorRef.current.setValue(code);
+                    preventOnChangeRef.current = false;
+                }
             }
         }
         prevCodeRef.current = code;
