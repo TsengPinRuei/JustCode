@@ -1,3 +1,7 @@
+/**
+ * Root App Component \u2014 Sets up React Router and renders Navbar + page routes.
+ * Routes: / (redirect), /problems (list), /problems/:id (detail).
+ */
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ProblemList from './pages/ProblemList';

@@ -1,3 +1,7 @@
+/**
+ * Result Panel \u2014 Displays code execution results: status (AC/WA/CE/RE/TLE),
+ * pass counts, per-testcase details, and filtered debug console output.
+ */
 import React from 'react';
 import { ExecutionResult } from '../types';
 
@@ -102,12 +106,12 @@ const ResultPanel: React.FC<ResultPanelProps> = ({ executing, result }) => {
                             <div className="testcase-result-details">
                                 {testResult.input !== undefined && (
                                     <div>
-                                        <strong>Input:</strong> nums = {
-                                            typeof testResult.input === 'object' &&
-                                                testResult.input !== null &&
-                                                'nums' in testResult.input
-                                                ? JSON.stringify((testResult.input as { nums: unknown }).nums)
-                                                : JSON.stringify(testResult.input)
+                                        <strong>Input:</strong>{' '}
+                                        {typeof testResult.input === 'object' && testResult.input !== null
+                                            ? Object.entries(testResult.input as Record<string, unknown>)
+                                                .map(([key, value]) => `${key} = ${JSON.stringify(value)}`)
+                                                .join(', ')
+                                            : JSON.stringify(testResult.input)
                                         }
                                     </div>
                                 )}

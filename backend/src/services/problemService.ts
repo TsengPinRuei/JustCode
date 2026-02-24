@@ -1,3 +1,8 @@
+/**
+ * Problem Service — File-based CRUD for problem data and user progress.
+ * Reads/writes problem.json, templates, testcases, editorial, and progress.json
+ * from the problems/ directory.
+ */
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { Problem, ProblemMetadata, Testcase, ProblemProgress } from '../types';
@@ -5,6 +10,7 @@ import { Problem, ProblemMetadata, Testcase, ProblemProgress } from '../types';
 const PROBLEMS_DIR = path.join(process.cwd(), '..', 'problems');
 
 export class ProblemService {
+    /** Scan problems/ directory and return metadata for all valid problems, sorted by title */
     async getAllProblems(): Promise<ProblemMetadata[]> {
         // Scan all subdirectories in the problems folder
         const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
@@ -28,6 +34,7 @@ export class ProblemService {
         return problems;
     }
 
+    /** Load a complete problem by ID: metadata, templates, testcases, and editorial */
     async getProblem(problemId: string): Promise<Problem> {
         const problemDir = path.join(PROBLEMS_DIR, problemId);
 
@@ -83,16 +90,19 @@ export class ProblemService {
         };
     }
 
+    /** Get only visible testcases (for Run mode) */
     async getVisibleTestcases(problemId: string): Promise<Testcase[]> {
         const problem = await this.getProblem(problemId);
         return problem.visibleTestcases;
     }
 
+    /** Get all testcases — visible + hidden (for Submit mode) */
     async getAllTestcases(problemId: string): Promise<Testcase[]> {
         const problem = await this.getProblem(problemId);
         return [...problem.visibleTestcases, ...(problem.hiddenTestcases || [])];
     }
 
+    /** Save a new problem: metadata, templates, and visible testcases */
     async saveProblem(problemId: string, data: {
         metadata: ProblemMetadata;
         templates: Record<string, string>;
@@ -133,6 +143,7 @@ export class ProblemService {
         );
     }
 
+    /** Read user progress from progress.json; returns null if not found */
     async getProgress(problemId: string): Promise<ProblemProgress | null> {
         const progressPath = path.join(PROBLEMS_DIR, problemId, 'progress.json');
         try {
@@ -143,11 +154,13 @@ export class ProblemService {
         }
     }
 
+    /** Write user progress to progress.json */
     async saveProgress(problemId: string, progress: ProblemProgress): Promise<void> {
         const progressPath = path.join(PROBLEMS_DIR, problemId, 'progress.json');
         await fs.writeFile(progressPath, JSON.stringify(progress, null, 4), 'utf-8');
     }
 
+    /** Collect progress from all problem directories */
     async getAllProgress(): Promise<Record<string, ProblemProgress>> {
         const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
         const result: Record<string, ProblemProgress> = {};
@@ -164,6 +177,7 @@ export class ProblemService {
         return result;
     }
 
+    /** Permanently delete a problem directory */
     async deleteProblem(problemId: string): Promise<void> {
         const problemDir = path.join(PROBLEMS_DIR, problemId);
         await fs.rm(problemDir, { recursive: true, force: true });

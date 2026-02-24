@@ -1,3 +1,7 @@
+/**
+ * Type definitions shared across the backend.
+ * Defines data structures for problems, testcases, execution results, and user progress.
+ */
 export type Language = 'java' | 'python3';
 
 export interface ParamInfo {
@@ -79,8 +83,10 @@ export interface SubmitRequest {
     language: Language;
 }
 
+/** Problem completion status: none (not started), attempted (code saved), solved (AC) */
 export type ProblemStatus = 'none' | 'attempted' | 'solved';
 
+/** Persisted user progress for a problem, stored in progress.json */
 export interface ProblemProgress {
     status: ProblemStatus;
     code: Record<string, string>;       // saved code per language

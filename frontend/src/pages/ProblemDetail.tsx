@@ -1,3 +1,8 @@
+/**
+ * Problem Detail Page \u2014 Main coding workspace with three resizable panels:
+ * description (left), code editor (top-right), and console (bottom-right).
+ * Handles progress persistence with debounced auto-save.
+ */
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { problemsApi } from '../services/apiClient';
@@ -111,26 +116,25 @@ const ProblemDetail: React.FC = () => {
     const handleLanguageChange = (newLanguage: Language) => {
         if (!problem) return;
 
-        // Check if code has been modified
+        // Save current code into the progress map
+        const currentProgress = progressRef.current;
+        const codeMap = { ...(currentProgress?.code || {}) };
+        codeMap[selectedLanguage] = code;
+
+        // Determine target code: saved code or template
+        const savedCode = codeMap[newLanguage];
+        const newCode = savedCode !== undefined ? savedCode : problem.templates[newLanguage];
+
+        // Warn only if current code is modified and target has no saved code (work could be lost)
         const currentTemplate = problem.templates[selectedLanguage];
-        if (code !== currentTemplate && code.trim() !== '') {
+        if (code !== currentTemplate && code.trim() !== '' && savedCode === undefined) {
             const confirmSwitch = window.confirm(
                 'Switching languages will reset your code. Are you sure?'
             );
             if (!confirmSwitch) return;
         }
 
-        // Save current language's code before switching
-        const currentProgress = progressRef.current;
-        const codeMap = { ...(currentProgress?.code || {}) };
-        codeMap[selectedLanguage] = code;
-
-        // Switch language — restore saved code or use template
-        const savedCode = codeMap[newLanguage];
-        const newCode = savedCode !== undefined ? savedCode : problem.templates[newLanguage];
-
         codeMap[newLanguage] = newCode;
-
         setSelectedLanguage(newLanguage);
         setCode(newCode);
 
@@ -217,7 +221,6 @@ const ProblemDetail: React.FC = () => {
                                     code={code}
                                     onChange={handleCodeChange}
                                     onReset={handleReset}
-                                    language={selectedLanguage}
                                     compilationErrors={executionResult?.compilationErrors}
                                     selectedLanguage={selectedLanguage}
                                     supportedLanguages={problem.metadata.supportedLanguages}

@@ -1,3 +1,8 @@
+/**
+ * Resizable Split Pane \u2014 A draggable divider between two panels.
+ * Supports horizontal (left/right) and vertical (top/bottom) layouts.
+ * Constrained between 20% and 80% to prevent collapsing.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import './ResizableSplitPane.css';
 

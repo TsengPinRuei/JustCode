@@ -1,3 +1,7 @@
+/**
+ * Console Panel \u2014 Bottom panel with Testcase/Result tabs and Run/Submit buttons.
+ * Manages switching between testcase input view and execution result view.
+ */
 import React from 'react';
 import { Problem, ExecutionResult } from '../types';
 import TestcaseTab from './TestcaseTab';

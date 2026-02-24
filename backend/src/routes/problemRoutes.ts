@@ -1,3 +1,7 @@
+/**
+ * API Routes \u2014 All REST endpoints for problems, code execution, progress, and import.
+ * Routes: GET/DELETE problems, POST run/submit, POST import, GET/PUT progress.
+ */
 import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
 import { CodeExecutorFactory } from '../services/codeExecutorFactory';

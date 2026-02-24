@@ -1,7 +1,12 @@
+/**
+ * Code Executor Factory — Returns the appropriate executor based on language.
+ * Implements the Factory pattern to abstract away language-specific execution logic.
+ */
 import { JavaExecutor } from './javaExecutor';
 import { PythonExecutor } from './pythonExecutor';
 import { Language, ProblemMetadata, Testcase, TestcaseResult, CompilationError } from '../types';
 
+/** Interface for language-specific code executors */
 export interface CodeExecutor {
     executeCode(
         userCode: string,
@@ -19,6 +24,7 @@ export interface CodeExecutor {
     }>;
 }
 
+/** Factory that returns a JavaExecutor or PythonExecutor based on the language */
 export class CodeExecutorFactory {
     static getExecutor(language: Language): CodeExecutor {
         switch (language) {

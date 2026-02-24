@@ -1,3 +1,7 @@
+/**
+ * Express server entry point.
+ * Configures middleware (CORS, JSON), mounts API routes, and starts listening.
+ */
 import express from 'express';
 import cors from 'cors';
 import problemRoutes from './routes/problemRoutes';

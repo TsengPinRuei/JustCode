@@ -1,3 +1,8 @@
+/**
+ * Problem Description \u2014 Renders problem description and editorial tabs.
+ * Uses ReactMarkdown with custom renderers for tabbed code groups
+ * and copy-to-clipboard buttons on code blocks.
+ */
 import React, { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

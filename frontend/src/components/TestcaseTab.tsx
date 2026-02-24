@@ -1,3 +1,7 @@
+/**
+ * Testcase Tab \u2014 Displays visible testcase inputs or a custom JSON input textarea.
+ * Users can switch between predefined cases and custom input mode.
+ */
 import React, { useState } from 'react';
 import { Problem } from '../types';
 
@@ -8,7 +12,7 @@ interface TestcaseTabProps {
 const TestcaseTab: React.FC<TestcaseTabProps> = ({ problem }) => {
     const [selectedTestcase, setSelectedTestcase] = useState(0);
     const [inputMode, setInputMode] = useState<'visible' | 'custom'>('visible');
-    const [customInput, setCustomInput] = useState('{"nums":[5,2,3,1]}');
+    const [customInput, setCustomInput] = useState('');
 
     return (
         <div>
@@ -27,7 +31,13 @@ const TestcaseTab: React.FC<TestcaseTabProps> = ({ problem }) => {
                 ))}
                 <button
                     className={`testcase-tab ${inputMode === 'custom' ? 'active' : ''}`}
-                    onClick={() => setInputMode('custom')}
+                    onClick={() => {
+                        // Pre-fill with first testcase input if empty
+                        if (!customInput && problem.visibleTestcases.length > 0) {
+                            setCustomInput(JSON.stringify(problem.visibleTestcases[0].input, null, 2));
+                        }
+                        setInputMode('custom');
+                    }}
                 >
                     Custom Input
                 </button>
@@ -38,7 +48,11 @@ const TestcaseTab: React.FC<TestcaseTabProps> = ({ problem }) => {
                     <div className="testcase-display">
                         <div className="testcase-label">Input:</div>
                         <div className="testcase-value">
-                            nums = {JSON.stringify(problem.visibleTestcases[selectedTestcase].input.nums)}
+                            {Object.entries(problem.visibleTestcases[selectedTestcase].input).map(
+                                ([key, value]) => (
+                                    <div key={key}>{key} = {JSON.stringify(value)}</div>
+                                )
+                            )}
                         </div>
                     </div>
                     <div className="testcase-display">
@@ -57,7 +71,7 @@ const TestcaseTab: React.FC<TestcaseTabProps> = ({ problem }) => {
                         className="custom-input-area"
                         value={customInput}
                         onChange={(e) => setCustomInput(e.target.value)}
-                        placeholder='{"nums":[5,2,3,1]}'
+                        placeholder='{"param1": value1, "param2": value2}'
                     />
                 </div>
             )}

@@ -1,3 +1,7 @@
+/**
+ * API Client \u2014 Axios-based HTTP client for all backend API calls.
+ * Provides methods for problems, code execution, progress, and import.
+ */
 import axios from 'axios';
 import { ProblemMetadata, Problem, ExecutionResult, Language, ProblemProgress } from '../types';
 

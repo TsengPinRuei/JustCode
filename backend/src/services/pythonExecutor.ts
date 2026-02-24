@@ -1,3 +1,8 @@
+/**
+ * Python Executor — Runs Python3 code in an isolated temp workspace.
+ * Generates a runner.py harness that handles JSON I/O and result comparison.
+ * No compilation step needed (Python is interpreted).
+ */
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -6,6 +11,7 @@ import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH } from '../constants';
 
 export class PythonExecutor {
+    /** Create an isolated temp directory for execution */
     private async createTempWorkspace(): Promise<string> {
         const tmpDir = path.join(process.cwd(), 'temp', uuidv4());
         await fs.mkdir(tmpDir, { recursive: true });
@@ -169,6 +175,7 @@ export class PythonExecutor {
         return errors;
     }
 
+    /** Main entry: write user code, run all testcases, and aggregate results */
     async executeCode(
         userCode: string,
         testcases: Testcase[],
@@ -293,6 +300,7 @@ export class PythonExecutor {
         }
     }
 
+    /** Generate the runner.py harness based on problem metadata */
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
         const functionName = metadata?.functionName || 'sortArray';
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];

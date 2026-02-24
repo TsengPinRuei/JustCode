@@ -1,3 +1,8 @@
+/**
+ * Java Executor — Compiles and runs Java code in an isolated temp workspace.
+ * Generates a Runner.java harness that handles JSON I/O, testcase parsing,
+ * and result serialization for any problem type.
+ */
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -6,12 +11,14 @@ import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH, COMPILE_TIMEOUT_MS } from '../constants';
 
 export class JavaExecutor {
+    /** Create an isolated temp directory for compilation and execution */
     private async createTempWorkspace(): Promise<string> {
         const tmpDir = path.join(process.cwd(), 'temp', uuidv4());
         await fs.mkdir(tmpDir, { recursive: true });
         return tmpDir;
     }
 
+    /** Remove the temp workspace after execution */
     private async cleanupWorkspace(workspaceDir: string): Promise<void> {
         try {
             await fs.rm(workspaceDir, { recursive: true, force: true });
@@ -20,6 +27,7 @@ export class JavaExecutor {
         }
     }
 
+    /** Execute a shell command with timeout; resolves with stdout, stderr, exitCode */
     private executeCommand(
         command: string,
         cwd: string,
@@ -50,6 +58,7 @@ export class JavaExecutor {
         });
     }
 
+    /** Compile Solution.java and Runner.java; returns compilation errors if any */
     private async compile(workspaceDir: string): Promise<{ success: boolean; error?: string; compilationErrors?: CompilationError[] }> {
         const compileCommand = 'javac Solution.java Runner.java';
         const result = await this.executeCommand(compileCommand, workspaceDir, COMPILE_TIMEOUT_MS);
@@ -66,6 +75,7 @@ export class JavaExecutor {
         return { success: true };
     }
 
+    /** Run a single testcase and return the result with debug output */
     private async runTestcase(
         workspaceDir: string,
         testcase: Testcase
@@ -153,10 +163,12 @@ export class JavaExecutor {
         }
     }
 
+    /** Deep-compare expected vs actual output using JSON serialization */
     private compareOutputs(expected: unknown, actual: unknown): boolean {
         return JSON.stringify(expected) === JSON.stringify(actual);
     }
 
+    /** Parse javac error output into structured CompilationError objects */
     private parseJavaCompilationErrors(stderr: string): CompilationError[] {
         const errors: CompilationError[] = [];
         // Java error format: "Solution.java:3: error: cannot find symbol"
@@ -179,6 +191,7 @@ export class JavaExecutor {
         return errors;
     }
 
+    /** Main entry: compile user code, run all testcases, and aggregate results */
     async executeCode(
         userCode: string,
         testcases: Testcase[],
@@ -412,6 +425,7 @@ export class JavaExecutor {
         }
     }
 
+    /** Generate the Runner.java harness based on problem metadata (params, return type) */
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
         // Fallback for legacy problems without metadata
         const functionName = metadata?.functionName || 'sortArray';

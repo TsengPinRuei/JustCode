@@ -1,3 +1,8 @@
+/**
+ * Problem List Page \u2014 Shows all problems in a table with status icons,
+ * difficulty badges, tags, and delete actions. Includes LeetCode import modal.
+ * Built-in problems (sort-array, add-two-integers) are protected from deletion.
+ */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { problemsApi } from '../services/apiClient';

@@ -1,3 +1,7 @@
+/**
+ * Frontend type definitions.
+ * Mirrors backend types for problems, testcases, execution results, and user progress.
+ */
 export type Language = 'java' | 'python3';
 
 export interface ParamInfo {
