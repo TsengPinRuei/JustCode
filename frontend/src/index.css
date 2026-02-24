@@ -43,6 +43,16 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   background-color: var(--bg-primary);
@@ -137,7 +147,7 @@ body {
 
 /* Problem List */
 .problem-list-container {
-  max-width: 1200px;
+  max-width: 90%;
   margin: 0 auto;
   padding: 32px 16px;
 }
@@ -159,6 +169,7 @@ body {
 .problem-table table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .problem-table th {
@@ -175,6 +186,11 @@ body {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
   font-size: 14px;
+}
+
+.problem-table th:last-child,
+.problem-table td:last-child {
+  padding-right: 32px;
 }
 
 .problem-table tr:last-child td {
@@ -230,9 +246,16 @@ body {
 }
 
 /* Problem Detail Layout */
-.problem-detail-container {
-  height: calc(100vh - 50px);
+.app {
   display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.problem-detail-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }
 
 .split-pane {
@@ -991,7 +1014,7 @@ body {
 
 /* Problem Table Column Widths */
 .problem-table th.col-status {
-  width: 60px;
+  width: 6%;
 }
 
 .problem-table td.col-status {
@@ -1012,15 +1035,15 @@ body {
 }
 
 .problem-table th.col-difficulty {
-  width: 120px;
+  width: 10%;
 }
 
 .problem-table th.col-tags {
-  width: 300px;
+  width: 30%;
 }
 
 .problem-table th.col-actions {
-  width: 70px;
+  width: 10%;
 }
 
 .delete-btn {
