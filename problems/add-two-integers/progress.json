@@ -1,5 +1,5 @@
 {
-    "status": "solved",
+    "status": "none",
     "code": {
         "java": "class Solution {\n    public int sum(int num1, int num2) {\n        \n    }\n}",
         "python3": "class Solution:\n    def sum(self, num1: int, num2: int) -> int:\n        "
