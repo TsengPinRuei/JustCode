@@ -1,18 +1,33 @@
 /**
- * Testcase Tab \u2014 Displays visible testcase inputs or a custom JSON input textarea.
+ * Testcase Tab — Displays visible testcase inputs or a custom JSON input textarea.
  * Users can switch between predefined cases and custom input mode.
  */
-import { useState, type FC } from 'react';
+import { useEffect, useState, type FC } from 'react';
 import { Problem } from '../types';
 
 interface TestcaseTabProps {
     problem: Problem;
+    inputMode: 'visible' | 'custom';
+    customInput: string;
+    onInputModeChange: (mode: 'visible' | 'custom') => void;
+    onCustomInputChange: (value: string) => void;
 }
 
-const TestcaseTab: FC<TestcaseTabProps> = ({ problem }) => {
+const TestcaseTab: FC<TestcaseTabProps> = ({
+    problem,
+    inputMode,
+    customInput,
+    onInputModeChange,
+    onCustomInputChange,
+}) => {
     const [selectedTestcase, setSelectedTestcase] = useState(0);
-    const [inputMode, setInputMode] = useState<'visible' | 'custom'>('visible');
-    const [customInput, setCustomInput] = useState('');
+    const selectedVisibleTestcase = problem.visibleTestcases[selectedTestcase];
+
+    useEffect(() => {
+        if (selectedTestcase >= problem.visibleTestcases.length) {
+            setSelectedTestcase(0);
+        }
+    }, [problem.visibleTestcases.length, selectedTestcase]);
 
     return (
         <div>
@@ -23,7 +38,7 @@ const TestcaseTab: FC<TestcaseTabProps> = ({ problem }) => {
                         className={`testcase-tab ${inputMode === 'visible' && selectedTestcase === index ? 'active' : ''}`}
                         onClick={() => {
                             setSelectedTestcase(index);
-                            setInputMode('visible');
+                            onInputModeChange('visible');
                         }}
                     >
                         Case {index + 1}
@@ -32,11 +47,10 @@ const TestcaseTab: FC<TestcaseTabProps> = ({ problem }) => {
                 <button
                     className={`testcase-tab ${inputMode === 'custom' ? 'active' : ''}`}
                     onClick={() => {
-                        // Pre-fill with first testcase input if empty
                         if (!customInput && problem.visibleTestcases.length > 0) {
-                            setCustomInput(JSON.stringify(problem.visibleTestcases[0].input, null, 2));
+                            onCustomInputChange(JSON.stringify(problem.visibleTestcases[0].input, null, 2));
                         }
-                        setInputMode('custom');
+                        onInputModeChange('custom');
                     }}
                 >
                     Custom Input
@@ -44,24 +58,28 @@ const TestcaseTab: FC<TestcaseTabProps> = ({ problem }) => {
             </div>
 
             {inputMode === 'visible' ? (
-                <div>
-                    <div className="testcase-display">
-                        <div className="testcase-label">Input:</div>
-                        <div className="testcase-value">
-                            {Object.entries(problem.visibleTestcases[selectedTestcase].input).map(
-                                ([key, value]) => (
-                                    <div key={key}>{key} = {JSON.stringify(value)}</div>
-                                )
-                            )}
+                selectedVisibleTestcase ? (
+                    <div>
+                        <div className="testcase-display">
+                            <div className="testcase-label">Input:</div>
+                            <div className="testcase-value">
+                                {Object.entries(selectedVisibleTestcase.input).map(
+                                    ([key, value]) => (
+                                        <div key={key}>{key} = {JSON.stringify(value)}</div>
+                                    )
+                                )}
+                            </div>
+                        </div>
+                        <div className="testcase-display">
+                            <div className="testcase-label">Expected Output:</div>
+                            <div className="testcase-value">
+                                {JSON.stringify(selectedVisibleTestcase.output)}
+                            </div>
                         </div>
                     </div>
-                    <div className="testcase-display">
-                        <div className="testcase-label">Expected Output:</div>
-                        <div className="testcase-value">
-                            {JSON.stringify(problem.visibleTestcases[selectedTestcase].output)}
-                        </div>
-                    </div>
-                </div>
+                ) : (
+                    <div className="result-empty-state">No visible testcases available.</div>
+                )
             ) : (
                 <div>
                     <div className="testcase-label custom-input-label">
@@ -70,7 +88,7 @@ const TestcaseTab: FC<TestcaseTabProps> = ({ problem }) => {
                     <textarea
                         className="custom-input-area"
                         value={customInput}
-                        onChange={(e) => setCustomInput(e.target.value)}
+                        onChange={(e) => onCustomInputChange(e.target.value)}
                         placeholder='{"param1": value1, "param2": value2}'
                     />
                 </div>

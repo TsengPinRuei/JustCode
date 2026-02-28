@@ -32,7 +32,7 @@ export class PythonExecutor {
         timeoutMs: number
     ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
         return new Promise((resolve) => {
-            const childProcess = exec(
+            exec(
                 command,
                 {
                     cwd,
@@ -180,7 +180,8 @@ export class PythonExecutor {
         userCode: string,
         testcases: Testcase[],
         showHiddenInputs: boolean = true,
-        metadata?: ProblemMetadata
+        metadata?: ProblemMetadata,
+        visibleTestcaseCount: number = testcases.length
     ): Promise<{
         status: 'AC' | 'WA' | 'CE' | 'RE' | 'TLE';
         message?: string;
@@ -191,6 +192,7 @@ export class PythonExecutor {
         debugOutput?: string;
     }> {
         const workspaceDir = await this.createTempWorkspace();
+        const hiddenStartIndex = Math.max(0, Math.min(visibleTestcaseCount, testcases.length));
 
         try {
             // Write user solution
@@ -214,7 +216,7 @@ export class PythonExecutor {
                 result.index = i + 1;
 
                 // Collect debug output
-                if (debugOutput) {
+                if (debugOutput && (showHiddenInputs || i < hiddenStartIndex)) {
                     debugOutputs.push(`[Testcase ${i + 1}]\n${debugOutput}`);
                 }
 
@@ -236,18 +238,26 @@ export class PythonExecutor {
                     }
                 }
 
-                // For hidden testcases (index >= 3), don't include detailed results when submitting
-                if (!showHiddenInputs && i >= 3) {
+                // For hidden testcases, don't include detailed results when submitting
+                if (!showHiddenInputs && i >= hiddenStartIndex) {
                     // Only track pass/fail, don't add to results array
                     if (result.status === 'Passed') {
                         passed++;
                     } else {
+                        const hiddenFailure: TestcaseResult = {
+                            index: result.index,
+                            status: result.status,
+                            executionTime: result.executionTime,
+                            ...(result.status === 'Error' && result.errorMessage
+                                ? { errorMessage: result.errorMessage }
+                                : {}),
+                        };
                         if (!firstFailure) {
-                            firstFailure = result;
+                            firstFailure = hiddenFailure;
                         }
                         // Track first hidden testcase failure for debugging
                         if (!firstHiddenFailure) {
-                            firstHiddenFailure = result;
+                            firstHiddenFailure = hiddenFailure;
                         }
                     }
                 } else {

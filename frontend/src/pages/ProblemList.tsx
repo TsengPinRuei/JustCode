@@ -65,8 +65,12 @@ const ProblemList: FC = () => {
                 setImportSuccess(null);
             }, 2000);
         } catch (error: unknown) {
-            const axiosErr = error as any;
-            const message = axiosErr?.response?.data?.error || axiosErr?.message || 'Failed to import problem';
+            const message =
+                (typeof error === 'object' && error !== null && 'response' in error
+                    ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
+                    : undefined) ||
+                (error instanceof Error ? error.message : undefined) ||
+                'Failed to import problem';
             setImportError(message);
         } finally {
             setImporting(false);

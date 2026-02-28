@@ -22,6 +22,19 @@ const ProblemDetail: FC = () => {
     const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
     const [activeTab, setActiveTab] = useState<'testcase' | 'result'>('testcase');
 
+    const getErrorMessage = (error: unknown, fallback: string): string => {
+        if (typeof error === 'object' && error !== null && 'response' in error) {
+            const response = (error as { response?: { data?: { error?: string } } }).response;
+            if (response?.data?.error) {
+                return response.data.error;
+            }
+        }
+        if (error instanceof Error && error.message) {
+            return error.message;
+        }
+        return fallback;
+    };
+
     // Progress tracking
     const progressRef = useRef<ProblemProgress | null>(null);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,7 +170,7 @@ const ProblemDetail: FC = () => {
             console.error('Error running code:', error);
             setExecutionResult({
                 status: 'RE',
-                message: 'Failed to run code. Please check your connection and try again.',
+                message: getErrorMessage(error, 'Failed to run code. Please check your connection and try again.'),
                 testcaseResults: [],
                 totalTestcases: 0,
                 passedTestcases: 0,
@@ -191,7 +204,7 @@ const ProblemDetail: FC = () => {
             console.error('Error submitting code:', error);
             setExecutionResult({
                 status: 'RE',
-                message: 'Failed to submit code. Please check your connection and try again.',
+                message: getErrorMessage(error, 'Failed to submit code. Please check your connection and try again.'),
                 testcaseResults: [],
                 totalTestcases: 0,
                 passedTestcases: 0,

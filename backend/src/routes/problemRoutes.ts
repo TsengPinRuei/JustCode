@@ -52,7 +52,10 @@ router.post('/run', async (req: Request, res: Response) => {
         const problem = await problemService.getProblem(problemId);
         let testcases: Testcase[] = [];
 
-        if (inputMode === 'custom' && customInput) {
+        if (inputMode === 'custom') {
+            if (typeof customInput !== 'string' || customInput.trim() === '') {
+                return res.status(400).json({ error: 'Custom input cannot be empty in custom mode' });
+            }
             // Parse custom input
             try {
                 const parsedInput = JSON.parse(customInput);
@@ -72,7 +75,39 @@ router.post('/run', async (req: Request, res: Response) => {
 
         // Get appropriate executor based on language
         const executor = CodeExecutorFactory.getExecutor(language);
-        const result = await executor.executeCode(code, testcases, true, problem.metadata);
+        const result = await executor.executeCode(
+            code,
+            testcases,
+            true,
+            problem.metadata,
+            testcases.length
+        );
+        if (inputMode === 'custom' && result.status !== 'CE') {
+            const testcaseResults = result.testcaseResults.map((testcaseResult) => {
+                const nextStatus = testcaseResult.status === 'Failed' ? 'Passed' : testcaseResult.status;
+                return {
+                    ...testcaseResult,
+                    status: nextStatus,
+                    expected: undefined,
+                };
+            });
+            const hasTimeout = testcaseResults.some((testcaseResult) => testcaseResult.status === 'Timeout');
+            const hasError = testcaseResults.some((testcaseResult) => testcaseResult.status === 'Error');
+            const normalizedStatus = hasTimeout ? 'TLE' : hasError ? 'RE' : 'AC';
+
+            return res.json({
+                ...result,
+                status: normalizedStatus,
+                message: hasTimeout
+                    ? 'Time Limit Exceeded'
+                    : hasError
+                        ? result.message || 'Runtime Error'
+                        : 'Executed successfully',
+                testcaseResults,
+                totalTestcases: testcaseResults.length,
+                passedTestcases: hasTimeout || hasError ? 0 : testcaseResults.length,
+            });
+        }
         res.json(result);
     } catch (error) {
         console.error('Error running code:', error);
@@ -88,13 +123,21 @@ router.post('/submit', async (req: Request, res: Response) => {
         // Load problem for metadata
         const problem = await problemService.getProblem(problemId);
 
-        // Get all testcases (visible + hidden)
-        const testcases = await problemService.getAllTestcases(problemId);
+        // Get all testcases (visible + hidden) and preserve the visible boundary
+        const visibleTestcases = await problemService.getVisibleTestcases(problemId);
+        const hiddenTestcases = await problemService.getHiddenTestcases(problemId);
+        const testcases = [...visibleTestcases, ...hiddenTestcases];
 
         // Get appropriate executor based on language
         const executor = CodeExecutorFactory.getExecutor(language);
         // Don't show hidden inputs in results
-        const result = await executor.executeCode(code, testcases, false, problem.metadata);
+        const result = await executor.executeCode(
+            code,
+            testcases,
+            false,
+            problem.metadata,
+            visibleTestcases.length
+        );
         res.json(result);
     } catch (error) {
         console.error('Error submitting code:', error);

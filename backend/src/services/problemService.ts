@@ -10,6 +10,17 @@ import { Problem, ProblemMetadata, Testcase, ProblemProgress } from '../types';
 const PROBLEMS_DIR = path.join(process.cwd(), '..', 'problems');
 
 export class ProblemService {
+    private validateProblemId(problemId: string): void {
+        if (!problemId || /[\/\\]/.test(problemId) || problemId === '.' || problemId === '..') {
+            throw new Error(`Invalid problem ID: ${problemId}`);
+        }
+    }
+
+    private getProblemDir(problemId: string): string {
+        this.validateProblemId(problemId);
+        return path.join(PROBLEMS_DIR, problemId);
+    }
+
     /** Scan problems/ directory and return metadata for all valid problems, sorted by title */
     async getAllProblems(): Promise<ProblemMetadata[]> {
         // Scan all subdirectories in the problems folder
@@ -36,11 +47,7 @@ export class ProblemService {
 
     /** Load a complete problem by ID: metadata, templates, testcases, and editorial */
     async getProblem(problemId: string): Promise<Problem> {
-        // Validate problemId to prevent path traversal attacks
-        if (!problemId || /[\/\\]/.test(problemId) || problemId === '.' || problemId === '..') {
-            throw new Error(`Invalid problem ID: ${problemId}`);
-        }
-        const problemDir = path.join(PROBLEMS_DIR, problemId);
+        const problemDir = this.getProblemDir(problemId);
 
         // Read problem metadata
         const metadataPath = path.join(problemDir, 'problem.json');
@@ -96,22 +103,27 @@ export class ProblemService {
 
     /** Get only visible testcases (for Run mode) — reads file directly for efficiency */
     async getVisibleTestcases(problemId: string): Promise<Testcase[]> {
-        const visiblePath = path.join(PROBLEMS_DIR, problemId, 'testcases_visible.json');
+        const visiblePath = path.join(this.getProblemDir(problemId), 'testcases_visible.json');
         const content = await fs.readFile(visiblePath, 'utf-8');
         return JSON.parse(content);
+    }
+
+    /** Get hidden testcases only (for Submit mode) */
+    async getHiddenTestcases(problemId: string): Promise<Testcase[]> {
+        const hiddenPath = path.join(this.getProblemDir(problemId), 'testcases_hidden.json');
+        try {
+            const hiddenContent = await fs.readFile(hiddenPath, 'utf-8');
+            return JSON.parse(hiddenContent);
+        } catch {
+            // Hidden testcases are optional
+            return [];
+        }
     }
 
     /** Get all testcases — visible + hidden (for Submit mode) — reads files directly for efficiency */
     async getAllTestcases(problemId: string): Promise<Testcase[]> {
         const visibleTestcases = await this.getVisibleTestcases(problemId);
-        let hiddenTestcases: Testcase[] = [];
-        try {
-            const hiddenPath = path.join(PROBLEMS_DIR, problemId, 'testcases_hidden.json');
-            const hiddenContent = await fs.readFile(hiddenPath, 'utf-8');
-            hiddenTestcases = JSON.parse(hiddenContent);
-        } catch {
-            // Hidden testcases are optional
-        }
+        const hiddenTestcases = await this.getHiddenTestcases(problemId);
         return [...visibleTestcases, ...hiddenTestcases];
     }
 
@@ -121,7 +133,7 @@ export class ProblemService {
         templates: Record<string, string>;
         visibleTestcases: Testcase[];
     }): Promise<void> {
-        const problemDir = path.join(PROBLEMS_DIR, problemId);
+        const problemDir = this.getProblemDir(problemId);
         await fs.mkdir(problemDir, { recursive: true });
 
         // Write problem.json
@@ -158,7 +170,7 @@ export class ProblemService {
 
     /** Read user progress from progress.json; returns null if not found */
     async getProgress(problemId: string): Promise<ProblemProgress | null> {
-        const progressPath = path.join(PROBLEMS_DIR, problemId, 'progress.json');
+        const progressPath = path.join(this.getProblemDir(problemId), 'progress.json');
         try {
             const content = await fs.readFile(progressPath, 'utf-8');
             return JSON.parse(content) as ProblemProgress;
@@ -169,7 +181,7 @@ export class ProblemService {
 
     /** Write user progress to progress.json */
     async saveProgress(problemId: string, progress: ProblemProgress): Promise<void> {
-        const progressPath = path.join(PROBLEMS_DIR, problemId, 'progress.json');
+        const progressPath = path.join(this.getProblemDir(problemId), 'progress.json');
         await fs.writeFile(progressPath, JSON.stringify(progress, null, 4), 'utf-8');
     }
 
@@ -192,7 +204,7 @@ export class ProblemService {
 
     /** Permanently delete a problem directory */
     async deleteProblem(problemId: string): Promise<void> {
-        const problemDir = path.join(PROBLEMS_DIR, problemId);
+        const problemDir = this.getProblemDir(problemId);
         await fs.rm(problemDir, { recursive: true, force: true });
     }
 }
