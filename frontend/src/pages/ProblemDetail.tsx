@@ -237,6 +237,8 @@ const ProblemDetail: FC = () => {
         <div className="problem-detail-container">
             <ResizableSplitPane
                 direction="horizontal"
+                minPrimarySizePx={450}
+                minSecondarySizePx={450}
                 left={<ProblemDescription problem={problem} />}
                 right={
                     <ResizableSplitPane
