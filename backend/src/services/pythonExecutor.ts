@@ -215,8 +215,8 @@ export class PythonExecutor {
                 const { result, debugOutput } = await this.runTestcase(workspaceDir, testcases[i]);
                 result.index = i + 1;
 
-                // Collect debug output
-                if (debugOutput && (showHiddenInputs || i < hiddenStartIndex)) {
+                // Collect debug output (including hidden testcases on submit)
+                if (debugOutput) {
                     debugOutputs.push(`[Testcase ${i + 1}]\n${debugOutput}`);
                 }
 
@@ -238,26 +238,18 @@ export class PythonExecutor {
                     }
                 }
 
-                // For hidden testcases, don't include detailed results when submitting
+                // For hidden testcases on submit, only keep summary pass count; retain full details for the first hidden failure
                 if (!showHiddenInputs && i >= hiddenStartIndex) {
                     // Only track pass/fail, don't add to results array
                     if (result.status === 'Passed') {
                         passed++;
                     } else {
-                        const hiddenFailure: TestcaseResult = {
-                            index: result.index,
-                            status: result.status,
-                            executionTime: result.executionTime,
-                            ...(result.status === 'Error' && result.errorMessage
-                                ? { errorMessage: result.errorMessage }
-                                : {}),
-                        };
                         if (!firstFailure) {
-                            firstFailure = hiddenFailure;
+                            firstFailure = result;
                         }
-                        // Track first hidden testcase failure for debugging
+                        // Keep full hidden testcase details for the first hidden failure.
                         if (!firstHiddenFailure) {
-                            firstHiddenFailure = hiddenFailure;
+                            firstHiddenFailure = result;
                         }
                     }
                 } else {
