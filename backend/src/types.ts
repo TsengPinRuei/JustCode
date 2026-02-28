@@ -52,7 +52,7 @@ export interface CompilationError {
 export interface ExecutionResult {
     status: 'AC' | 'WA' | 'CE' | 'RE' | 'TLE';
     message?: string;
-    testcaseResults?: TestcaseResult[];
+    testcaseResults: TestcaseResult[];
     totalTestcases?: number;
     passedTestcases?: number;
     compilationErrors?: CompilationError[];  // Compilation errors with location info

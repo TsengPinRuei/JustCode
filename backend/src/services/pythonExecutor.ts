@@ -32,7 +32,7 @@ export class PythonExecutor {
         timeoutMs: number
     ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
         return new Promise((resolve) => {
-            const process = exec(
+            const childProcess = exec(
                 command,
                 {
                     cwd,
@@ -302,6 +302,9 @@ export class PythonExecutor {
 
     /** Generate the runner.py harness based on problem metadata */
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
+        if (!metadata?.functionName || !metadata?.params) {
+            console.warn('Missing problem metadata (functionName/params); using hardcoded defaults');
+        }
         const functionName = metadata?.functionName || 'sortArray';
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
 

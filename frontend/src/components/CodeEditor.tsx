@@ -2,7 +2,7 @@
  * Code Editor Component \u2014 Monaco Editor wrapper with language switching,
  * font size controls, real-time error highlighting, and cursor-safe external updates.
  */
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, type FC } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Language, CompilationError } from '../types';
@@ -17,7 +17,7 @@ interface CodeEditorProps {
     onLanguageChange: (language: Language) => void;
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({
+const CodeEditor: FC<CodeEditorProps> = ({
     code,
     onChange,
     onReset,

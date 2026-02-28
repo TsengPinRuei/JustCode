@@ -3,12 +3,15 @@
  * difficulty badges, tags, and delete actions. Includes LeetCode import modal.
  * Built-in problems (sort-array, add-two-integers) are protected from deletion.
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { problemsApi } from '../services/apiClient';
 import { ProblemMetadata, ProblemProgress } from '../types';
 
-const ProblemList: React.FC = () => {
+/** Built-in problems that cannot be deleted (mirrors backend PROTECTED_PROBLEMS) */
+const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
+
+const ProblemList: FC = () => {
     const [problems, setProblems] = useState<ProblemMetadata[]>([]);
     const [progress, setProgress] = useState<Record<string, ProblemProgress>>({});
     const [loading, setLoading] = useState(true);
@@ -32,7 +35,7 @@ const ProblemList: React.FC = () => {
             setProblems(data);
             setProgress(progressData);
         } catch (error) {
-            // Error handled silently
+            console.error('Error loading problems:', error);
         } finally {
             setLoading(false);
         }
@@ -87,7 +90,7 @@ const ProblemList: React.FC = () => {
             await problemsApi.deleteProblem(problemId);
             setProblems(prev => prev.filter(p => p.id !== problemId));
         } catch (error) {
-            // Error handled silently
+            console.error('Error deleting problem:', error);
         }
     };
 
@@ -153,7 +156,7 @@ const ProblemList: React.FC = () => {
                                     ))}
                                 </td>
                                 <td>
-                                    {!['sort-array', 'add-two-integers'].includes(problem.id) && (
+                                    {!PROTECTED_PROBLEMS.has(problem.id) && (
                                         <button
                                             className="delete-btn"
                                             title="Delete problem"

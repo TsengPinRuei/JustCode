@@ -2,10 +2,10 @@
  * Navbar Component \u2014 Top navigation bar with logo and menu links.
  * \"Explore\" and \"Discuss\" links are placeholder (disabled) for future features.
  */
-import React from 'react';
+import { type FC } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-const Navbar: React.FC = () => {
+const Navbar: FC = () => {
     const location = useLocation();
 
     return (

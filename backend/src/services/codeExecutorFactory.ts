@@ -4,7 +4,7 @@
  */
 import { JavaExecutor } from './javaExecutor';
 import { PythonExecutor } from './pythonExecutor';
-import { Language, ProblemMetadata, Testcase, TestcaseResult, CompilationError } from '../types';
+import { Language, Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../types';
 
 /** Interface for language-specific code executors */
 export interface CodeExecutor {

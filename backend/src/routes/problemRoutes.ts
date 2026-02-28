@@ -7,6 +7,7 @@ import { ProblemService } from '../services/problemService';
 import { CodeExecutorFactory } from '../services/codeExecutorFactory';
 import { LeetCodeService } from '../services/leetcodeService';
 import { RunRequest, SubmitRequest, Testcase, ProblemProgress } from '../types';
+import { PROTECTED_PROBLEMS } from '../constants';
 
 const router = express.Router();
 const problemService = new ProblemService();
@@ -162,8 +163,6 @@ router.put('/progress/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/problems/:id - Delete a problem
-const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
-
 router.delete('/problems/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
