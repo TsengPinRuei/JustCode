@@ -36,6 +36,10 @@ export class ProblemService {
 
     /** Load a complete problem by ID: metadata, templates, testcases, and editorial */
     async getProblem(problemId: string): Promise<Problem> {
+        // Validate problemId to prevent path traversal attacks
+        if (!problemId || /[\/\\]/.test(problemId) || problemId === '.' || problemId === '..') {
+            throw new Error(`Invalid problem ID: ${problemId}`);
+        }
         const problemDir = path.join(PROBLEMS_DIR, problemId);
 
         // Read problem metadata
@@ -90,16 +94,25 @@ export class ProblemService {
         };
     }
 
-    /** Get only visible testcases (for Run mode) */
+    /** Get only visible testcases (for Run mode) — reads file directly for efficiency */
     async getVisibleTestcases(problemId: string): Promise<Testcase[]> {
-        const problem = await this.getProblem(problemId);
-        return problem.visibleTestcases;
+        const visiblePath = path.join(PROBLEMS_DIR, problemId, 'testcases_visible.json');
+        const content = await fs.readFile(visiblePath, 'utf-8');
+        return JSON.parse(content);
     }
 
-    /** Get all testcases — visible + hidden (for Submit mode) */
+    /** Get all testcases — visible + hidden (for Submit mode) — reads files directly for efficiency */
     async getAllTestcases(problemId: string): Promise<Testcase[]> {
-        const problem = await this.getProblem(problemId);
-        return [...problem.visibleTestcases, ...(problem.hiddenTestcases || [])];
+        const visibleTestcases = await this.getVisibleTestcases(problemId);
+        let hiddenTestcases: Testcase[] = [];
+        try {
+            const hiddenPath = path.join(PROBLEMS_DIR, problemId, 'testcases_hidden.json');
+            const hiddenContent = await fs.readFile(hiddenPath, 'utf-8');
+            hiddenTestcases = JSON.parse(hiddenContent);
+        } catch {
+            // Hidden testcases are optional
+        }
+        return [...visibleTestcases, ...hiddenTestcases];
     }
 
     /** Save a new problem: metadata, templates, and visible testcases */

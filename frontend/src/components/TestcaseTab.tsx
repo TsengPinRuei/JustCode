@@ -2,14 +2,14 @@
  * Testcase Tab \u2014 Displays visible testcase inputs or a custom JSON input textarea.
  * Users can switch between predefined cases and custom input mode.
  */
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 import { Problem } from '../types';
 
 interface TestcaseTabProps {
     problem: Problem;
 }
 
-const TestcaseTab: React.FC<TestcaseTabProps> = ({ problem }) => {
+const TestcaseTab: FC<TestcaseTabProps> = ({ problem }) => {
     const [selectedTestcase, setSelectedTestcase] = useState(0);
     const [inputMode, setInputMode] = useState<'visible' | 'custom'>('visible');
     const [customInput, setCustomInput] = useState('');

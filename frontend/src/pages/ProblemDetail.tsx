@@ -3,7 +3,7 @@
  * description (left), code editor (top-right), and console (bottom-right).
  * Handles progress persistence with debounced auto-save.
  */
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, type FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { problemsApi } from '../services/apiClient';
 import { Problem, ExecutionResult, Language, ProblemProgress } from '../types';
@@ -12,7 +12,7 @@ import ProblemDescription from '../components/ProblemDescription';
 import ConsolePanel from '../components/ConsolePanel';
 import ResizableSplitPane from '../components/ResizableSplitPane';
 
-const ProblemDetail: React.FC = () => {
+const ProblemDetail: FC = () => {
     const { id } = useParams<{ id: string }>();
     const [problem, setProblem] = useState<Problem | null>(null);
     const [code, setCode] = useState<string>('');
@@ -100,7 +100,7 @@ const ProblemDetail: React.FC = () => {
                 setCode(data.templates[initialLang]);
             }
         } catch (error) {
-            // Error handled silently
+            console.error('Error loading problem:', error);
         } finally {
             setLoading(false);
         }
@@ -154,7 +154,14 @@ const ProblemDetail: React.FC = () => {
             const result = await problemsApi.runCode(id, code, selectedLanguage, inputMode, customInput);
             setExecutionResult(result);
         } catch (error) {
-            // Error handled silently
+            console.error('Error running code:', error);
+            setExecutionResult({
+                status: 'RE',
+                message: 'Failed to run code. Please check your connection and try again.',
+                testcaseResults: [],
+                totalTestcases: 0,
+                passedTestcases: 0,
+            });
         } finally {
             setExecuting(false);
         }
@@ -181,7 +188,14 @@ const ProblemDetail: React.FC = () => {
                 });
             }
         } catch (error) {
-            // Error handled silently
+            console.error('Error submitting code:', error);
+            setExecutionResult({
+                status: 'RE',
+                message: 'Failed to submit code. Please check your connection and try again.',
+                testcaseResults: [],
+                totalTestcases: 0,
+                passedTestcases: 0,
+            });
         } finally {
             setExecuting(false);
         }

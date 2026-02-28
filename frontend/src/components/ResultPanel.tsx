@@ -2,7 +2,7 @@
  * Result Panel \u2014 Displays code execution results: status (AC/WA/CE/RE/TLE),
  * pass counts, per-testcase details, and filtered debug console output.
  */
-import React from 'react';
+import { type FC } from 'react';
 import { ExecutionResult } from '../types';
 
 interface ResultPanelProps {
@@ -10,7 +10,7 @@ interface ResultPanelProps {
     result: ExecutionResult | null;
 }
 
-const ResultPanel: React.FC<ResultPanelProps> = ({ executing, result }) => {
+const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
     if (executing) {
         return (
             <div className="loading">

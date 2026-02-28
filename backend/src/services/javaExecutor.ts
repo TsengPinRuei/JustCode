@@ -34,7 +34,7 @@ export class JavaExecutor {
         timeoutMs: number
     ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
         return new Promise((resolve) => {
-            const process = exec(
+            const childProcess = exec(
                 command,
                 {
                     cwd,
@@ -428,6 +428,9 @@ export class JavaExecutor {
     /** Generate the Runner.java harness based on problem metadata (params, return type) */
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
         // Fallback for legacy problems without metadata
+        if (!metadata?.functionName || !metadata?.params || !metadata?.returnType) {
+            console.warn('Missing problem metadata (functionName/params/returnType); using hardcoded defaults');
+        }
         const functionName = metadata?.functionName || 'sortArray';
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
         const returnType = this.mapTypeToJava(metadata?.returnType || 'int[]');
