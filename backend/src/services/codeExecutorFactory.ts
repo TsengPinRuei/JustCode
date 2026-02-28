@@ -12,7 +12,8 @@ export interface CodeExecutor {
         userCode: string,
         testcases: Testcase[],
         showHiddenInputs: boolean,
-        metadata?: ProblemMetadata
+        metadata?: ProblemMetadata,
+        visibleTestcaseCount?: number
     ): Promise<{
         status: 'AC' | 'WA' | 'CE' | 'RE' | 'TLE';
         message?: string;

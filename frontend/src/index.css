@@ -13,6 +13,7 @@
 
   --border-color: #3a3a3a;
   --border-hover: #4a4a4a;
+  --border-default: var(--border-color);
 
   --accent-green: #00b8a3;
   --accent-green-dark: #009688;

@@ -1,8 +1,8 @@
 /**
- * Console Panel \u2014 Bottom panel with Testcase/Result tabs and Run/Submit buttons.
+ * Console Panel — Bottom panel with Testcase/Result tabs and Run/Submit buttons.
  * Manages switching between testcase input view and execution result view.
  */
-import { type FC } from 'react';
+import { useState, type FC } from 'react';
 import { Problem, ExecutionResult } from '../types';
 import TestcaseTab from './TestcaseTab';
 import ResultPanel from './ResultPanel';
@@ -26,6 +26,9 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
     onRun,
     onSubmit,
 }) => {
+    const [inputMode, setInputMode] = useState<'visible' | 'custom'>('visible');
+    const [customInput, setCustomInput] = useState('');
+
     return (
         <div className="console-container">
             <div className="console-tabs">
@@ -46,7 +49,7 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
                 <div className="console-tabs-right">
                     <button
                         className="action-btn run-btn"
-                        onClick={() => onRun('visible')}
+                        onClick={() => onRun(inputMode, customInput)}
                         disabled={executing}
                     >
                         {executing ? 'Running...' : 'Run'}
@@ -62,7 +65,13 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
             </div>
             <div className="console-content">
                 {activeTab === 'testcase' ? (
-                    <TestcaseTab problem={problem} />
+                    <TestcaseTab
+                        problem={problem}
+                        inputMode={inputMode}
+                        customInput={customInput}
+                        onInputModeChange={setInputMode}
+                        onCustomInputChange={setCustomInput}
+                    />
                 ) : (
                     <ResultPanel executing={executing} result={executionResult} />
                 )}
