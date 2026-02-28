@@ -10,5 +10,3 @@ problems/**
 !problems/sort-array/**
 !problems/add-two-integers/
 !problems/add-two-integers/**
-problems/sort-array/progress.json
-problems/add-two-integers/progress.json
