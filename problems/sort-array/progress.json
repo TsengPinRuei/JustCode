@@ -1,6 +1,8 @@
 {
-    "status": "none",
-    "code": {},
-    "selectedLanguage": "",
-    "lastUpdated": ""
+    "status": "attempted",
+    "code": {
+        "java": "import java.util.*;\nclass Solution {\n    public int[] sortArray(int[] nums) {\n        if(nums.length > 100) Arrays.sort(nums);\n        else System.out.print(\"Oops\");\n\n        return nums;\n    }\n}"
+    },
+    "selectedLanguage": "java",
+    "lastUpdated": "2026-02-28T08:37:52.584Z"
 }
