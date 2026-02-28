@@ -6,9 +6,9 @@ node_modules
 temp
 
 problems/**
-problems/sort-array/progress.json
-problems/add-two-integers/progress.json
 !problems/sort-array/
 !problems/sort-array/**
 !problems/add-two-integers/
 !problems/add-two-integers/**
+problems/sort-array/progress.json
+problems/add-two-integers/progress.json
