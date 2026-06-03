@@ -23,6 +23,7 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
     const [selectedTestcase, setSelectedTestcase] = useState(0);
     const selectedVisibleTestcase = problem.visibleTestcases[selectedTestcase];
 
+    // Imported/new problems can change testcase count while the tab stays mounted.
     useEffect(() => {
         if (selectedTestcase >= problem.visibleTestcases.length) {
             setSelectedTestcase(0);
@@ -47,6 +48,7 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
                 <button
                     className={`testcase-tab ${inputMode === 'custom' ? 'active' : ''}`}
                     onClick={() => {
+                        // Seed custom input with the first visible testcase so the JSON shape is obvious.
                         if (!customInput && problem.visibleTestcases.length > 0) {
                             onCustomInputChange(JSON.stringify(problem.visibleTestcases[0].input, null, 2));
                         }

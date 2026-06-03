@@ -47,6 +47,7 @@
 html,
 body {
   height: 100%;
+  /* The coding workspace scrolls inside panels; body scroll would break split-pane sizing. */
   overflow: hidden;
 }
 
@@ -59,6 +60,7 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
+  /* Desktop-oriented app scale that matches the Monaco/editor density used throughout the UI. */
   zoom: 1.15;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -248,6 +250,7 @@ body {
 
 /* Problem Detail Layout */
 .app {
+  /* Navbar plus the problem workspace fill the viewport; child panels manage their own scrolling. */
   display: flex;
   flex-direction: column;
   height: 100%;

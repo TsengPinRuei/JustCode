@@ -6,6 +6,7 @@ export type Language = 'java' | 'python3';
 
 export interface ParamInfo {
     name: string;
+    // Internal type label consumed by runner generation; keep in sync with executor type mappers.
     type: string; // e.g. 'int[]', 'int', 'string', 'int[][]', 'string[]', 'ListNode', etc.
 }
 
@@ -42,11 +43,11 @@ export interface Problem {
 }
 
 export interface CompilationError {
-    file: string;          // Error file name (e.g., "Solution.java" or "solution.py")
-    line: number;          // Error line number (1-based)
-    column: number;        // Error column number (1-based)
-    message: string;       // Error message
-    severity: 'error' | 'warning';  // Severity level
+    file: string;          // File displayed in the editor, e.g. "Solution.java" or "solution.py".
+    line: number;          // 1-based line number from the compiler/runtime diagnostic.
+    column: number;        // 1-based column; defaults to 1 when the language omits it.
+    message: string;       // Human-readable diagnostic shown in the UI.
+    severity: 'error' | 'warning';
 }
 
 export interface ExecutionResult {
@@ -55,8 +56,8 @@ export interface ExecutionResult {
     testcaseResults: TestcaseResult[];
     totalTestcases?: number;
     passedTestcases?: number;
-    compilationErrors?: CompilationError[];  // Compilation errors with location info
-    debugOutput?: string;  // User's debug output (print statements)
+    compilationErrors?: CompilationError[];  // Structured locations used for Monaco markers.
+    debugOutput?: string;  // Captured stdout before RESULT_SEPARATOR.
 }
 
 export interface TestcaseResult {
@@ -89,7 +90,7 @@ export type ProblemStatus = 'none' | 'attempted' | 'solved';
 /** Persisted user progress for a problem, stored in progress.json */
 export interface ProblemProgress {
     status: ProblemStatus;
-    code: Record<string, string>;       // saved code per language
+    code: Record<string, string>;       // Saved code keyed by language so switching tabs is non-destructive.
     selectedLanguage: Language;
-    lastUpdated: string;                 // ISO timestamp
+    lastUpdated: string;                 // ISO timestamp assigned by the API on save.
 }

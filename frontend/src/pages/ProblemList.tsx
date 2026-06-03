@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { problemsApi } from '../services/apiClient';
 import { ProblemMetadata, ProblemProgress } from '../types';
 
-/** Built-in problems that cannot be deleted (mirrors backend PROTECTED_PROBLEMS) */
+/** Built-in problems hidden from delete UI; backend still enforces the same rule. */
 const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
 
 const ProblemList: FC = () => {
@@ -56,10 +56,10 @@ const ProblemList: FC = () => {
             const result = await problemsApi.importProblem(importUrl.trim());
             setImportSuccess(`Successfully imported: ${result.title}`);
             setImportUrl('');
-            // Refresh problem list
+            // Refresh after import because the backend writes a new problem directory.
             const data = await problemsApi.getProblems();
             setProblems(data);
-            // Auto-close after 2 seconds
+            // Leave the success state visible briefly so users know the import completed.
             setTimeout(() => {
                 setShowImportModal(false);
                 setImportSuccess(null);
@@ -176,7 +176,7 @@ const ProblemList: FC = () => {
                 </table>
             </div>
 
-            {/* Import Modal */}
+            {/* Import modal only creates local problems from visible LeetCode metadata/examples. */}
             {showImportModal && (
                 <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
                     <div className="import-modal" onClick={(e) => e.stopPropagation()}>

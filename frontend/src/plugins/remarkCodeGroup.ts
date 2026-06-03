@@ -14,7 +14,7 @@ import type { Root } from 'mdast';
  */
 export default function remarkCodeGroup() {
     return (tree: Root) => {
-        // We need to iterate over parent nodes and inspect their children
+        // Grouping requires parent-level access because consecutive code blocks are sibling nodes.
         visit(tree, (node: any) => {
             if (!node.children || !Array.isArray(node.children)) return;
 
@@ -25,9 +25,9 @@ export default function remarkCodeGroup() {
             while (i < children.length) {
                 const child = children[i];
 
-                // Check if this is a fenced code block with a language tag
+                // Only fenced code blocks with language tags can become tab labels.
                 if (child.type === 'code' && child.lang) {
-                    // Collect consecutive code blocks
+                    // Collect adjacent languages until a duplicate language or non-code node appears.
                     const group: { lang: string; value: string }[] = [];
                     const seenLangs = new Set<string>();
 
@@ -43,7 +43,7 @@ export default function remarkCodeGroup() {
                     }
 
                     if (group.length > 1) {
-                        // Wrap into a codeGroup node
+                        // Use hName/hProperties so ReactMarkdown can render a custom <code-group> element.
                         newChildren.push({
                             type: 'codeGroup',
                             data: {
@@ -55,7 +55,7 @@ export default function remarkCodeGroup() {
                             children: [],
                         });
                     } else {
-                        // Single code block — keep as is
+                        // Single code blocks should keep normal markdown rendering and copy behavior.
                         newChildren.push({
                             type: 'code',
                             lang: group[0].lang,

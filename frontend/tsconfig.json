@@ -9,14 +9,14 @@
         ],
         "module": "ESNext",
         "skipLibCheck": true,
-        /* Bundler mode */
+        /* Vite handles bundling and path resolution, so TypeScript only type-checks source files here. */
         "moduleResolution": "bundler",
         "allowImportingTsExtensions": true,
         "resolveJsonModule": true,
         "isolatedModules": true,
         "noEmit": true,
         "jsx": "react-jsx",
-        /* Linting */
+        /* Strict checks catch accidental UI/API type drift before the Vite build runs. */
         "strict": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,

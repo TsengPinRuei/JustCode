@@ -36,7 +36,7 @@ function CopyButton({ getText }: { getText: () => string }) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            // Fallback ignored
+            // Clipboard permissions vary by browser; a failed copy should not break rendering.
         }
     }, [getText]);
 
@@ -52,6 +52,7 @@ function CopyButton({ getText }: { getText: () => string }) {
 }
 
 function CodeGroupBlock({ languages }: { languages: string }) {
+    // remarkCodeGroup serializes grouped code blocks into this prop for the custom renderer.
     const items: { lang: string; value: string }[] = JSON.parse(languages);
     const [active, setActive] = useState(0);
 
@@ -82,6 +83,7 @@ function CodeGroupBlock({ languages }: { languages: string }) {
 
 const markdownComponents: Record<string, React.FC<any>> = {
     'code-group': (props: any) => {
+        // ReactMarkdown exposes hProperties differently across versions; support both paths.
         const langs = props.languages ?? props.node?.properties?.languages;
         if (!langs) return null;
         return <CodeGroupBlock languages={langs} />;
@@ -89,7 +91,7 @@ const markdownComponents: Record<string, React.FC<any>> = {
     pre: (props: any) => {
         const codeChild = props.children;
         const getText = () => {
-            // Extract text content from the code element
+            // ReactMarkdown wraps fenced code text in a code child; copy only plain string content.
             const code = codeChild?.props?.children;
             if (typeof code === 'string') return code;
             return '';
