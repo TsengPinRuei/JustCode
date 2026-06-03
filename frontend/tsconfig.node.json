@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        /* Composite project lets the root frontend tsconfig reference Vite config type-checking. */
         "composite": true,
         "skipLibCheck": true,
         "module": "ESNext",

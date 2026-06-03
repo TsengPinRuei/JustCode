@@ -56,21 +56,21 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
                 </div>
             )}
 
-            {/* Only show debug output for failing testcases when not all tests pass */}
+            {/* Show debug output only for failing cases so successful noisy prints do not bury the signal. */}
             {(() => {
-                // Skip if no debug output or all tests passed
+                // Skip if no debug output or all tests passed.
                 if (result.status === 'AC' || !result.debugOutput || !result.testcaseResults) {
                     return null;
                 }
 
-                // Get indices of failing testcases
+                // Match debug sections against the result rows that failed.
                 const failingIndices = result.testcaseResults
                     .filter(tc => tc.status !== 'Passed')
                     .map(tc => tc.index);
 
                 if (failingIndices.length === 0) return null;
 
-                // Parse debug output by testcase and filter to only failing ones
+                // Debug output is labeled by the backend as "[Testcase n]"; split only at those labels.
                 const debugSections = result.debugOutput.split(/\n\n(?=\[Testcase \d+\])/);
                 const filteredDebug = debugSections
                     .filter(section => {

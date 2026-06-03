@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        /* Build backend TypeScript into dist/ for npm start. */
         "target": "ES2020",
         "module": "commonjs",
         "lib": [
@@ -12,6 +13,7 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
+        /* Match Node's module resolver for Express/backend imports. */
         "moduleResolution": "node"
     },
     "include": [

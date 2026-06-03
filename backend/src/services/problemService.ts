@@ -7,15 +7,18 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { Problem, ProblemMetadata, Testcase, ProblemProgress } from '../types';
 
+// Backend commands run from backend/, so ../problems resolves to the shared problem store.
 const PROBLEMS_DIR = path.join(process.cwd(), '..', 'problems');
 
 export class ProblemService {
+    /** Reject path separators so problem IDs cannot escape the problems/ directory. */
     private validateProblemId(problemId: string): void {
         if (!problemId || /[\/\\]/.test(problemId) || problemId === '.' || problemId === '..') {
             throw new Error(`Invalid problem ID: ${problemId}`);
         }
     }
 
+    /** Build the canonical directory path after validating the user-provided ID. */
     private getProblemDir(problemId: string): string {
         this.validateProblemId(problemId);
         return path.join(PROBLEMS_DIR, problemId);
@@ -23,7 +26,7 @@ export class ProblemService {
 
     /** Scan problems/ directory and return metadata for all valid problems, sorted by title */
     async getAllProblems(): Promise<ProblemMetadata[]> {
-        // Scan all subdirectories in the problems folder
+        // Treat each immediate subdirectory as a candidate problem.
         const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
         const problems: ProblemMetadata[] = [];
 
@@ -39,7 +42,7 @@ export class ProblemService {
             }
         }
 
-        // Sort by title so numbering is in order
+        // Titles include LeetCode-style prefixes, so title sort keeps the visible list stable.
         problems.sort((a, b) => a.title.localeCompare(b.title));
 
         return problems;
@@ -54,7 +57,7 @@ export class ProblemService {
         const metadataContent = await fs.readFile(metadataPath, 'utf-8');
         const metadata: ProblemMetadata = JSON.parse(metadataContent);
 
-        // Read templates for all supported languages
+        // Missing templates should not make the whole problem unreadable; the editor can show an empty buffer.
         const templates: Record<string, string> = {};
         for (const lang of metadata.supportedLanguages) {
             const ext = lang === 'java' ? 'java' : 'py';
@@ -73,7 +76,7 @@ export class ProblemService {
         const visibleContent = await fs.readFile(visiblePath, 'utf-8');
         const visibleTestcases: Testcase[] = JSON.parse(visibleContent);
 
-        // Read hidden testcases (for submit)
+        // Hidden testcases are optional and are only used for Submit mode.
         let hiddenTestcases: Testcase[] = [];
         try {
             const hiddenPath = path.join(problemDir, 'testcases_hidden.json');
@@ -83,7 +86,7 @@ export class ProblemService {
             // Hidden testcases are optional, continue without them
         }
 
-        // Read editorial (optional)
+        // Editorial markdown is optional so imported/basic problems can still load.
         let editorial: string | undefined;
         try {
             const editorialPath = path.join(problemDir, 'editorial.md');
@@ -136,7 +139,7 @@ export class ProblemService {
         const problemDir = this.getProblemDir(problemId);
         await fs.mkdir(problemDir, { recursive: true });
 
-        // Write problem.json
+        // Persist the imported problem in the same file layout consumed by getProblem().
         await fs.writeFile(
             path.join(problemDir, 'problem.json'),
             JSON.stringify(data.metadata, null, 4),
@@ -160,7 +163,7 @@ export class ProblemService {
             'utf-8'
         );
 
-        // Write empty hidden testcases
+        // Imported LeetCode problems only provide example cases; keep a placeholder for future manual hidden tests.
         await fs.writeFile(
             path.join(problemDir, 'testcases_hidden.json'),
             JSON.stringify([], null, 4),
@@ -168,7 +171,7 @@ export class ProblemService {
         );
     }
 
-    /** Read user progress from progress.json; returns null if not found */
+    /** Read user progress from progress.json; returns null for missing or unreadable progress. */
     async getProgress(problemId: string): Promise<ProblemProgress | null> {
         const progressPath = path.join(this.getProblemDir(problemId), 'progress.json');
         try {
@@ -202,7 +205,7 @@ export class ProblemService {
         return result;
     }
 
-    /** Permanently delete a problem directory */
+    /** Permanently delete a problem directory; callers must enforce protected problem rules first. */
     async deleteProblem(problemId: string): Promise<void> {
         const problemDir = this.getProblemDir(problemId);
         await fs.rm(problemDir, { recursive: true, force: true });

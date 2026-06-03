@@ -35,11 +35,11 @@ const ProblemDetail: FC = () => {
         return fallback;
     };
 
-    // Progress tracking
+    // Keep the latest saved progress outside React render state so debounced saves read current data.
     const progressRef = useRef<ProblemProgress | null>(null);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Save progress to backend
+    // Merge partial updates with the last known progress snapshot before writing progress.json.
     const saveProgress = useCallback(async (updates: Partial<ProblemProgress>) => {
         if (!id) return;
         const current = progressRef.current || {
@@ -53,11 +53,11 @@ const ProblemDetail: FC = () => {
         try {
             await problemsApi.saveProgress(id, updated);
         } catch {
-            // Silently ignore save errors
+            // Auto-save should not interrupt coding; explicit Run/Submit failures are shown separately.
         }
     }, [id]);
 
-    // Debounced auto-save on code change
+    // Debounce editor changes to avoid writing progress.json on every keystroke.
     const debouncedSave = useCallback((newCode: string, lang: Language) => {
         if (saveTimerRef.current) {
             clearTimeout(saveTimerRef.current);
@@ -75,7 +75,7 @@ const ProblemDetail: FC = () => {
         }, 1000);
     }, [saveProgress]);
 
-    // Cleanup timer on unmount
+    // Clear a pending auto-save when navigating away from the problem detail page.
     useEffect(() => {
         return () => {
             if (saveTimerRef.current) {
@@ -99,15 +99,15 @@ const ProblemDetail: FC = () => {
             setProblem(data);
 
             if (progress && progress.status !== 'none') {
-                // Restore saved progress
+                // Restore saved progress only after both problem metadata and progress are available.
                 progressRef.current = progress;
                 const lang = progress.selectedLanguage || data.metadata.supportedLanguages[0] || 'java';
                 setSelectedLanguage(lang);
-                // Use saved code if available, otherwise fall back to template
+                // A language can be selected without saved code yet; fall back to its starter template.
                 const savedCode = progress.code?.[lang];
                 setCode(savedCode !== undefined ? savedCode : data.templates[lang]);
             } else {
-                // First visit — use defaults
+                // First visit starts from the problem's first supported language and template.
                 const initialLang = data.metadata.supportedLanguages[0] || 'java';
                 setSelectedLanguage(initialLang);
                 setCode(data.templates[initialLang]);
@@ -119,26 +119,26 @@ const ProblemDetail: FC = () => {
         }
     };
 
-    // Handle code change from editor
+    // Editor changes update local UI immediately and persist in the background.
     const handleCodeChange = (value: string) => {
         setCode(value);
         debouncedSave(value, selectedLanguage);
     };
 
-    // Handle language change
+    // Preserve the current language buffer before switching so users can move between languages safely.
     const handleLanguageChange = (newLanguage: Language) => {
         if (!problem) return;
 
-        // Save current code into the progress map
+        // Store the currently visible code before selecting the next language.
         const currentProgress = progressRef.current;
         const codeMap = { ...(currentProgress?.code || {}) };
         codeMap[selectedLanguage] = code;
 
-        // Determine target code: saved code or template
+        // Prefer previously saved code for the target language; otherwise show the starter template.
         const savedCode = codeMap[newLanguage];
         const newCode = savedCode !== undefined ? savedCode : problem.templates[newLanguage];
 
-        // Warn only if current code is modified and target has no saved code (work could be lost)
+        // Warn only when the switch would replace unsaved edits with a template.
         const currentTemplate = problem.templates[selectedLanguage];
         if (code !== currentTemplate && code.trim() !== '' && savedCode === undefined) {
             const confirmSwitch = window.confirm(
@@ -189,7 +189,7 @@ const ProblemDetail: FC = () => {
             const result = await problemsApi.submitCode(id, code, selectedLanguage);
             setExecutionResult(result);
 
-            // If all tests passed, mark as solved
+            // Only Submit can mark a problem solved because it includes hidden testcases.
             if (result.status === 'AC') {
                 const currentProgress = progressRef.current;
                 const codeMap = { ...(currentProgress?.code || {}) };

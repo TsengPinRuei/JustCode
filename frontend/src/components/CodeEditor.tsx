@@ -28,11 +28,11 @@ const CodeEditor: FC<CodeEditorProps> = ({
 }) => {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [fontSize, setFontSize] = useState(14);
-    // Track whether onChange should be suppressed (during external code sync)
+    // Suppress onChange while setValue applies external resets/language switches.
     const preventOnChangeRef = useRef(false);
-    // Track the previous code prop to detect external changes
+    // Track the previous code prop to detect external changes.
     const prevCodeRef = useRef(code);
-    // Track whether the change originated from user typing
+    // User edits already update Monaco, so they should not be replayed through setValue.
     const isUserEditRef = useRef(false);
 
     const MIN_FONT_SIZE = 12;
@@ -58,15 +58,15 @@ const CodeEditor: FC<CodeEditorProps> = ({
         setFontSize(prev => Math.max(prev - 2, MIN_FONT_SIZE));
     };
 
-    // Sync external code changes (reset, language switch) to the editor via ref.
-    // User typing goes directly through Monaco without this path.
+    // Sync external code changes (reset, language switch) through the editor ref.
+    // Replaying user typing with setValue would move the cursor, so that path is skipped.
     useEffect(() => {
         if (editorRef.current && code !== prevCodeRef.current) {
             if (isUserEditRef.current) {
-                // Change originated from user typing — skip setValue to preserve cursor
+                // Change originated from user typing; Monaco already has the latest text.
                 isUserEditRef.current = false;
             } else {
-                // External change (reset, language switch) — sync to editor
+                // External change such as reset/language switch; update Monaco without firing onChange.
                 const currentValue = editorRef.current.getValue();
                 if (code !== currentValue) {
                     preventOnChangeRef.current = true;
@@ -78,7 +78,8 @@ const CodeEditor: FC<CodeEditorProps> = ({
         prevCodeRef.current = code;
     }, [code]);
 
-    // Update Monaco markers when compilation errors change
+    // Update Monaco markers when compilation errors change.
+    // The backend reports 1-based locations that Monaco can consume directly.
     useEffect(() => {
         if (editorRef.current) {
             const monaco = (window as any).monaco;
@@ -100,7 +101,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
                 }));
                 monaco.editor.setModelMarkers(model, 'compilation', markers);
             } else {
-                // Clear markers when no errors
+                // Clear old diagnostics after successful compilation/execution.
                 monaco.editor.setModelMarkers(model, 'compilation', []);
             }
         }

@@ -1,5 +1,6 @@
 import { ProblemMetadata, Testcase, Language } from '../types';
 
+// Shape of the subset of LeetCode's GraphQL response that JustCode imports.
 interface LeetCodeGraphQLResponse {
     data: {
         question: {
@@ -31,7 +32,7 @@ export class LeetCodeService {
     private readonly GRAPHQL_URL = 'https://leetcode.com/graphql';
 
     /**
-     * Extract titleSlug from a LeetCode URL
+     * Extract titleSlug from a LeetCode URL.
      * Supports: https://leetcode.com/problems/two-sum/
      *           https://leetcode.com/problems/two-sum/description/
      *           https://leetcode.com/problems/two-sum
@@ -45,7 +46,8 @@ export class LeetCodeService {
     }
 
     /**
-     * Fetch problem data from LeetCode's GraphQL API
+     * Fetch public problem data from LeetCode's GraphQL API.
+     * This imports only visible metadata/examples, not LeetCode's hidden judge cases.
      */
     private async fetchProblemData(titleSlug: string): Promise<LeetCodeGraphQLResponse> {
         const query = `
@@ -99,20 +101,20 @@ export class LeetCodeService {
     }
 
     /**
-     * Parse HTML content to extract description, examples, and constraints
+     * Parse LeetCode HTML content into markdown-ish description, examples, and constraints.
+     * The regexes intentionally target common LeetCode markup and may need updates if their DOM changes.
      */
     private parseContent(html: string): {
         description: string;
         examples: Array<{ input: string; output: string; explanation?: string }>;
         constraints: string[];
     } {
-        // Strip HTML tags for description
+        // Accumulate text fields separately so partial parsing failures do not break all imports.
         let description = '';
         const examples: Array<{ input: string; output: string; explanation?: string }> = [];
         const constraints: string[] = [];
 
-        // Remove HTML tags and decode entities for the description part
-        // Split content by example sections
+        // Decode the small entity set LeetCode commonly emits before applying markup regexes.
         const cleanHtml = html
             .replace(/&lt;/g, '<')
             .replace(/&gt;/g, '>')
@@ -121,7 +123,7 @@ export class LeetCodeService {
             .replace(/&#39;/g, "'")
             .replace(/&nbsp;/g, ' ');
 
-        // Extract description (text before the first example)
+        // The description is everything before "Example 1" when that marker exists.
         const exampleStart = cleanHtml.search(/<strong[^>]*>Example\s*1/i);
         if (exampleStart !== -1) {
             description = this.stripHtml(cleanHtml.substring(0, exampleStart)).trim();
@@ -129,13 +131,13 @@ export class LeetCodeService {
             description = this.stripHtml(cleanHtml).trim();
         }
 
-        // Extract examples
+        // Examples are parsed from the rendered statement, while raw testcase input comes from exampleTestcaseList.
         const exampleRegex = /<strong[^>]*>Example\s*(\d+)[^<]*<\/strong>([\s\S]*?)(?=<strong[^>]*>Example\s*\d|<strong[^>]*>Constraints|<p><strong[^>]*>Constraints|$)/gi;
         let exMatch;
         while ((exMatch = exampleRegex.exec(cleanHtml)) !== null) {
             const exContent = exMatch[2];
 
-            // Extract input
+            // Inputs/outputs remain display strings here; parseTestcases converts machine values later.
             const inputMatch = exContent.match(/Input:\s*([\s\S]*?)(?=Output:|$)/i);
             const outputMatch = exContent.match(/Output:\s*([\s\S]*?)(?=Explanation:|<\/pre>|$)/i);
             const explanationMatch = exContent.match(/Explanation:\s*([\s\S]*?)(?=<\/pre>|$)/i);
@@ -148,11 +150,11 @@ export class LeetCodeService {
             }
         }
 
-        // Extract constraints
+        // Constraints usually live in a list after the final Constraints heading.
         const constraintSection = cleanHtml.match(/<strong[^>]*>Constraints[^<]*<\/strong>([\s\S]*?)$/i);
         if (constraintSection) {
             const constraintHtml = constraintSection[1];
-            // Extract list items
+            // Keep each bullet as a single compact string for UI rendering.
             const liRegex = /<li>([\s\S]*?)<\/li>/gi;
             let liMatch;
             while ((liMatch = liRegex.exec(constraintHtml)) !== null) {
@@ -169,7 +171,7 @@ export class LeetCodeService {
     }
 
     /**
-     * Strip HTML tags from a string
+     * Strip HTML tags while preserving enough markdown-like formatting for descriptions.
      */
     private stripHtml(html: string): string {
         return html
@@ -194,7 +196,7 @@ export class LeetCodeService {
     }
 
     /**
-     * Strip all HTML tags from a string without any markdown conversion
+     * Strip all HTML tags from examples/constraints where markdown markers would be noisy.
      */
     private stripAllHtml(html: string): string {
         return html
@@ -207,11 +209,12 @@ export class LeetCodeService {
     }
 
     /**
-     * Map LeetCode type strings to our internal type format
+     * Map LeetCode type strings to the internal labels understood by code executors.
+     * Unsupported complex structures are returned as-is and need executor support before they run.
      */
     private mapLeetCodeType(lcType: string): string {
         const t = lcType.trim();
-        // Common LeetCode types
+        // Common scalar, array, and nested-list types supported by runner generation.
         if (t === 'integer' || t === 'int') return 'int';
         if (t === 'integer[]' || t === 'int[]') return 'int[]';
         if (t === 'integer[][]' || t === 'int[][]') return 'int[][]';
@@ -232,13 +235,13 @@ export class LeetCodeService {
         if (t === 'list<list<integer>>' || t === 'list<list<int>>') return 'list<list<integer>>';
         if (t === 'list<list<string>>') return 'list<list<string>>';
         if (t === 'list<boolean>') return 'list<boolean>';
-        // Default
+        // Default preserves imported metadata even when execution support is not implemented yet.
         return t;
     }
 
     /**
-     * Parse the exampleTestcaseList values into testcase objects based on param types
-     * Each example is a series of lines, one per parameter
+     * Parse exampleTestcaseList values into testcase objects.
+     * Each example input is a newline-delimited series of parameter values in metadata order.
      */
     private parseTestcases(
         exampleTestcaseList: string[],
@@ -253,19 +256,19 @@ export class LeetCodeService {
 
             const input: Record<string, unknown> = {};
 
-            // Each line corresponds to a parameter
+            // Each line corresponds to one parameter; JSON.parse handles arrays/numbers/booleans.
             for (let j = 0; j < params.length && j < lines.length; j++) {
                 const param = params[j];
                 const line = lines[j].trim();
                 try {
                     input[param.name] = JSON.parse(line);
                 } catch {
-                    // If not valid JSON, treat as string
+                    // Bare strings are not valid JSON in LeetCode examples, so keep them as text.
                     input[param.name] = line;
                 }
             }
 
-            // Parse expected output from examples
+            // The display output may be JSON-compatible; otherwise keep its raw string form.
             let output: unknown = null;
             if (i < examples.length) {
                 try {
@@ -282,7 +285,7 @@ export class LeetCodeService {
     }
 
     /**
-     * Main import function: fetch from LeetCode and convert to JustCode format
+     * Main import function: fetch from LeetCode and convert to JustCode's file-backed format.
      */
     async importProblem(url: string): Promise<{
         metadata: ProblemMetadata;
@@ -291,11 +294,11 @@ export class LeetCodeService {
     }> {
         const titleSlug = this.extractSlug(url);
 
-        // Fetch from LeetCode API
+        // Fetch public statement metadata before converting it into local problem files.
         const response = await this.fetchProblemData(titleSlug);
         const question = response.data.question;
 
-        // Parse metaData for function name and parameter types
+        // metaData supplies the canonical function name, params, and return type for runner generation.
         let metaData: LeetCodeMetaData;
         try {
             metaData = JSON.parse(question.metaData);
@@ -303,10 +306,10 @@ export class LeetCodeService {
             throw new Error('Failed to parse problem metadata from LeetCode');
         }
 
-        // Parse content
+        // Parse human-readable statement sections from LeetCode's HTML content.
         const { description, examples, constraints } = this.parseContent(question.content);
 
-        // Map params
+        // Normalize parameter types before saving metadata consumed by executors.
         const params = metaData.params.map(p => ({
             name: p.name,
             type: this.mapLeetCodeType(p.type),
@@ -314,7 +317,7 @@ export class LeetCodeService {
 
         const returnType = this.mapLeetCodeType(metaData.return.type);
 
-        // Determine supported languages and extract code snippets
+        // Save only languages that this project has executor support for.
         const supportedLanguages: Language[] = [];
         const templates: Record<string, string> = {};
         const functionSignatures: Record<string, string> = {};
@@ -323,7 +326,7 @@ export class LeetCodeService {
             if (snippet.langSlug === 'java') {
                 supportedLanguages.push('java');
                 templates['java'] = snippet.code;
-                // Extract function signature from code snippet
+                // Keep the displayed signature for UI/reference; execution uses metadata instead.
                 const sigMatch = snippet.code.match(/public\s+\S+\s+\w+\s*\([^)]*\)/);
                 functionSignatures['java'] = sigMatch ? sigMatch[0] : '';
             } else if (snippet.langSlug === 'python3') {
@@ -338,14 +341,14 @@ export class LeetCodeService {
             throw new Error('No supported languages (Java/Python3) found for this problem');
         }
 
-        // Parse test cases
+        // LeetCode exposes example testcases only; hidden cases must be added manually later.
         const testcases = this.parseTestcases(
             question.exampleTestcaseList,
             metaData.params,
             examples
         );
 
-        // Build metadata
+        // Build the canonical problem metadata saved in problem.json.
         const metadata: ProblemMetadata = {
             id: titleSlug,
             title: `${question.questionFrontendId}. ${question.title}`,

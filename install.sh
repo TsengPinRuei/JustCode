@@ -1,11 +1,11 @@
 #!/bin/bash
 
-set -e  # Exit on error
+set -e  # 任一安裝步驟失敗就停止，避免留下半套依賴狀態。
 
 echo "=== JustCode 安裝指令 ==="
 echo ""
 
-# Check Node.js version
+# JustCode relies on modern workspace/package behavior available in Node.js 18+.
 echo "檢查環境..."
 if ! command -v node &> /dev/null; then
     echo "未找到 Node.js"
@@ -21,7 +21,7 @@ fi
 echo "Node.js 版本：$(node -v)"
 echo ""
 
-# Install all dependencies using npm workspaces
+# Root npm install 會依 package.json workspaces 一次安裝 frontend/backend 依賴。
 echo "安裝依賴套件（這可能需要幾分鐘）..."
 if npm install; then
     echo "所有依賴安裝成功"

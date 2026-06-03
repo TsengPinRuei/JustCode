@@ -13,7 +13,7 @@ const router = express.Router();
 const problemService = new ProblemService();
 const leetcodeService = new LeetCodeService();
 
-// GET /api/problems - Get list of all problems
+// GET /api/problems - Get list of all problems.
 router.get('/problems', async (req: Request, res: Response) => {
     try {
         const problems = await problemService.getAllProblems();
@@ -24,13 +24,13 @@ router.get('/problems', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/problems/:id - Get problem details
+// GET /api/problems/:id - Get problem details.
 router.get('/problems/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const problem = await problemService.getProblem(id);
 
-        // Return metadata, templates, and visible testcases only
+        // Never expose hidden testcases from the detail endpoint; Submit loads them server-side.
         res.json({
             metadata: problem.metadata,
             templates: problem.templates,
@@ -43,12 +43,12 @@ router.get('/problems/:id', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/run - Run code with visible or custom testcases
+// POST /api/run - Run code with visible or custom testcases.
 router.post('/run', async (req: Request, res: Response) => {
     try {
         const { problemId, code, language, inputMode, customInput }: RunRequest = req.body;
 
-        // Load problem for metadata
+        // Metadata drives runner generation, so load it even when the user supplies custom input.
         const problem = await problemService.getProblem(problemId);
         let testcases: Testcase[] = [];
 
@@ -56,7 +56,7 @@ router.post('/run', async (req: Request, res: Response) => {
             if (typeof customInput !== 'string' || customInput.trim() === '') {
                 return res.status(400).json({ error: 'Custom input cannot be empty in custom mode' });
             }
-            // Parse custom input
+            // Custom input must be the same JSON object shape as testcase.input.
             try {
                 const parsedInput = JSON.parse(customInput);
                 testcases = [
@@ -69,11 +69,11 @@ router.post('/run', async (req: Request, res: Response) => {
                 return res.status(400).json({ error: 'Invalid custom input JSON format' });
             }
         } else {
-            // Use visible testcases
+            // Run mode intentionally excludes hidden tests so users can inspect every input/result pair.
             testcases = await problemService.getVisibleTestcases(problemId);
         }
 
-        // Get appropriate executor based on language
+        // Delegate language-specific harness generation and execution to the selected executor.
         const executor = CodeExecutorFactory.getExecutor(language);
         const result = await executor.executeCode(
             code,
@@ -83,6 +83,7 @@ router.post('/run', async (req: Request, res: Response) => {
             testcases.length
         );
         if (inputMode === 'custom' && result.status !== 'CE') {
+            // Custom runs have no expected answer, so a value mismatch is still a successful execution.
             const testcaseResults = result.testcaseResults.map((testcaseResult) => {
                 const nextStatus = testcaseResult.status === 'Failed' ? 'Passed' : testcaseResult.status;
                 return {
@@ -115,22 +116,21 @@ router.post('/run', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/submit - Submit code with all testcases
+// POST /api/submit - Submit code with all testcases.
 router.post('/submit', async (req: Request, res: Response) => {
     try {
         const { problemId, code, language }: SubmitRequest = req.body;
 
-        // Load problem for metadata
+        // Metadata is required for runner generation across both visible and hidden cases.
         const problem = await problemService.getProblem(problemId);
 
-        // Get all testcases (visible + hidden) and preserve the visible boundary
+        // Preserve the boundary so executor can summarize hidden cases without revealing their inputs.
         const visibleTestcases = await problemService.getVisibleTestcases(problemId);
         const hiddenTestcases = await problemService.getHiddenTestcases(problemId);
         const testcases = [...visibleTestcases, ...hiddenTestcases];
 
-        // Get appropriate executor based on language
+        // Submit hides hidden inputs but still counts them in total/passed statistics.
         const executor = CodeExecutorFactory.getExecutor(language);
-        // Don't show hidden inputs in results
         const result = await executor.executeCode(
             code,
             testcases,
@@ -145,7 +145,7 @@ router.post('/submit', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/import-problem - Import a LeetCode problem by URL
+// POST /api/import-problem - Import a LeetCode problem by URL.
 router.post('/import-problem', async (req: Request, res: Response) => {
     try {
         const { url } = req.body;
@@ -168,7 +168,7 @@ router.post('/import-problem', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/progress - Get progress for all problems
+// GET /api/progress - Get progress for all problems.
 router.get('/progress', async (req: Request, res: Response) => {
     try {
         const progress = await problemService.getAllProgress();
@@ -179,7 +179,7 @@ router.get('/progress', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/progress/:id - Get progress for a specific problem
+// GET /api/progress/:id - Get progress for a specific problem.
 router.get('/progress/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -191,11 +191,12 @@ router.get('/progress/:id', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/progress/:id - Save progress for a specific problem
+// PUT /api/progress/:id - Save progress for a specific problem.
 router.put('/progress/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const progress: ProblemProgress = req.body;
+        // Trust the server clock so progress ordering is consistent across clients.
         progress.lastUpdated = new Date().toISOString();
         await problemService.saveProgress(id, progress);
         res.json({ success: true });
@@ -205,10 +206,11 @@ router.put('/progress/:id', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE /api/problems/:id - Delete a problem
+// DELETE /api/problems/:id - Delete a problem.
 router.delete('/problems/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        // The UI also hides this action, but the API must enforce it for direct requests.
         if (PROTECTED_PROBLEMS.has(id)) {
             return res.status(403).json({ error: 'Cannot delete built-in problems' });
         }

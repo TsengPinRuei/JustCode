@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e  # Exit on error
+set -e  # 任一清理步驟失敗就停止，避免誤以為已完整移除。
 
 echo "=== JustCode 移除指令 ==="
 echo ""
@@ -8,7 +8,7 @@ echo "警告：此操作將刪除所有 node_modules 和 package-lock.json 文�
 echo "源代碼和配置文件將被保留"
 echo ""
 
-# 確認用戶意圖
+# 這個腳本會刪除依賴與建置產物；先確認避免誤觸。
 read -p "確定要繼續嗎？(y/N): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -19,7 +19,7 @@ fi
 echo ""
 echo "開始移除..."
 
-# Check if rimraf is available
+# 若 root 依賴仍存在，優先使用 package.json 中維護的 clean 指令。
 if command -v npx &> /dev/null && [ -d "node_modules" ]; then
     echo ""
     echo "使用 npm clean 指令..."
@@ -28,6 +28,7 @@ else
     echo ""
     echo "手動清理依賴..."
     
+    # 手動模式逐層清理 workspaces，保留原始碼與設定檔。
     # 刪除 root node_modules
     echo ""
     echo "步驟 1: 清理 root 依賴..."
@@ -119,7 +120,7 @@ else
     fi
 fi
 
-# 清理 macOS 文件
+# 清理 Finder 產生的 macOS metadata，避免重新壓縮/提交時帶入。
 DSSTORE_COUNT=$(find . -name ".DS_Store" 2>/dev/null | wc -l | tr -d ' ')
 if [ "$DSSTORE_COUNT" -gt 0 ]; then
     find . -name ".DS_Store" -delete 2>/dev/null

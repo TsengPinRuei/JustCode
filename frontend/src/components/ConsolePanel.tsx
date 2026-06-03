@@ -26,6 +26,7 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
     onRun,
     onSubmit,
 }) => {
+    // The selected testcase/custom input mode lives here because Run uses it across both tabs.
     const [inputMode, setInputMode] = useState<'visible' | 'custom'>('visible');
     const [customInput, setCustomInput] = useState('');
 

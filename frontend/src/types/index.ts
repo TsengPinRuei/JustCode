@@ -1,11 +1,13 @@
 /**
  * Frontend type definitions.
  * Mirrors backend types for problems, testcases, execution results, and user progress.
+ * Keep this file synchronized with backend/src/types.ts because API responses are not generated.
  */
 export type Language = 'java' | 'python3';
 
 export interface ParamInfo {
     name: string;
+    // Internal type label consumed by backend runner generation.
     type: string;
 }
 
@@ -64,15 +66,17 @@ export interface ExecutionResult {
     testcaseResults: TestcaseResult[];
     totalTestcases: number;
     passedTestcases: number;
-    compilationErrors?: CompilationError[];
-    debugOutput?: string;
+    compilationErrors?: CompilationError[]; // Structured locations used for Monaco markers.
+    debugOutput?: string; // Captured stdout before the backend result separator.
 }
 
 export type ProblemStatus = 'none' | 'attempted' | 'solved';
 
 export interface ProblemProgress {
     status: ProblemStatus;
+    // Saved code is keyed by language so switching languages does not overwrite another buffer.
     code: Record<string, string>;
     selectedLanguage: Language;
+    // Assigned by the backend when progress is saved.
     lastUpdated: string;
 }

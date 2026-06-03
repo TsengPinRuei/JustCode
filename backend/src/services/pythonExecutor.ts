@@ -1,7 +1,7 @@
 /**
  * Python Executor — Runs Python3 code in an isolated temp workspace.
  * Generates a runner.py harness that handles JSON I/O and result comparison.
- * No compilation step needed (Python is interpreted).
+ * Syntax errors are detected from the first interpreted run and surfaced as CE.
  */
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
@@ -11,7 +11,7 @@ import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH } from '../constants';
 
 export class PythonExecutor {
-    /** Create an isolated temp directory for execution */
+    /** Create a per-run workspace so user files never collide across executions. */
     private async createTempWorkspace(): Promise<string> {
         const tmpDir = path.join(process.cwd(), 'temp', uuidv4());
         await fs.mkdir(tmpDir, { recursive: true });
@@ -26,6 +26,7 @@ export class PythonExecutor {
         }
     }
 
+    /** Execute a command with bounded time/output and normalize failures into a result object. */
     private executeCommand(
         command: string,
         cwd: string,
@@ -42,10 +43,10 @@ export class PythonExecutor {
                 (error, stdout, stderr) => {
                     if (error) {
                         if (error.killed || error.signal === 'SIGTERM') {
-                            // Timeout
+                            // child_process uses a killed process to signal timeout.
                             resolve({ stdout: '', stderr: 'Time Limit Exceeded', exitCode: -1 });
                         } else {
-                            // Runtime error
+                            // Non-zero exit still carries stdout/stderr that the UI may need.
                             resolve({ stdout, stderr, exitCode: error.code || 1 });
                         }
                     } else {
@@ -56,6 +57,7 @@ export class PythonExecutor {
         });
     }
 
+    /** Run one testcase through runner.py and separate user logs from the JSON answer. */
     private async runTestcase(
         workspaceDir: string,
         testcase: Testcase
@@ -63,7 +65,7 @@ export class PythonExecutor {
         const startTime = Date.now();
         const inputJson = JSON.stringify(testcase.input);
 
-        // Write input to temp file
+        // stdin redirection avoids shell-escaping large or structured JSON input.
         const inputFile = path.join(workspaceDir, 'input.txt');
         await fs.writeFile(inputFile, inputJson);
 
@@ -71,7 +73,7 @@ export class PythonExecutor {
         const result = await this.executeCommand(runCommand, workspaceDir, TESTCASE_TIMEOUT_MS);
         const executionTime = Date.now() - startTime;
 
-        // Parse output - separate debug output from result JSON
+        // User print output is allowed before the separator; only the suffix is parsed as JSON.
         let debugOutput = '';
         let jsonOutput = result.stdout;
         const separatorIndex = result.stdout.indexOf(RESULT_SEPARATOR);
@@ -80,7 +82,7 @@ export class PythonExecutor {
             jsonOutput = result.stdout.substring(separatorIndex + RESULT_SEPARATOR.length).trim();
         }
 
-        // Check for timeout
+        // Treat either the child_process timeout flag or elapsed time boundary as TLE.
         if (result.exitCode === -1 || executionTime >= TESTCASE_TIMEOUT_MS) {
             return {
                 result: {
@@ -94,7 +96,7 @@ export class PythonExecutor {
             };
         }
 
-        // Check for runtime error
+        // Runtime failures surface stderr and skip JSON parsing.
         if (result.exitCode !== 0) {
             return {
                 result: {
@@ -109,12 +111,12 @@ export class PythonExecutor {
             };
         }
 
-        // Parse JSON output
+        // Runner must emit {"result": ...}; malformed output is a runtime-style error.
         try {
             const parsed = JSON.parse(jsonOutput);
             const actual = parsed.result;
 
-            // Deep compare outputs
+            // Expected values are stored as JSON-compatible data, so structural stringify compare is enough here.
             const isCorrect = this.compareOutputs(testcase.output, actual);
 
             return {
@@ -147,10 +149,11 @@ export class PythonExecutor {
         return JSON.stringify(expected) === JSON.stringify(actual);
     }
 
+    /** Convert Python traceback snippets into editor markers when possible. */
     private parsePythonSyntaxErrors(stderr: string): CompilationError[] {
         const errors: CompilationError[] = [];
-        // Python error format: '  File "solution.py", line 3'
-        // Followed by error message like: 'SyntaxError: invalid syntax'
+        // Python error format: '  File "solution.py", line 3',
+        // followed by a message like 'SyntaxError: invalid syntax'.
         const fileLineRegex = /File "(.+?)", line (\d+)/g;
         const errorMsgRegex = /(SyntaxError|IndentationError|NameError|TypeError):\s*(.+)/;
 
@@ -159,14 +162,14 @@ export class PythonExecutor {
             const [, file, lineStr] = match;
             const line = parseInt(lineStr, 10);
 
-            // Try to find the error message
+            // Tracebacks can contain many frames; use the first matching diagnostic message.
             const errorMatch = stderr.match(errorMsgRegex);
             const message = errorMatch ? `${errorMatch[1]}: ${errorMatch[2]}` : 'Syntax error';
 
             errors.push({
                 file: path.basename(file),
                 line,
-                column: 1,  // Python doesn't always provide column info
+                column: 1,  // Python tracebacks do not always expose a stable column.
                 message: message.trim(),
                 severity: 'error',
             });
@@ -195,16 +198,16 @@ export class PythonExecutor {
         const hiddenStartIndex = Math.max(0, Math.min(visibleTestcaseCount, testcases.length));
 
         try {
-            // Write user solution
+            // solution.py is the only user-controlled file imported by the generated runner.
             await fs.writeFile(path.join(workspaceDir, 'solution.py'), userCode);
 
-            // Write Runner template
+            // runner.py adapts metadata-defined params to the user's LeetCode-style method.
             const runnerCode = this.getRunnerTemplate(metadata);
             await fs.writeFile(path.join(workspaceDir, 'runner.py'), runnerCode);
 
-            // No compilation step for Python (interpreted language)
+            // Python has no compile phase here; syntax errors appear when runner.py imports solution.py.
 
-            // Run all testcases
+            // Run sequentially to keep per-case debug output ordered and easy to attribute.
             const results: TestcaseResult[] = [];
             const debugOutputs: string[] = [];
             let passed = 0;
@@ -215,14 +218,14 @@ export class PythonExecutor {
                 const { result, debugOutput } = await this.runTestcase(workspaceDir, testcases[i]);
                 result.index = i + 1;
 
-                // Collect debug output (including hidden testcases on submit)
+                // Include testcase labels now because stdout from different cases is combined later.
                 if (debugOutput) {
                     debugOutputs.push(`[Testcase ${i + 1}]\n${debugOutput}`);
                 }
 
-                // Check for syntax errors on first run (Python is interpreted)
+                // Reclassify import-time syntax errors as CE so the editor can show markers.
                 if (i === 0 && result.status === 'Error' && result.errorMessage) {
-                    // Check if this is a syntax error
+                    // Python reports syntax/indentation errors through the traceback on stderr.
                     if (result.errorMessage.includes('SyntaxError') ||
                         result.errorMessage.includes('IndentationError') ||
                         result.errorMessage.includes('File "solution.py"')) {
@@ -238,22 +241,22 @@ export class PythonExecutor {
                     }
                 }
 
-                // For hidden testcases on submit, only keep summary pass count; retain full details for the first hidden failure
+                // On submit, hide hidden inputs while still counting every hidden pass/fail.
                 if (!showHiddenInputs && i >= hiddenStartIndex) {
-                    // Only track pass/fail, don't add to results array
+                    // Do not add passing hidden cases to the visible result list.
                     if (result.status === 'Passed') {
                         passed++;
                     } else {
                         if (!firstFailure) {
                             firstFailure = result;
                         }
-                        // Keep full hidden testcase details for the first hidden failure.
+                        // Preserve one failing hidden case so users get a concrete failure signal.
                         if (!firstHiddenFailure) {
                             firstHiddenFailure = result;
                         }
                     }
                 } else {
-                    // For visible testcases, include full details
+                    // Visible cases can safely show input, expected, actual, and timing.
                     results.push(result);
                     if (result.status === 'Passed') {
                         passed++;
@@ -263,12 +266,12 @@ export class PythonExecutor {
                 }
             }
 
-            // If there's a hidden testcase failure, add it to results for debugging
+            // Reveal only the first hidden failure object; callers already decided whether hidden inputs are allowed.
             if (firstHiddenFailure && !showHiddenInputs) {
                 results.push(firstHiddenFailure);
             }
 
-            // Determine overall status
+            // Overall status is based on the earliest failure, matching judge-style feedback.
             let status: 'AC' | 'WA' | 'RE' | 'TLE' = 'AC';
             let message = '';
 
@@ -297,7 +300,7 @@ export class PythonExecutor {
                 debugOutput: debugOutputs.length > 0 ? debugOutputs.join('\n\n') : undefined,
             };
         } finally {
-            // Cleanup
+            // Always remove generated source, caches, and testcase input files.
             await this.cleanupWorkspace(workspaceDir);
         }
     }
@@ -310,7 +313,7 @@ export class PythonExecutor {
         const functionName = metadata?.functionName || 'sortArray';
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
 
-        // Build parameter extraction lines
+        // These lines are injected into runner.py and assume testcase input is a JSON object.
         const paramLines = params.map(p => `        ${p.name} = data['${p.name}']`).join('\n');
         const argsList = params.map(p => p.name).join(', ');
 
@@ -320,21 +323,21 @@ from solution import Solution
 
 def main():
     try:
-        # Read input from stdin
+        # Read the JSON testcase object written by the TypeScript executor.
         input_json = sys.stdin.read().strip()
         data = json.loads(input_json)
         
-        # Extract parameters
+        # Convert metadata-defined fields into method arguments.
 ${paramLines}
         
-        # Call user's solution
+        # Call the user's LeetCode-style solution method.
         solution = Solution()
         result = solution.${functionName}(${argsList})
         
-        # Print separator before JSON result (to separate from debug output)
+        # Keep user debug output before this marker so the executor can split it safely.
         print("===RESULT_JSON_START===")
         
-        # Output result as JSON
+        # Emit one JSON object so the executor can compare the result structurally.
         output = {'result': result}
         print(json.dumps(output))
         

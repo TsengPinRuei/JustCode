@@ -33,6 +33,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
     minPrimarySizePx,
     minSecondarySizePx,
 }) => {
+    // Store the primary pane size as a percentage so layout scales with the container.
     const [size, setSize] = useState(direction === 'horizontal' ? defaultLeftWidth : defaultTopHeight);
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -45,6 +46,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         const container = containerRef.current;
         if (!container) return clampPercent(rawSize);
 
+        // Pixel minimums are converted to percentages against the current container size.
         const rect = container.getBoundingClientRect();
         const containerSize = direction === 'horizontal' ? rect.width : rect.height;
         if (containerSize <= 0) return clampPercent(rawSize);
@@ -103,6 +105,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         };
 
         if (isDragging) {
+            // Listen on document so dragging continues even if the pointer leaves the divider.
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
             document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
@@ -117,7 +120,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         };
     }, [isDragging, direction, clampSizeByConstraints]);
 
-    // Re-apply constraints after resize/prop changes.
+    // Re-apply constraints after resize/prop changes so pixel minimums stay valid.
     useEffect(() => {
         const syncSize = () => setSize((prev) => clampSizeByConstraints(prev));
         syncSize();

@@ -1,7 +1,7 @@
 /**
  * Java Executor — Compiles and runs Java code in an isolated temp workspace.
  * Generates a Runner.java harness that handles JSON I/O, testcase parsing,
- * and result serialization for any problem type.
+ * and result serialization for supported problem metadata types.
  */
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
@@ -11,7 +11,7 @@ import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH, COMPILE_TIMEOUT_MS } from '../constants';
 
 export class JavaExecutor {
-    /** Create an isolated temp directory for compilation and execution */
+    /** Create a per-run workspace so user files/classes never collide across executions. */
     private async createTempWorkspace(): Promise<string> {
         const tmpDir = path.join(process.cwd(), 'temp', uuidv4());
         await fs.mkdir(tmpDir, { recursive: true });
@@ -27,7 +27,7 @@ export class JavaExecutor {
         }
     }
 
-    /** Execute a shell command with timeout; resolves with stdout, stderr, exitCode */
+    /** Execute a command with bounded time/output and normalize failures into a result object. */
     private executeCommand(
         command: string,
         cwd: string,
@@ -44,10 +44,10 @@ export class JavaExecutor {
                 (error, stdout, stderr) => {
                     if (error) {
                         if (error.killed || error.signal === 'SIGTERM') {
-                            // Timeout
+                            // child_process uses a killed process to signal timeout.
                             resolve({ stdout: '', stderr: 'Time Limit Exceeded', exitCode: -1 });
                         } else {
-                            // Runtime error or compilation error
+                            // Non-zero exit still carries stdout/stderr that the UI may need.
                             resolve({ stdout, stderr, exitCode: error.code || 1 });
                         }
                     } else {
@@ -75,7 +75,7 @@ export class JavaExecutor {
         return { success: true };
     }
 
-    /** Run a single testcase and return the result with debug output */
+    /** Run one testcase through Runner.java and separate user logs from the JSON answer. */
     private async runTestcase(
         workspaceDir: string,
         testcase: Testcase
@@ -83,7 +83,7 @@ export class JavaExecutor {
         const startTime = Date.now();
         const inputJson = JSON.stringify(testcase.input);
 
-        // Write input to temp file
+        // stdin redirection avoids shell-escaping large or structured JSON input.
         const inputFile = path.join(workspaceDir, 'input.txt');
         await fs.writeFile(inputFile, inputJson);
 
@@ -91,7 +91,7 @@ export class JavaExecutor {
         const result = await this.executeCommand(runCommand, workspaceDir, TESTCASE_TIMEOUT_MS);
         const executionTime = Date.now() - startTime;
 
-        // Parse output - separate debug output from result JSON
+        // User println output is allowed before the separator; only the suffix is parsed as JSON.
         let debugOutput = '';
         let jsonOutput = result.stdout;
         const separatorIndex = result.stdout.indexOf(RESULT_SEPARATOR);
@@ -100,7 +100,7 @@ export class JavaExecutor {
             jsonOutput = result.stdout.substring(separatorIndex + RESULT_SEPARATOR.length).trim();
         }
 
-        // Check for timeout
+        // Treat either the child_process timeout flag or elapsed time boundary as TLE.
         if (result.exitCode === -1 || executionTime >= TESTCASE_TIMEOUT_MS) {
             return {
                 result: {
@@ -114,7 +114,7 @@ export class JavaExecutor {
             };
         }
 
-        // Check for runtime error
+        // Runtime failures surface stderr and skip JSON parsing.
         if (result.exitCode !== 0) {
             return {
                 result: {
@@ -129,12 +129,12 @@ export class JavaExecutor {
             };
         }
 
-        // Parse JSON output
+        // Runner must emit {"result": ...}; malformed output is a runtime-style error.
         try {
             const parsed = JSON.parse(jsonOutput);
             const actual = parsed.result;
 
-            // Deep compare outputs
+            // Expected values are stored as JSON-compatible data, so structural stringify compare is enough here.
             const isCorrect = this.compareOutputs(testcase.output, actual);
 
             return {
@@ -163,7 +163,7 @@ export class JavaExecutor {
         }
     }
 
-    /** Deep-compare expected vs actual output using JSON serialization */
+    /** Deep-compare expected vs actual output using JSON serialization. */
     private compareOutputs(expected: unknown, actual: unknown): boolean {
         return JSON.stringify(expected) === JSON.stringify(actual);
     }
@@ -171,7 +171,7 @@ export class JavaExecutor {
     /** Parse javac error output into structured CompilationError objects */
     private parseJavaCompilationErrors(stderr: string): CompilationError[] {
         const errors: CompilationError[] = [];
-        // Java error format: "Solution.java:3: error: cannot find symbol"
+        // Java error format: "Solution.java:3: error: cannot find symbol".
         const errorRegex = /^(.+?\.java):(\d+):\s*(error|warning):\s*(.+)$/gm;
         let match;
 
@@ -180,9 +180,9 @@ export class JavaExecutor {
             const line = parseInt(lineStr, 10);
 
             errors.push({
-                file: path.basename(file),  // Extract just the filename
+                file: path.basename(file),  // Monaco only needs the displayed filename.
                 line,
-                column: 1,  // Java compiler doesn't always provide column info
+                column: 1,  // javac does not always provide a stable column for every diagnostic.
                 message: message.trim(),
                 severity: severity as 'error' | 'warning',
             });
@@ -211,14 +211,14 @@ export class JavaExecutor {
         const hiddenStartIndex = Math.max(0, Math.min(visibleTestcaseCount, testcases.length));
 
         try {
-            // Write user solution
+            // Solution.java is the only user-controlled source file compiled with the generated runner.
             await fs.writeFile(path.join(workspaceDir, 'Solution.java'), userCode);
 
-            // Write Runner template
+            // Runner.java adapts metadata-defined params/return type to the user's LeetCode-style method.
             const runnerCode = this.getRunnerTemplate(metadata);
             await fs.writeFile(path.join(workspaceDir, 'Runner.java'), runnerCode);
 
-            // Compile
+            // Compile both files together so signature mismatches are reported before execution.
             const compileResult = await this.compile(workspaceDir);
             if (!compileResult.success) {
                 return {
@@ -231,7 +231,7 @@ export class JavaExecutor {
                 };
             }
 
-            // Run all testcases
+            // Run sequentially to keep per-case debug output ordered and easy to attribute.
             const results: TestcaseResult[] = [];
             const debugOutputs: string[] = [];
             let passed = 0;
@@ -242,27 +242,27 @@ export class JavaExecutor {
                 const { result, debugOutput } = await this.runTestcase(workspaceDir, testcases[i]);
                 result.index = i + 1;
 
-                // Collect debug output (including hidden testcases on submit)
+                // Include testcase labels now because stdout from different cases is combined later.
                 if (debugOutput) {
                     debugOutputs.push(`[Testcase ${i + 1}]\n${debugOutput}`);
                 }
 
-                // For hidden testcases on submit, only keep summary pass count; retain full details for the first hidden failure
+                // On submit, hide hidden inputs while still counting every hidden pass/fail.
                 if (!showHiddenInputs && i >= hiddenStartIndex) {
-                    // Only track pass/fail, don't add to results array
+                    // Do not add passing hidden cases to the visible result list.
                     if (result.status === 'Passed') {
                         passed++;
                     } else {
                         if (!firstFailure) {
                             firstFailure = result;
                         }
-                        // Keep full hidden testcase details for the first hidden failure.
+                        // Preserve one failing hidden case so users get a concrete failure signal.
                         if (!firstHiddenFailure) {
                             firstHiddenFailure = result;
                         }
                     }
                 } else {
-                    // For visible testcases, include full details
+                    // Visible cases can safely show input, expected, actual, and timing.
                     results.push(result);
                     if (result.status === 'Passed') {
                         passed++;
@@ -272,12 +272,12 @@ export class JavaExecutor {
                 }
             }
 
-            // If there's a hidden testcase failure, add it to results for debugging
+            // Reveal only the first hidden failure object; callers already decided whether hidden inputs are allowed.
             if (firstHiddenFailure && !showHiddenInputs) {
                 results.push(firstHiddenFailure);
             }
 
-            // Determine overall status
+            // Overall status is based on the earliest failure, matching judge-style feedback.
             let status: 'AC' | 'WA' | 'RE' | 'TLE' = 'AC';
             let message = '';
 
@@ -306,12 +306,12 @@ export class JavaExecutor {
                 debugOutput: debugOutputs.length > 0 ? debugOutputs.join('\n\n') : undefined,
             };
         } finally {
-            // Cleanup
+            // Always remove generated source, class files, and testcase input files.
             await this.cleanupWorkspace(workspaceDir);
         }
     }
 
-    // Map a type string from problem metadata to Java type declarations
+    // Map internal/LeetCode type strings to Java declarations understood by getParseCode().
     private mapTypeToJava(typeStr: string): string {
         const t = typeStr.toLowerCase().trim();
         if (t === 'integer' || t === 'int') return 'int';
@@ -334,11 +334,11 @@ export class JavaExecutor {
         if (t === 'list<list<integer>>' || t === 'list<list<int>>') return 'List<List<Integer>>';
         if (t === 'list<list<string>>') return 'List<List<String>>';
         if (t === 'list<boolean>' || t === 'list<bool>') return 'List<Boolean>';
-        // Default: return as-is
+        // Default keeps imported metadata visible but may require a future parser extension.
         return typeStr;
     }
 
-    // Generate Java code to parse a JSON value into the appropriate Java type
+    // Generate the Java statement that converts parsed JSON into the target method parameter type.
     private getParseCode(paramName: string, javaType: string): string {
         switch (javaType) {
             case 'int':
@@ -387,7 +387,7 @@ export class JavaExecutor {
         }
     }
 
-    // Generate Java code to serialize the result to JSON
+    // Generate an expression that serializes the Java return value back into JSON.
     private getSerializeCode(javaType: string): string {
         switch (javaType) {
             case 'int':
@@ -429,7 +429,7 @@ export class JavaExecutor {
 
     /** Generate the Runner.java harness based on problem metadata (params, return type) */
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
-        // Fallback for legacy problems without metadata
+        // Fallback keeps older bundled problems runnable even if they lack imported metadata fields.
         if (!metadata?.functionName || !metadata?.params || !metadata?.returnType) {
             console.warn('Missing problem metadata (functionName/params/returnType); using hardcoded defaults');
         }
@@ -437,7 +437,7 @@ export class JavaExecutor {
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
         const returnType = this.mapTypeToJava(metadata?.returnType || 'int[]');
 
-        // Build parsing lines
+        // These snippets are injected into Runner.java, not evaluated in TypeScript.
         const parseLines = params.map(p => this.getParseCode(p.name, this.mapTypeToJava(p.type))).join('\n');
         const argsList = params.map(p => p.name).join(', ');
         const serializeExpr = this.getSerializeCode(returnType);
@@ -456,19 +456,19 @@ public class Runner {
             
             String inputJson = inputBuilder.toString().trim();
             
-            // Parse JSON input using simple parser
+            // This lightweight parser only targets JSON shapes produced by JustCode testcases.
             java.util.Map<String, Object> data = parseJson(inputJson);
             
-            // Extract parameters
+            // Convert metadata-defined fields into the exact method parameter types.
 ${parseLines}
             
             Solution solution = new Solution();
             ${returnType} result = solution.${functionName}(${argsList});
             
-            // Output separator before JSON result (to separate from debug output)
+            // Keep user debug output before this marker so the TypeScript executor can split it safely.
             System.out.println("===RESULT_JSON_START===");
             
-            // Output as JSON
+            // Emit one JSON object so the executor can compare the result structurally.
             System.out.print("{\\"result\\":");
             System.out.print(${serializeExpr});
             System.out.println("}");
@@ -481,6 +481,8 @@ ${parseLines}
     }
     
     // ======================== JSON Parser ========================
+    // Minimal parser for numbers, strings, booleans, null, arrays, and nested objects.
+    // It is intentionally local to avoid adding runtime dependencies to generated workspaces.
     
     @SuppressWarnings("unchecked")
     static java.util.Map<String, Object> parseJson(String json) {
@@ -494,10 +496,10 @@ ${parseLines}
         
         int i = 0;
         while (i < json.length()) {
-            // Skip whitespace
+            // Skip whitespace between object members.
             while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
             
-            // Parse key
+            // Parse object key. Escaped quotes are not expected in testcase parameter names.
             if (json.charAt(i) != '"') break;
             i++; // skip opening quote
             int keyStart = i;
@@ -505,17 +507,17 @@ ${parseLines}
             String key = json.substring(keyStart, i);
             i++; // skip closing quote
             
-            // Skip colon
+            // Move past the key/value separator.
             while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
             i++; // skip colon
             while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
             
-            // Parse value
+            // Parse the value and receive the next unread index.
             Object[] valueAndEnd = parseJsonValue(json, i);
             map.put(key, valueAndEnd[0]);
             i = (Integer) valueAndEnd[1];
             
-            // Skip comma
+            // Move to the next member, if any.
             while (i < json.length() && (Character.isWhitespace(json.charAt(i)) || json.charAt(i) == ',')) i++;
         }
         return map;
