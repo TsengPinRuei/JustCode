@@ -2,7 +2,7 @@
  * Result Panel \u2014 Displays code execution results: status (AC/WA/CE/RE/TLE),
  * pass counts, per-testcase details, and filtered debug console output.
  */
-import { type FC } from 'react';
+import { useMemo, type FC } from 'react';
 import { ExecutionResult } from '../types';
 
 interface ResultPanelProps {
@@ -11,6 +11,35 @@ interface ResultPanelProps {
 }
 
 const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
+    const filteredDebugOutput = useMemo(() => {
+        // Skip if no debug output or all tests passed.
+        if (!result || result.status === 'AC' || !result.debugOutput || !result.testcaseResults) {
+            return null;
+        }
+
+        // Match debug sections against the result rows that failed.
+        const failingIndices = new Set(
+            result.testcaseResults
+                .filter(tc => tc.status !== 'Passed')
+                .map(tc => tc.index)
+        );
+
+        if (failingIndices.size === 0) return null;
+
+        // Debug output is labeled by the backend as "[Testcase n]"; split only at those labels.
+        const filteredDebug = result.debugOutput
+            .split(/\n\n(?=\[Testcase \d+\])/)
+            .filter(section => {
+                const match = section.match(/^\[Testcase (\d+)\]/);
+                if (!match) return false;
+                const index = parseInt(match[1], 10);
+                return failingIndices.has(index);
+            })
+            .join('\n\n');
+
+        return filteredDebug.trim() ? filteredDebug : null;
+    }, [result]);
+
     if (executing) {
         return (
             <div className="loading">
@@ -57,41 +86,14 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
             )}
 
             {/* Show debug output only for failing cases so successful noisy prints do not bury the signal. */}
-            {(() => {
-                // Skip if no debug output or all tests passed.
-                if (result.status === 'AC' || !result.debugOutput || !result.testcaseResults) {
-                    return null;
-                }
-
-                // Match debug sections against the result rows that failed.
-                const failingIndices = result.testcaseResults
-                    .filter(tc => tc.status !== 'Passed')
-                    .map(tc => tc.index);
-
-                if (failingIndices.length === 0) return null;
-
-                // Debug output is labeled by the backend as "[Testcase n]"; split only at those labels.
-                const debugSections = result.debugOutput.split(/\n\n(?=\[Testcase \d+\])/);
-                const filteredDebug = debugSections
-                    .filter(section => {
-                        const match = section.match(/^\[Testcase (\d+)\]/);
-                        if (!match) return false;
-                        const index = parseInt(match[1], 10);
-                        return failingIndices.includes(index);
-                    })
-                    .join('\n\n');
-
-                if (!filteredDebug.trim()) return null;
-
-                return (
-                    <div className="debug-output-section">
-                        <div className="debug-output-header">
-                            <span>Console Output</span>
-                        </div>
-                        <pre className="debug-output-content">{filteredDebug}</pre>
+            {filteredDebugOutput && (
+                <div className="debug-output-section">
+                    <div className="debug-output-header">
+                        <span>Console Output</span>
                     </div>
-                );
-            })()}
+                    <pre className="debug-output-content">{filteredDebugOutput}</pre>
+                </div>
+            )}
 
             {result.testcaseResults && result.testcaseResults.length > 0 && (
                 <div className="testcase-results">
