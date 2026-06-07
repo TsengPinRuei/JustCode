@@ -49,7 +49,7 @@ router.post('/run', async (req: Request, res: Response) => {
         const { problemId, code, language, inputMode, customInput }: RunRequest = req.body;
 
         // Metadata drives runner generation, so load it even when the user supplies custom input.
-        const problem = await problemService.getProblem(problemId);
+        const problem = await problemService.getProblemForExecution(problemId);
         let testcases: Testcase[] = [];
 
         if (inputMode === 'custom') {
@@ -70,7 +70,7 @@ router.post('/run', async (req: Request, res: Response) => {
             }
         } else {
             // Run mode intentionally excludes hidden tests so users can inspect every input/result pair.
-            testcases = await problemService.getVisibleTestcases(problemId);
+            testcases = problem.visibleTestcases;
         }
 
         // Delegate language-specific harness generation and execution to the selected executor.
@@ -122,11 +122,11 @@ router.post('/submit', async (req: Request, res: Response) => {
         const { problemId, code, language }: SubmitRequest = req.body;
 
         // Metadata is required for runner generation across both visible and hidden cases.
-        const problem = await problemService.getProblem(problemId);
+        const problem = await problemService.getProblemForExecution(problemId);
 
         // Preserve the boundary so executor can summarize hidden cases without revealing their inputs.
-        const visibleTestcases = await problemService.getVisibleTestcases(problemId);
-        const hiddenTestcases = await problemService.getHiddenTestcases(problemId);
+        const visibleTestcases = problem.visibleTestcases;
+        const hiddenTestcases = problem.hiddenTestcases || [];
         const testcases = [...visibleTestcases, ...hiddenTestcases];
 
         // Submit hides hidden inputs but still counts them in total/passed statistics.

@@ -27,12 +27,15 @@ export interface CodeExecutor {
 
 /** Factory that returns an executor for languages declared in ProblemMetadata.supportedLanguages. */
 export class CodeExecutorFactory {
+    private static readonly javaExecutor = new JavaExecutor();
+    private static readonly pythonExecutor = new PythonExecutor();
+
     static getExecutor(language: Language): CodeExecutor {
         switch (language) {
             case 'java':
-                return new JavaExecutor();
+                return CodeExecutorFactory.javaExecutor;
             case 'python3':
-                return new PythonExecutor();
+                return CodeExecutorFactory.pythonExecutor;
             default:
                 throw new Error(`Unsupported language: ${language}`);
         }

@@ -24,23 +24,50 @@ export class ProblemService {
         return path.join(PROBLEMS_DIR, problemId);
     }
 
+    private async readJsonFile<T>(filePath: string): Promise<T> {
+        const content = await fs.readFile(filePath, 'utf-8');
+        return JSON.parse(content) as T;
+    }
+
+    private async readProblemMetadata(problemDir: string): Promise<ProblemMetadata> {
+        return this.readJsonFile<ProblemMetadata>(path.join(problemDir, 'problem.json'));
+    }
+
+    private async readVisibleTestcases(problemDir: string): Promise<Testcase[]> {
+        return this.readJsonFile<Testcase[]>(path.join(problemDir, 'testcases_visible.json'));
+    }
+
+    private async readHiddenTestcases(problemDir: string): Promise<Testcase[]> {
+        try {
+            return await this.readJsonFile<Testcase[]>(path.join(problemDir, 'testcases_hidden.json'));
+        } catch {
+            // Hidden testcases are optional
+            return [];
+        }
+    }
+
     /** Scan problems/ directory and return metadata for all valid problems, sorted by title */
     async getAllProblems(): Promise<ProblemMetadata[]> {
         // Treat each immediate subdirectory as a candidate problem.
         const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
-        const problems: ProblemMetadata[] = [];
-
-        for (const entry of entries) {
-            if (entry.isDirectory()) {
+        const problemReads = entries
+            .filter((entry) => entry.isDirectory())
+            .map(async (entry): Promise<ProblemMetadata | null> => {
                 try {
-                    const problem = await this.getProblem(entry.name);
-                    problems.push(problem.metadata);
+                    const problemDir = this.getProblemDir(entry.name);
+                    const metadata = await this.readProblemMetadata(problemDir);
+                    // Preserve the previous list behavior: directories without valid visible tests are skipped.
+                    await this.readVisibleTestcases(problemDir);
+                    return metadata;
                 } catch (error) {
                     // Skip directories without valid problem.json
                     console.warn(`Skipping invalid problem directory: ${entry.name}`);
+                    return null;
                 }
-            }
-        }
+            });
+
+        const problems = (await Promise.all(problemReads))
+            .filter((problem): problem is ProblemMetadata => problem !== null);
 
         // Titles include LeetCode-style prefixes, so title sort keeps the visible list stable.
         problems.sort((a, b) => a.title.localeCompare(b.title));
@@ -53,47 +80,27 @@ export class ProblemService {
         const problemDir = this.getProblemDir(problemId);
 
         // Read problem metadata
-        const metadataPath = path.join(problemDir, 'problem.json');
-        const metadataContent = await fs.readFile(metadataPath, 'utf-8');
-        const metadata: ProblemMetadata = JSON.parse(metadataContent);
+        const metadata = await this.readProblemMetadata(problemDir);
 
         // Missing templates should not make the whole problem unreadable; the editor can show an empty buffer.
-        const templates: Record<string, string> = {};
-        for (const lang of metadata.supportedLanguages) {
+        const templateEntries = await Promise.all(metadata.supportedLanguages.map(async (lang) => {
             const ext = lang === 'java' ? 'java' : 'py';
             const templatePath = path.join(problemDir, `template.${ext}`);
             try {
-                templates[lang] = await fs.readFile(templatePath, 'utf-8');
+                return [lang, await fs.readFile(templatePath, 'utf-8')] as const;
             } catch (error) {
                 console.error(`Template not found for ${lang}:`, error);
                 // If template doesn't exist, use empty string
-                templates[lang] = '';
+                return [lang, ''] as const;
             }
-        }
+        }));
+        const templates = Object.fromEntries(templateEntries);
 
-        // Read visible testcases
-        const visiblePath = path.join(problemDir, 'testcases_visible.json');
-        const visibleContent = await fs.readFile(visiblePath, 'utf-8');
-        const visibleTestcases: Testcase[] = JSON.parse(visibleContent);
-
-        // Hidden testcases are optional and are only used for Submit mode.
-        let hiddenTestcases: Testcase[] = [];
-        try {
-            const hiddenPath = path.join(problemDir, 'testcases_hidden.json');
-            const hiddenContent = await fs.readFile(hiddenPath, 'utf-8');
-            hiddenTestcases = JSON.parse(hiddenContent);
-        } catch (error) {
-            // Hidden testcases are optional, continue without them
-        }
-
-        // Editorial markdown is optional so imported/basic problems can still load.
-        let editorial: string | undefined;
-        try {
-            const editorialPath = path.join(problemDir, 'editorial.md');
-            editorial = await fs.readFile(editorialPath, 'utf-8');
-        } catch (error) {
-            // Editorial is optional, continue without it
-        }
+        const [visibleTestcases, hiddenTestcases, editorial] = await Promise.all([
+            this.readVisibleTestcases(problemDir),
+            this.readHiddenTestcases(problemDir),
+            fs.readFile(path.join(problemDir, 'editorial.md'), 'utf-8').catch(() => undefined),
+        ]);
 
         return {
             metadata,
@@ -104,29 +111,35 @@ export class ProblemService {
         };
     }
 
+    /** Load only the files required by Run/Submit execution paths. */
+    async getProblemForExecution(problemId: string): Promise<Pick<Problem, 'metadata' | 'visibleTestcases' | 'hiddenTestcases'>> {
+        const problemDir = this.getProblemDir(problemId);
+        const [metadata, visibleTestcases, hiddenTestcases] = await Promise.all([
+            this.readProblemMetadata(problemDir),
+            this.readVisibleTestcases(problemDir),
+            this.readHiddenTestcases(problemDir),
+        ]);
+
+        return { metadata, visibleTestcases, hiddenTestcases };
+    }
+
     /** Get only visible testcases (for Run mode) — reads file directly for efficiency */
     async getVisibleTestcases(problemId: string): Promise<Testcase[]> {
-        const visiblePath = path.join(this.getProblemDir(problemId), 'testcases_visible.json');
-        const content = await fs.readFile(visiblePath, 'utf-8');
-        return JSON.parse(content);
+        return this.readVisibleTestcases(this.getProblemDir(problemId));
     }
 
     /** Get hidden testcases only (for Submit mode) */
     async getHiddenTestcases(problemId: string): Promise<Testcase[]> {
-        const hiddenPath = path.join(this.getProblemDir(problemId), 'testcases_hidden.json');
-        try {
-            const hiddenContent = await fs.readFile(hiddenPath, 'utf-8');
-            return JSON.parse(hiddenContent);
-        } catch {
-            // Hidden testcases are optional
-            return [];
-        }
+        return this.readHiddenTestcases(this.getProblemDir(problemId));
     }
 
     /** Get all testcases — visible + hidden (for Submit mode) — reads files directly for efficiency */
     async getAllTestcases(problemId: string): Promise<Testcase[]> {
-        const visibleTestcases = await this.getVisibleTestcases(problemId);
-        const hiddenTestcases = await this.getHiddenTestcases(problemId);
+        const problemDir = this.getProblemDir(problemId);
+        const [visibleTestcases, hiddenTestcases] = await Promise.all([
+            this.readVisibleTestcases(problemDir),
+            this.readHiddenTestcases(problemDir),
+        ]);
         return [...visibleTestcases, ...hiddenTestcases];
     }
 
@@ -175,8 +188,7 @@ export class ProblemService {
     async getProgress(problemId: string): Promise<ProblemProgress | null> {
         const progressPath = path.join(this.getProblemDir(problemId), 'progress.json');
         try {
-            const content = await fs.readFile(progressPath, 'utf-8');
-            return JSON.parse(content) as ProblemProgress;
+            return await this.readJsonFile<ProblemProgress>(progressPath);
         } catch {
             return null;
         }
@@ -193,12 +205,20 @@ export class ProblemService {
         const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
         const result: Record<string, ProblemProgress> = {};
 
-        for (const entry of entries) {
-            if (entry.isDirectory()) {
+        const progressReads = entries
+            .filter((entry) => entry.isDirectory())
+            .map(async (entry): Promise<[string, ProblemProgress] | null> => {
                 const progress = await this.getProgress(entry.name);
                 if (progress) {
-                    result[entry.name] = progress;
+                    return [entry.name, progress];
                 }
+                return null;
+            });
+
+        for (const progressEntry of await Promise.all(progressReads)) {
+            if (progressEntry) {
+                const [problemId, progress] = progressEntry;
+                result[problemId] = progress;
             }
         }
 

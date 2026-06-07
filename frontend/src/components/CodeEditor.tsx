@@ -2,7 +2,7 @@
  * Code Editor Component \u2014 Monaco Editor wrapper with language switching,
  * font size controls, real-time error highlighting, and cursor-safe external updates.
  */
-import { useRef, useState, useEffect, type FC } from 'react';
+import { useRef, useState, useEffect, useMemo, type FC } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Language, CompilationError } from '../types';
@@ -111,6 +111,24 @@ const CodeEditor: FC<CodeEditorProps> = ({
         return lang === 'java' ? 'Java' : 'Python3';
     };
 
+    const editorLanguage = selectedLanguage === 'java' ? 'java' : 'python';
+    const editorOptions = useMemo<editor.IStandaloneEditorConstructionOptions>(() => ({
+        fontSize,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        tabSize: 4,
+        insertSpaces: true,
+        wordWrap: 'on',
+        lineNumbers: 'on',
+        renderWhitespace: 'selection',
+        bracketPairColorization: {
+            enabled: true,
+        },
+        formatOnPaste: false,
+        formatOnType: false,
+    }), [fontSize]);
+
     return (
         <>
             <div className="editor-toolbar">
@@ -154,27 +172,12 @@ const CodeEditor: FC<CodeEditorProps> = ({
             <div className="monaco-editor-wrapper">
                 <Editor
                     height="100%"
-                    language={selectedLanguage === 'java' ? 'java' : 'python'}
+                    language={editorLanguage}
                     defaultValue={code}
                     onChange={handleEditorChange}
                     onMount={handleEditorDidMount}
                     theme="vs-dark"
-                    options={{
-                        fontSize: fontSize,
-                        minimap: { enabled: false },
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                        tabSize: 4,
-                        insertSpaces: true,
-                        wordWrap: 'on',
-                        lineNumbers: 'on',
-                        renderWhitespace: 'selection',
-                        bracketPairColorization: {
-                            enabled: true,
-                        },
-                        formatOnPaste: false,
-                        formatOnType: false,
-                    }}
+                    options={editorOptions}
                 />
             </div>
         </>
@@ -182,4 +185,3 @@ const CodeEditor: FC<CodeEditorProps> = ({
 };
 
 export default CodeEditor;
-

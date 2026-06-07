@@ -3,7 +3,7 @@
  * Uses ReactMarkdown with custom renderers for tabbed code groups
  * and copy-to-clipboard buttons on code blocks.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkCodeGroup from '../plugins/remarkCodeGroup';
@@ -26,6 +26,9 @@ const LANG_LABELS: Record<string, string> = {
     cpp: 'C++',
     c: 'C',
 };
+
+const DESCRIPTION_REMARK_PLUGINS = [remarkGfm];
+const EDITORIAL_REMARK_PLUGINS = [remarkGfm, remarkCodeGroup];
 
 function CopyButton({ getText }: { getText: () => string }) {
     const [copied, setCopied] = useState(false);
@@ -53,7 +56,10 @@ function CopyButton({ getText }: { getText: () => string }) {
 
 function CodeGroupBlock({ languages }: { languages: string }) {
     // remarkCodeGroup serializes grouped code blocks into this prop for the custom renderer.
-    const items: { lang: string; value: string }[] = JSON.parse(languages);
+    const items = useMemo(
+        () => JSON.parse(languages) as { lang: string; value: string }[],
+        [languages]
+    );
     const [active, setActive] = useState(0);
 
     return (
@@ -146,7 +152,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem }) => {
             <div className="problem-content">
                 {activeTab === 'description' ? (
                     <div className="problem-description">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{problem.metadata.description}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={DESCRIPTION_REMARK_PLUGINS}>{problem.metadata.description}</ReactMarkdown>
 
                         <h3>Examples</h3>
                         {problem.metadata.examples.map((example, index) => (
@@ -156,13 +162,13 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem }) => {
                                     <div className="example-section">
                                         <strong>Input:</strong>
                                         <div className="example-content">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{example.input}</ReactMarkdown>
+                                            <ReactMarkdown remarkPlugins={DESCRIPTION_REMARK_PLUGINS}>{example.input}</ReactMarkdown>
                                         </div>
                                     </div>
                                     <div className="example-section">
                                         <strong>Output:</strong>
                                         <div className="example-content">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{example.output}</ReactMarkdown>
+                                            <ReactMarkdown remarkPlugins={DESCRIPTION_REMARK_PLUGINS}>{example.output}</ReactMarkdown>
                                         </div>
                                     </div>
                                 </div>
@@ -181,7 +187,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem }) => {
                     <div className="problem-description">
                         {problem.editorial ? (
                             <ReactMarkdown
-                                remarkPlugins={[remarkGfm, remarkCodeGroup]}
+                                remarkPlugins={EDITORIAL_REMARK_PLUGINS}
                                 components={markdownComponents}
                             >
                                 {problem.editorial}
