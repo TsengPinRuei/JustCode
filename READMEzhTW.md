@@ -26,6 +26,7 @@
 - **Node.js**：18.x 或更高版本
 - **JDK**：Java Development Kit 11 或更高版本（用於 Java 程式碼執行）
 - **Python**：Python 3.x（用於 Python 程式碼執行）
+- **Docker**：建議安裝，用於執行不受信任程式碼時的沙盒隔離
 - **作業系統**：macOS、Linux 或 Windows
 
 ### 驗證環境：
@@ -40,6 +41,45 @@ javac --version # 需要 >= 11
 
 # 檢查 Python 版本
 python3 --version  # 需要 >= 3.x
+
+# 選用：檢查 Docker，以啟用更強的沙盒隔離
+docker --version
+```
+
+## 程式碼執行沙盒
+
+JustCode 現在會透過沙盒 runner 執行提交的程式碼，包含：
+- 不透過 shell 執行指令
+- 每次執行使用獨立暫存工作區
+- 使用最小化環境變數，避免主機 secret 被帶入使用者程式
+- 逾時時終止整個 process group
+- 限制 stdout/stderr 輸出量
+- 可選用 Docker 隔離：無網路、執行期唯讀掛載、移除 Linux capabilities、限制記憶體/CPU/PID，並使用 tmpfs `/tmp`
+
+沙盒模式由 `JUSTCODE_SANDBOX_MODE` 控制：
+
+| 模式 | 行為 |
+| --- | --- |
+| `auto`（預設） | 若必要 Docker image 已存在本機，就使用 Docker；否則退回受限本機執行。 |
+| `docker` | 必須有 Docker daemon 和 image；不可用時會直接失敗。處理不受信任程式碼時請使用此模式。 |
+| `local` | 相容模式，使用本機 `javac`、`java`、`python3`。這不是完整安全邊界。 |
+
+若要使用最強隔離：
+
+```bash
+docker pull eclipse-temurin:17-jdk
+docker pull python:3.11-slim
+JUSTCODE_SANDBOX_MODE=docker npm run dev
+```
+
+可調整的 image 與限制：
+
+```bash
+JUSTCODE_DOCKER_MEMORY=256m
+JUSTCODE_DOCKER_CPUS=1
+JUSTCODE_DOCKER_PIDS_LIMIT=64
+JUSTCODE_JAVA_SANDBOX_IMAGE=eclipse-temurin:17-jdk
+JUSTCODE_PYTHON_SANDBOX_IMAGE=python:3.11-slim
 ```
 
 ## 安裝與執行
@@ -205,10 +245,7 @@ npm install
 
 ## 安全注意事項
 
-本專案設計用於個人學習及本機使用，**請勿**在以下情況使用：
-- 多使用者環境
-- 生產系統
-- 處理不受信任的程式碼
+本專案設計用於個人學習與本機使用。若要在自己的機器上執行不受信任的程式碼，Docker 沙盒模式是預期的安全邊界。請勿在沒有額外加入身份驗證、每位使用者資料隔離、請求速率限制、容器生命週期監控與主機層級加固前，直接把 JustCode 暴露成公開多人 judge。
 
 ## 未來規劃
 

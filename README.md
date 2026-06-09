@@ -26,6 +26,7 @@ A single-machine LeetCode-like coding practice platform with offline Java code e
 - **Node.js**: Version 18.x or higher
 - **JDK**: Java Development Kit 11 or higher (for Java code execution)
 - **Python**: Python 3.x (for Python code execution)
+- **Docker**: Recommended for sandboxed execution of untrusted code
 - **Operating System**: macOS, Linux, or Windows
 
 ### Verify Environment:
@@ -40,6 +41,45 @@ javac --version         # Should be >= 11
 
 # Check Python version
 python3 --version       # Should be >= 3.x
+
+# Optional: check Docker for stronger sandbox isolation
+docker --version
+```
+
+## Code Execution Sandbox
+
+JustCode runs submitted code through a sandbox runner with:
+- no shell command execution
+- per-run temporary workspaces
+- minimal environment variables so host secrets are not inherited
+- process-group termination on timeout
+- bounded stdout/stderr output
+- optional Docker isolation with no network, read-only runtime mounts, dropped capabilities, memory/CPU/PID limits, and a tmpfs `/tmp`
+
+Sandbox modes are controlled with `JUSTCODE_SANDBOX_MODE`:
+
+| Mode | Behavior |
+| --- | --- |
+| `auto` (default) | Uses Docker when the required image is already available locally; otherwise falls back to restricted local execution. |
+| `docker` | Requires Docker and fails closed if the daemon or image is unavailable. Use this for untrusted code. |
+| `local` | Compatibility mode using local `javac`, `java`, and `python3`. This is not a complete security boundary. |
+
+For the strongest isolation:
+
+```bash
+docker pull eclipse-temurin:17-jdk
+docker pull python:3.11-slim
+JUSTCODE_SANDBOX_MODE=docker npm run dev
+```
+
+Optional limits and images:
+
+```bash
+JUSTCODE_DOCKER_MEMORY=256m
+JUSTCODE_DOCKER_CPUS=1
+JUSTCODE_DOCKER_PIDS_LIMIT=64
+JUSTCODE_JAVA_SANDBOX_IMAGE=eclipse-temurin:17-jdk
+JUSTCODE_PYTHON_SANDBOX_IMAGE=python:3.11-slim
 ```
 
 ## Installation and Execution
@@ -205,10 +245,7 @@ npm install
 
 ## Security Note
 
-This project is designed for personal learning and local use only, **do not** use this in:
-- Multi-user environments
-- Production systems
-- Scenarios with untrusted code
+This project is designed for personal learning and local use. Docker sandbox mode is the intended boundary for running untrusted snippets on your own machine. Do not expose JustCode directly as a public multi-user judge without adding authentication, per-user storage, request rate limits, container lifecycle monitoring, and host-level hardening.
 
 ## Future Enhancements
 
