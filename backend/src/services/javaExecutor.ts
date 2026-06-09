@@ -3,14 +3,16 @@
  * Generates a Runner.java harness that handles JSON I/O, testcase parsing,
  * and result serialization for supported problem metadata types.
  */
-import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../types';
-import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, MAX_OUTPUT_LENGTH, COMPILE_TIMEOUT_MS } from '../constants';
+import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, COMPILE_TIMEOUT_MS, JAVA_SANDBOX_IMAGE } from '../constants';
+import { SandboxRunner } from './sandboxRunner';
 
 export class JavaExecutor {
+    private readonly sandboxRunner = new SandboxRunner();
+
     /** Create a per-run workspace so user files/classes never collide across executions. */
     private async createTempWorkspace(): Promise<string> {
         const tmpDir = path.join(process.cwd(), 'temp', uuidv4());
@@ -27,41 +29,16 @@ export class JavaExecutor {
         }
     }
 
-    /** Execute a command with bounded time/output and normalize failures into a result object. */
-    private executeCommand(
-        command: string,
-        cwd: string,
-        timeoutMs: number
-    ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-        return new Promise((resolve) => {
-            exec(
-                command,
-                {
-                    cwd,
-                    timeout: timeoutMs,
-                    maxBuffer: MAX_OUTPUT_LENGTH,
-                },
-                (error, stdout, stderr) => {
-                    if (error) {
-                        if (error.killed || error.signal === 'SIGTERM') {
-                            // child_process uses a killed process to signal timeout.
-                            resolve({ stdout: '', stderr: 'Time Limit Exceeded', exitCode: -1 });
-                        } else {
-                            // Non-zero exit still carries stdout/stderr that the UI may need.
-                            resolve({ stdout, stderr, exitCode: error.code || 1 });
-                        }
-                    } else {
-                        resolve({ stdout, stderr, exitCode: 0 });
-                    }
-                }
-            );
-        });
-    }
-
     /** Compile Solution.java and Runner.java; returns compilation errors if any */
     private async compile(workspaceDir: string): Promise<{ success: boolean; error?: string; compilationErrors?: CompilationError[] }> {
-        const compileCommand = 'javac Solution.java Runner.java';
-        const result = await this.executeCommand(compileCommand, workspaceDir, COMPILE_TIMEOUT_MS);
+        const result = await this.sandboxRunner.execute({
+            command: 'javac',
+            args: ['Solution.java', 'Runner.java'],
+            cwd: workspaceDir,
+            timeoutMs: COMPILE_TIMEOUT_MS,
+            image: JAVA_SANDBOX_IMAGE,
+            writableWorkspace: true,
+        });
 
         if (result.exitCode !== 0) {
             const compilationErrors = this.parseJavaCompilationErrors(result.stderr);
@@ -83,12 +60,15 @@ export class JavaExecutor {
         const startTime = Date.now();
         const inputJson = JSON.stringify(testcase.input);
 
-        // stdin redirection avoids shell-escaping large or structured JSON input.
-        const inputFile = path.join(workspaceDir, 'input.txt');
-        await fs.writeFile(inputFile, inputJson);
-
-        const runCommand = `java Runner < input.txt`;
-        const result = await this.executeCommand(runCommand, workspaceDir, TESTCASE_TIMEOUT_MS);
+        const result = await this.sandboxRunner.execute({
+            command: 'java',
+            args: ['Runner'],
+            cwd: workspaceDir,
+            timeoutMs: TESTCASE_TIMEOUT_MS,
+            stdin: inputJson,
+            image: JAVA_SANDBOX_IMAGE,
+            writableWorkspace: false,
+        });
         const executionTime = Date.now() - startTime;
 
         // User println output is allowed before the separator; only the suffix is parsed as JSON.
