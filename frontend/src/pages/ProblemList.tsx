@@ -147,19 +147,19 @@ const ProblemList: FC = () => {
                                     )}
                                 </td>
                                 <td className="problem-title">{problem.title}</td>
-                                <td>
+                                <td className="problem-difficulty">
                                     <span className={`difficulty-badge difficulty-${problem.difficulty.toLowerCase()}`}>
                                         {problem.difficulty}
                                     </span>
                                 </td>
-                                <td>
+                                <td className="problem-tags">
                                     {problem.tags.slice(0, 3).map((tag, index) => (
                                         <span key={index} className="tag">
                                             {tag}
                                         </span>
                                     ))}
                                 </td>
-                                <td>
+                                <td className="problem-actions">
                                     {!PROTECTED_PROBLEMS.has(problem.id) && (
                                         <button
                                             className="delete-btn"

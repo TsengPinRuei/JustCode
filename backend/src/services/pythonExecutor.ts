@@ -119,6 +119,7 @@ export class PythonExecutor {
         }
     }
 
+    /** Deep-compare expected vs actual output using JSON serialization. */
     private compareOutputs(expected: unknown, actual: unknown): boolean {
         return JSON.stringify(expected) === JSON.stringify(actual);
     }
@@ -130,15 +131,14 @@ export class PythonExecutor {
         // followed by a message like 'SyntaxError: invalid syntax'.
         const fileLineRegex = /File "(.+?)", line (\d+)/g;
         const errorMsgRegex = /(SyntaxError|IndentationError|NameError|TypeError):\s*(.+)/;
+        // Tracebacks can contain many frames; use the first matching diagnostic message for each marker.
+        const errorMatch = stderr.match(errorMsgRegex);
+        const message = errorMatch ? `${errorMatch[1]}: ${errorMatch[2]}` : 'Syntax error';
 
         let match;
         while ((match = fileLineRegex.exec(stderr)) !== null) {
             const [, file, lineStr] = match;
             const line = parseInt(lineStr, 10);
-
-            // Tracebacks can contain many frames; use the first matching diagnostic message.
-            const errorMatch = stderr.match(errorMsgRegex);
-            const message = errorMatch ? `${errorMatch[1]}: ${errorMatch[2]}` : 'Syntax error';
 
             errors.push({
                 file: path.basename(file),
@@ -279,7 +279,7 @@ export class PythonExecutor {
         }
     }
 
-    /** Generate the runner.py harness based on problem metadata */
+    /** Generate the runner.py harness that imports Solution and calls the metadata-defined method. */
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
         if (!metadata?.functionName || !metadata?.params) {
             console.warn('Missing problem metadata (functionName/params); using hardcoded defaults');

@@ -20,12 +20,12 @@ const Navbar: FC = () => {
                             Problems
                         </Link>
                     </li>
-                    <li>
+                    <li className="navbar-disabled-item">
                         <a href="#" className="navbar-link-disabled">
                             Explore
                         </a>
                     </li>
-                    <li>
+                    <li className="navbar-disabled-item">
                         <a href="#" className="navbar-link-disabled">
                             Discuss
                         </a>

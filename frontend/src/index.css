@@ -97,12 +97,14 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  overflow: hidden;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
   gap: 24px;
+  min-width: 0;
 }
 
 .navbar-logo {
@@ -113,12 +115,14 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  flex: 0 0 auto;
 }
 
 .navbar-menu {
   display: flex;
   gap: 16px;
   list-style: none;
+  min-width: 0;
 }
 
 .navbar-menu a {
@@ -150,9 +154,14 @@ body {
 
 /* Problem List */
 .problem-list-container {
+  /* This page owns its scrolling because body scroll is disabled for the split-pane workspace. */
   max-width: 90%;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
   margin: 0 auto;
   padding: 32px 16px;
+  overflow-y: auto;
 }
 
 .problem-list-header {
@@ -172,6 +181,7 @@ body {
 .problem-table table {
   width: 100%;
   border-collapse: collapse;
+  /* Fixed layout keeps long titles/tags from resizing the action and status columns. */
   table-layout: fixed;
 }
 
@@ -183,12 +193,14 @@ body {
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 .problem-table td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
   font-size: 14px;
+  min-width: 0;
 }
 
 .problem-table th:last-child,
@@ -212,6 +224,7 @@ body {
 .problem-title {
   color: var(--text-primary);
   font-weight: 500;
+  overflow-wrap: break-word;
 }
 
 .difficulty-badge {
@@ -220,6 +233,7 @@ body {
   font-size: 12px;
   font-weight: 600;
   display: inline-block;
+  white-space: nowrap;
 }
 
 .difficulty-easy {
@@ -241,11 +255,14 @@ body {
   display: inline-block;
   padding: 2px 8px;
   margin-right: 6px;
+  margin-bottom: 4px;
+  max-width: 100%;
   background-color: var(--bg-tertiary);
   color: var(--text-secondary);
   border-radius: 4px;
   font-size: 12px;
   border: 1px solid var(--border-color);
+  overflow-wrap: break-word;
 }
 
 /* Problem Detail Layout */
@@ -461,19 +478,29 @@ body {
   position: absolute;
   top: 8px;
   right: 8px;
-  background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 58px;
+  height: 30px;
+  padding: 0 12px;
+  background-color: rgba(45, 45, 45, 0.92);
+  border: 1px solid var(--border-hover);
   color: var(--text-secondary);
   border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   cursor: pointer;
-  opacity: 0;
-  transition: all 0.2s ease;
+  opacity: 0.88;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
   z-index: 1;
 }
 
-.code-block-wrapper:hover .code-copy-btn {
+.code-block-wrapper:hover .code-copy-btn,
+.code-copy-btn:focus-visible {
   opacity: 1;
 }
 
@@ -481,12 +508,41 @@ body {
   background-color: var(--bg-hover);
   color: var(--text-primary);
   border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+
+.code-copy-btn:focus-visible {
+  outline: 2px solid rgba(0, 117, 190, 0.55);
+  outline-offset: 2px;
 }
 
 .code-copy-btn.copied {
+  min-width: 82px;
   opacity: 1;
+  background-color: rgba(0, 184, 163, 0.14);
   color: var(--accent-green);
-  border-color: var(--accent-green);
+  border-color: rgba(0, 184, 163, 0.55);
+}
+
+.code-copy-btn.failed {
+  opacity: 1;
+  background-color: rgba(239, 71, 67, 0.14);
+  color: var(--accent-red);
+  border-color: rgba(239, 71, 67, 0.55);
+}
+
+.code-copy-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.code-block-wrapper pre {
+  padding-right: 96px;
 }
 
 .problem-description ul,
@@ -678,6 +734,8 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Allows nested pre/code blocks to shrink inside flex panes instead of forcing horizontal overflow. */
+  min-width: 0;
 }
 
 .console-tabs {
@@ -701,7 +759,9 @@ body {
 .console-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px;
+  min-width: 0;
 }
 
 .action-btn {
@@ -833,11 +893,18 @@ body {
 }
 
 /* Result Panel */
+.result-panel {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .result-summary {
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 16px;
   border: 1px solid;
+  min-width: 0;
 }
 
 .result-summary.ac {
@@ -894,12 +961,14 @@ body {
 .result-message {
   font-size: 14px;
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
 
 .testcase-results {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .testcase-result {
@@ -907,6 +976,8 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .testcase-result-header {
@@ -951,10 +1022,41 @@ body {
 .testcase-result-details {
   font-size: 13px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  min-width: 0;
 }
 
 .testcase-result-details div {
   margin-bottom: 4px;
+}
+
+.testcase-result-row {
+  min-width: 0;
+}
+
+.testcase-result-row strong {
+  display: block;
+  margin-bottom: 4px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.testcase-result-value {
+  /* Results can contain large arrays; keep them readable without expanding the whole panel. */
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: 180px;
+  margin: 0 0 8px;
+  padding: 8px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.5;
 }
 
 .error-message {
@@ -998,18 +1100,6 @@ body {
   }
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .split-pane {
-    flex-direction: column;
-  }
-
-  .left-panel,
-  .right-panel {
-    min-width: 100%;
-  }
-}
-
 /* Navbar Link Disabled */
 .navbar-link-disabled {
   opacity: 0.5;
@@ -1018,7 +1108,7 @@ body {
 
 /* Problem Table Column Widths */
 .problem-table th.col-status {
-  width: 6%;
+  width: 88px;
 }
 
 .problem-table td.col-status {
@@ -1039,15 +1129,15 @@ body {
 }
 
 .problem-table th.col-difficulty {
-  width: 10%;
+  width: 136px;
 }
 
 .problem-table th.col-tags {
-  width: 30%;
+  width: 34%;
 }
 
 .problem-table th.col-actions {
-  width: 10%;
+  width: 112px;
 }
 
 .delete-btn {
@@ -1450,4 +1540,173 @@ body {
 .import-feedback-icon {
   font-weight: 700;
   font-size: 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 12px;
+  }
+
+  .navbar-left {
+    width: 100%;
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .navbar-menu {
+    gap: 8px;
+  }
+
+  .navbar-disabled-item {
+    display: none;
+  }
+
+  .navbar-menu a {
+    padding: 4px 6px;
+  }
+
+  .problem-list-container {
+    max-width: none;
+    padding: 24px 12px;
+  }
+
+  .problem-list-header-row {
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .problem-list-header-row .problem-list-header {
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  .import-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .problem-table {
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .problem-table table,
+  .problem-table tbody,
+  .problem-table tr,
+  .problem-table td {
+    /* Collapse the desktop table into card-like rows without changing the JSX structure. */
+    display: block;
+    width: 100%;
+  }
+
+  .problem-table thead {
+    display: none;
+  }
+
+  .problem-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .problem-table tbody tr {
+    /* Grid areas preserve status/title/difficulty/tag/action order on narrow screens. */
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-areas:
+      "status title"
+      ". difficulty"
+      ". tags"
+      ". actions";
+    column-gap: 10px;
+    row-gap: 8px;
+    padding: 14px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+  }
+
+  .problem-table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .problem-table th:last-child,
+  .problem-table td:last-child {
+    padding-right: 0;
+  }
+
+  .problem-table td.col-status {
+    grid-area: status;
+    display: flex;
+    min-height: 24px;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .problem-table td.problem-title {
+    grid-area: title;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .problem-table td.problem-difficulty {
+    grid-area: difficulty;
+  }
+
+  .problem-table td.problem-tags {
+    grid-area: tags;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .problem-table td.problem-actions {
+    grid-area: actions;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .problem-table td.problem-actions:empty {
+    display: none;
+  }
+
+  .problem-table td.problem-tags .tag {
+    margin-right: 0;
+    margin-bottom: 0;
+  }
+
+  .split-pane {
+    flex-direction: column;
+  }
+
+  .left-panel,
+  .right-panel {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .problem-list-header-row {
+    flex-direction: column;
+  }
+
+  .problem-list-header-row .problem-list-header,
+  .import-btn {
+    width: 100%;
+  }
+
+  .problem-table tbody tr {
+    grid-template-columns: 22px minmax(0, 1fr);
+    padding: 12px;
+  }
 }

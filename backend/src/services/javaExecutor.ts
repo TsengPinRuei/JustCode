@@ -10,6 +10,40 @@ import { Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../
 import { RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS, COMPILE_TIMEOUT_MS, JAVA_SANDBOX_IMAGE } from '../constants';
 import { SandboxRunner } from './sandboxRunner';
 
+// Internal-to-Java type mapping used by generated Runner.java parser/serializer code.
+const JAVA_TYPE_MAP: Record<string, string> = {
+    integer: 'int',
+    int: 'int',
+    'integer[]': 'int[]',
+    'int[]': 'int[]',
+    'integer[][]': 'int[][]',
+    'int[][]': 'int[][]',
+    string: 'String',
+    'string[]': 'String[]',
+    'string[][]': 'String[][]',
+    boolean: 'boolean',
+    bool: 'boolean',
+    'boolean[]': 'boolean[]',
+    'bool[]': 'boolean[]',
+    double: 'double',
+    float: 'double',
+    'double[]': 'double[]',
+    'float[]': 'double[]',
+    long: 'long',
+    'long[]': 'long[]',
+    char: 'char',
+    'char[]': 'char[]',
+    'char[][]': 'char[][]',
+    'list<integer>': 'List<Integer>',
+    'list<int>': 'List<Integer>',
+    'list<string>': 'List<String>',
+    'list<list<integer>>': 'List<List<Integer>>',
+    'list<list<int>>': 'List<List<Integer>>',
+    'list<list<string>>': 'List<List<String>>',
+    'list<boolean>': 'List<Boolean>',
+    'list<bool>': 'List<Boolean>',
+};
+
 export class JavaExecutor {
     private readonly sandboxRunner = new SandboxRunner();
 
@@ -31,6 +65,7 @@ export class JavaExecutor {
 
     /** Compile Solution.java and Runner.java; returns compilation errors if any */
     private async compile(workspaceDir: string): Promise<{ success: boolean; error?: string; compilationErrors?: CompilationError[] }> {
+        // Compilation needs a writable workspace so javac can emit .class files beside the sources.
         const result = await this.sandboxRunner.execute({
             command: 'javac',
             args: ['Solution.java', 'Runner.java'],
@@ -60,6 +95,7 @@ export class JavaExecutor {
         const startTime = Date.now();
         const inputJson = JSON.stringify(testcase.input);
 
+        // Runtime uses the same workspace read-only; compiled classes already exist after compile().
         const result = await this.sandboxRunner.execute({
             command: 'java',
             args: ['Runner'],
@@ -294,28 +330,8 @@ export class JavaExecutor {
     // Map internal/LeetCode type strings to Java declarations understood by getParseCode().
     private mapTypeToJava(typeStr: string): string {
         const t = typeStr.toLowerCase().trim();
-        if (t === 'integer' || t === 'int') return 'int';
-        if (t === 'integer[]' || t === 'int[]') return 'int[]';
-        if (t === 'integer[][]' || t === 'int[][]') return 'int[][]';
-        if (t === 'string') return 'String';
-        if (t === 'string[]') return 'String[]';
-        if (t === 'string[][]') return 'String[][]';
-        if (t === 'boolean' || t === 'bool') return 'boolean';
-        if (t === 'boolean[]' || t === 'bool[]') return 'boolean[]';
-        if (t === 'double' || t === 'float') return 'double';
-        if (t === 'double[]' || t === 'float[]') return 'double[]';
-        if (t === 'long') return 'long';
-        if (t === 'long[]') return 'long[]';
-        if (t === 'char') return 'char';
-        if (t === 'char[]') return 'char[]';
-        if (t === 'char[][]') return 'char[][]';
-        if (t === 'list<integer>' || t === 'list<int>') return 'List<Integer>';
-        if (t === 'list<string>') return 'List<String>';
-        if (t === 'list<list<integer>>' || t === 'list<list<int>>') return 'List<List<Integer>>';
-        if (t === 'list<list<string>>') return 'List<List<String>>';
-        if (t === 'list<boolean>' || t === 'list<bool>') return 'List<Boolean>';
         // Default keeps imported metadata visible but may require a future parser extension.
-        return typeStr;
+        return JAVA_TYPE_MAP[t] ?? typeStr;
     }
 
     // Generate the Java statement that converts parsed JSON into the target method parameter type.
@@ -633,31 +649,31 @@ ${parseLines}
     }
     
     static List<Integer> toIntegerList(java.util.List<?> list) {
-        List<Integer> result = new ArrayList<>();
+        List<Integer> result = new ArrayList<>(list.size());
         for (Object o : list) result.add(((Number) o).intValue());
         return result;
     }
     
     static List<String> toStringList(java.util.List<?> list) {
-        List<String> result = new ArrayList<>();
+        List<String> result = new ArrayList<>(list.size());
         for (Object o : list) result.add((String) o);
         return result;
     }
     
     static List<Boolean> toBooleanList(java.util.List<?> list) {
-        List<Boolean> result = new ArrayList<>();
+        List<Boolean> result = new ArrayList<>(list.size());
         for (Object o : list) result.add((Boolean) o);
         return result;
     }
     
     static List<List<Integer>> toIntegerListList(java.util.List<?> list) {
-        List<List<Integer>> result = new ArrayList<>();
+        List<List<Integer>> result = new ArrayList<>(list.size());
         for (Object o : list) result.add(toIntegerList((java.util.List<?>) o));
         return result;
     }
     
     static List<List<String>> toStringListList(java.util.List<?> list) {
-        List<List<String>> result = new ArrayList<>();
+        List<List<String>> result = new ArrayList<>(list.size());
         for (Object o : list) result.add(toStringList((java.util.List<?>) o));
         return result;
     }
