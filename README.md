@@ -1,70 +1,86 @@
 # JustCode
 
-A single-machine LeetCode-like coding practice platform with offline Java code execution.
+JustCode is a single-machine coding practice app inspired by LeetCode. It runs a React frontend and an Express backend on your own computer, stores problems as files under `problems/`, and executes Java or Python3 solutions locally or in Docker.
+
+The project is meant for personal learning and local practice. It is not a hosted multi-user online judge.
 
 ![JustCode](https://img.shields.io/badge/JustCode-v1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Features
+## Key Features
 
-- **Multi-Language Support**: Java and Python3 supported with automatic language detection
-- **LeetCode Import**: Import problems directly from LeetCode by URL — auto-extracts description, examples, constraints, templates, and testcases
-- **Progress Persistence**: Auto-saves your code, selected language, and problem status (solved/attempted) — restored on revisit
-- **Problem Management**: Delete imported problems with confirmation; built-in problems are protected
-- **User Interface**: Familiar and intuitive interface with dark theme
-- **Offline Code Execution**: Run and submit code locally without external dependencies
-- **Error Highlighting**: Real-time compilation error highlighting in the code editor with red squiggly lines
-- **Complete Problem Flow**: Problem browsing, code editing, running, and submission
-- **Monaco Editor**: Professional code editing experience with syntax highlighting and error markers
-- **Editorial with Copy**: Solution editorials with tabbed multi-language code blocks and one-click copy buttons
-- **Comprehensive Testing**: Visible testcases for practice, hidden testcases for validation
-- **Real-time Feedback**: Instant results with AC/WA/CE/RE/TLE status indicators
-- **Resizable Layout**: Adjustable split pane for optimal workspace
+- Browse local coding problems with difficulty, tags, and solved/attempted status.
+- Solve problems in Java or Python3 using a Monaco-based code editor.
+- Run visible testcases, run one custom JSON input, or submit against visible plus hidden testcases.
+- Save progress automatically per problem, including selected language and code for each language.
+- Import public LeetCode problem data by URL, including statement text, examples, constraints, Java/Python3 templates, and example testcases.
+- Delete imported problems from the UI. Built-in problems are protected from deletion.
+- Read Markdown editorials with GitHub-flavored Markdown, tabbed adjacent code blocks, and copy buttons.
+- See AC, WA, CE, RE, and TLE feedback, per-testcase details, timing, and compile-error markers in the editor.
+- Run code through a sandbox runner with temporary workspaces, timeout handling, bounded output, and optional Docker isolation.
+- Resize the problem, editor, and console panes while working.
 
-## System Requirements
+## Requirements
 
-- **Node.js**: Version 18.x or higher
-- **JDK**: Java Development Kit 11 or higher (for Java code execution)
-- **Python**: Python 3.x (for Python code execution)
-- **Docker**: Recommended for sandboxed execution of untrusted code
-- **Operating System**: macOS, Linux, or Windows
+- Node.js 18 or newer, with npm.
+- Java Development Kit 11 or newer if you want to run Java in local sandbox mode.
+- Python 3 if you want to run Python3 in local sandbox mode.
+- Docker is optional, but strongly recommended when running code you do not fully trust.
+- Internet access is required for `npm install` and for LeetCode imports.
+- macOS, Linux, or Windows. The `install.sh` and `uninstall.sh` scripts are for macOS/Linux; the npm commands work cross-platform.
 
-### Verify Environment:
+Check your environment:
 
 ```bash
-# Check Node.js version
-node --version          # Should be >= 18.0.0
-
-# Check Java version
-java --version          # Should be >= 11
-javac --version         # Should be >= 11
-
-# Check Python version
-python3 --version       # Should be >= 3.x
-
-# Optional: check Docker for stronger sandbox isolation
+node --version
+npm --version
+javac --version
+java --version
+python3 --version
 docker --version
 ```
 
-## Code Execution Sandbox
+## Installation
 
-JustCode runs submitted code through a sandbox runner with:
-- no shell command execution
-- per-run temporary workspaces
-- minimal environment variables so host secrets are not inherited
-- process-group termination on timeout
-- bounded stdout/stderr output
-- optional Docker isolation with no network, read-only runtime mounts, dropped capabilities, memory/CPU/PID limits, and a tmpfs `/tmp`
+From the repository root:
 
-Sandbox modes are controlled with `JUSTCODE_SANDBOX_MODE`:
+```bash
+npm install
+```
+
+This uses npm workspaces to install the root, frontend, and backend dependencies.
+
+On macOS/Linux, you can also run:
+
+```bash
+./install.sh
+```
+
+The script checks for Node.js and then runs `npm install`.
+
+## Configuration
+
+JustCode does not require a `.env` file for normal local use. Configuration is read from environment variables.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PORT` | `3000` | Backend API port. The Vite dev proxy expects `3000` unless you also update `frontend/vite.config.ts`. |
+| `JUSTCODE_SANDBOX_MODE` | `auto` | Code execution mode: `auto`, `docker`, or `local`. |
+| `JUSTCODE_JAVA_SANDBOX_IMAGE` | `eclipse-temurin:17-jdk` | Docker image for Java execution. |
+| `JUSTCODE_PYTHON_SANDBOX_IMAGE` | `python:3.11-slim` | Docker image for Python execution. |
+| `JUSTCODE_DOCKER_MEMORY` | `256m` | Docker memory limit per execution container. |
+| `JUSTCODE_DOCKER_CPUS` | `1` | Docker CPU limit per execution container. |
+| `JUSTCODE_DOCKER_PIDS_LIMIT` | `64` | Docker process limit per execution container. |
+
+Sandbox modes:
 
 | Mode | Behavior |
 | --- | --- |
-| `auto` (default) | Uses Docker when the required image is already available locally; otherwise falls back to restricted local execution. |
-| `docker` | Requires Docker and fails closed if the daemon or image is unavailable. Use this for untrusted code. |
-| `local` | Compatibility mode using local `javac`, `java`, and `python3`. This is not a complete security boundary. |
+| `auto` | Uses Docker only when the required image already exists locally and the Docker daemon is available. Otherwise it falls back to restricted local execution. |
+| `docker` | Requires Docker and the configured image. If Docker is unavailable, execution fails instead of falling back. Use this for untrusted code. |
+| `local` | Runs local `javac`, `java`, and `python3` without a shell and with a minimal environment. This is convenient, but it is not a full security boundary. |
 
-For the strongest isolation:
+For Docker mode:
 
 ```bash
 docker pull eclipse-temurin:17-jdk
@@ -72,205 +88,301 @@ docker pull python:3.11-slim
 JUSTCODE_SANDBOX_MODE=docker npm run dev
 ```
 
-Optional limits and images:
+On Windows PowerShell, set environment variables like this:
 
-```bash
-JUSTCODE_DOCKER_MEMORY=256m
-JUSTCODE_DOCKER_CPUS=1
-JUSTCODE_DOCKER_PIDS_LIMIT=64
-JUSTCODE_JAVA_SANDBOX_IMAGE=eclipse-temurin:17-jdk
-JUSTCODE_PYTHON_SANDBOX_IMAGE=python:3.11-slim
+```powershell
+$env:JUSTCODE_SANDBOX_MODE = "docker"
+npm run dev
 ```
 
-## Installation and Execution
+## Usage
 
-1. **Clone or navigate to the project directory:**
-   ```bash
-   cd JustCode
-   ```
-
-2. **Install dependencies (cross-platform):**
-   ```bash
-   npm install
-   ```
-
-   This will install dependencies for both frontend and backend using npm workspaces.
-
-3. **Start the development servers:**
-   ```bash
-   npm run dev
-   ```
-
-   This starts both:
-   - **Backend** (Express API): `http://localhost:3000`
-   - **Frontend** (React + Vite): `http://localhost:5173`
-
-4. **Open your browser:**
-   Navigate to `http://localhost:5173`
-
-## Cleanup and Uninstallation
-
-### Reset for Reinstallation
-
-If you want to **keep the project** but reinstall dependencies (e.g., to fix issues):
+Start both development servers:
 
 ```bash
-npm run clean  # Remove node_modules, build artifacts, and lock files
-npm install    # Reinstall all dependencies
+npm run dev
 ```
 
-Other cleanup commands:
-- `npm run clean:modules` - Only remove node_modules and lock files
-- `npm run clean:build` - Only remove build artifacts (dist, .vite, etc.)
+This starts:
 
-> **Note**: These commands preserve your source code, problem files, and configuration.
+- Backend API: `http://localhost:3000`
+- Frontend app: `http://localhost:5173`
 
-### Complete Removal
+Open:
 
-If you want to **completely delete** JustCode from your computer:
+```text
+http://localhost:5173
+```
+
+The backend also has a health check:
+
+```text
+http://localhost:3000/health
+```
+
+### Solving a Problem
+
+1. Open the problem list.
+2. Select a problem.
+3. Choose Java or Python3 if the problem supports both.
+4. Edit the starter code.
+5. Use `Run` to run visible testcases or the current custom input.
+6. Use `Submit` to run visible and hidden testcases.
+
+Only `Submit` can mark a problem as solved because `Run` does not use hidden testcases.
+
+### Custom Input
+
+Custom input must be a JSON object with the same parameter names as the problem metadata. For example:
+
+```json
+{
+  "nums": [5, 2, 3, 1]
+}
+```
+
+For the built-in Add Two Integers problem:
+
+```json
+{
+  "num1": 12,
+  "num2": 5
+}
+```
+
+Custom input has no expected output, so JustCode reports whether the code executed successfully and shows the returned value.
+
+### Importing From LeetCode
+
+On the problem list page, click `Import from LeetCode` and paste a URL like:
+
+```text
+https://leetcode.com/problems/two-sum/
+```
+
+Imported problems are saved under `problems/<problem-slug>/`.
+
+Important limits:
+
+- Import uses LeetCode's public GraphQL response and the current problem HTML shape.
+- Only Java and Python3 snippets are imported.
+- Only public example testcases are imported as visible testcases.
+- LeetCode hidden judge testcases are not available. JustCode creates an empty `testcases_hidden.json` file so you can add hidden cases manually later.
+- Imported problems are ignored by the current `.gitignore` unless you explicitly change the ignore rules or force-add the files.
+
+### Local Problem Files
+
+Each problem directory uses this layout:
+
+```text
+problems/<problem-id>/
+├── problem.json
+├── template.java
+├── template.py
+├── editorial.md
+├── testcases_visible.json
+├── testcases_hidden.json
+└── progress.json
+```
+
+`problem.json` defines title, difficulty, tags, statement text, examples, constraints, supported languages, function name, parameters, return type, and displayed function signatures.
+
+Testcase files are JSON arrays:
+
+```json
+[
+  {
+    "input": {
+      "nums": [5, 2, 3, 1]
+    },
+    "output": [1, 2, 3, 5]
+  }
+]
+```
+
+`progress.json` stores local user progress. The app writes it automatically.
+
+## Common Commands
+
+Run these from the repository root unless noted.
+
+| Command | What it does |
+| --- | --- |
+| `npm install` | Installs all workspace dependencies. |
+| `npm run dev` | Starts backend and frontend development servers together. |
+| `npm run dev:backend` | Starts only the backend on `PORT` or `3000`. |
+| `npm run dev:frontend` | Starts only the Vite frontend on `5173`. |
+| `npm run build` | Builds frontend and backend. Use this as the current main verification command. |
+| `npm run build:frontend` | Builds only the frontend. |
+| `npm run build:backend` | Builds only the backend TypeScript output. |
+| `npm run start:backend` | Starts the built backend from the backend workspace. Run `npm run build:backend` first. |
+| `npm run clean` | Removes dependencies, build output, temporary execution files, and lock files. |
+| `npm run clean:modules` | Removes `node_modules` and lock files only. |
+| `npm run clean:build` | Removes build output and TypeScript build info only. |
+| `./install.sh` | macOS/Linux helper for installation. |
+| `./uninstall.sh` | macOS/Linux helper for cleaning dependencies and build output. |
+
+There is currently no `npm test` or lint script in this repository. Use `npm run build` to type-check and build both apps.
+
+## Build and Deployment Notes
+
+Build everything:
 
 ```bash
-# macOS/Linux
-cd ..
-rm -rf JustCode
-
-# Windows (PowerShell)
-cd ..
-Remove-Item -Recurse -Force JustCode
+npm run build
 ```
+
+Start the built backend:
+
+```bash
+npm run start:backend
+```
+
+Use the workspace script instead of running `node backend/dist/server.js` directly from the repository root. The backend expects its working directory to be `backend/` so it can find `../problems`.
+
+There is no bundled single-command production server for both frontend and backend. For deployment, serve `frontend/dist` with a static file server or reverse proxy, and route `/api` requests to the backend. The development setup uses Vite's proxy for `/api`.
 
 ## Project Structure
 
-```
+```text
 JustCode/
-├── frontend/                       # React + TypeScript + Vite
+├── backend/                    # Express + TypeScript API
 │   ├── src/
-│   │   ├── components/             # Navbar, Editor, Console, etc.
-│   │   ├── pages/                  # ProblemList, ProblemDetail
-│   │   ├── plugins/                # Remark plugins (tabbed code blocks)
-│   │   ├── services/               # API client
-│   │   ├── types/                  # TypeScript interfaces
-│   │   └── App.tsx
+│   │   ├── constants.ts        # Timeouts, sandbox env vars, protected problem IDs
+│   │   ├── routes/             # REST API routes
+│   │   ├── services/           # Problem storage, LeetCode import, code execution
+│   │   ├── server.ts           # Express server entry
+│   │   └── types.ts            # Backend API/data types
 │   └── package.json
-├── backend/                        # Node.js + Express + TypeScript
+├── frontend/                   # React + TypeScript + Vite app
+│   ├── public/                 # Static assets
 │   ├── src/
-│   │   ├── routes/                 # API endpoints
-│   │   ├── services/               # Executors, problem service, LeetCode import
-│   │   └── server.ts
+│   │   ├── components/         # Editor, console, description, layout components
+│   │   ├── pages/              # Problem list and problem detail pages
+│   │   ├── plugins/            # Markdown code-group plugin
+│   │   ├── services/           # Axios API client
+│   │   ├── types/              # Frontend API/data types
+│   │   ├── App.tsx
+│   │   └── main.tsx
 │   └── package.json
-├── problems/                       # Problem data (JSON + Markdown)
-│   ├── sort-array/
-│   │   ├── problem.json
-│   │   ├── template.java           # Java template
-│   │   ├── template.py             # Python template
-│   │   ├── editorial.md            # Problem editorial
-│   │   ├── progress.json           # User progress (git-ignored)
-│   │   ├── testcases_visible.json
-│   │   └── testcases_hidden.json
-│   └── add-two-integers/           # Built-in problem
-│       ├── problem.json
-│       ├── template.java
-│       ├── template.py
-│       ├── editorial.md
-│       ├── testcases_visible.json
-│       └── testcases_hidden.json
-├── install.sh                      # Installation script
-├── uninstall.sh                    # Cleanup script
-└── package.json                    # Root workspace config
+├── problems/                   # File-backed problem store
+│   ├── add-two-integers/       # Built-in protected problem
+│   └── sort-array/             # Built-in protected problem
+├── install.sh                  # macOS/Linux install helper
+├── uninstall.sh                # macOS/Linux cleanup helper
+├── package.json                # npm workspace scripts
+└── package-lock.json
 ```
 
-## Usage Guide
+## API Overview
 
-### Running Code
+The frontend calls relative `/api` paths. In development, Vite proxies these to the backend on port `3000`.
 
-1. Click "Run" to test your code with example testcases
-2. Switch to "Custom Input" tab and provide your own JSON input
-3. Click "Submit" to run against all testcases (visible + hidden)
-
-### Understanding Results
-
-- **AC (Accepted)**: All testcases passed
-- **WA (Wrong Answer)**: At least one testcase failed
-- **CE (Compile Error)**: Code compilation failed
-- **RE (Runtime Error)**: Code threw an exception
-- **TLE (Time Limit Exceeded)**: Code exceeded time limit
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Backend health check. |
+| `GET` | `/api/problems` | List problem metadata. |
+| `GET` | `/api/problems/:id` | Load one problem without hidden testcase contents. |
+| `POST` | `/api/run` | Run visible testcases or one custom input. |
+| `POST` | `/api/submit` | Submit against visible and hidden testcases. |
+| `POST` | `/api/import-problem` | Import a public LeetCode problem URL. |
+| `GET` | `/api/progress` | Read all saved progress files. |
+| `GET` | `/api/progress/:id` | Read one problem's progress. |
+| `PUT` | `/api/progress/:id` | Save one problem's progress. |
+| `DELETE` | `/api/problems/:id` | Delete a non-protected problem. |
 
 ## Troubleshooting
 
-### "javac: command not found"
+### The frontend cannot connect to the backend
 
-**Problem**: JDK is not installed or not in PATH.
+Check that the backend is running:
 
-**Solution**:
-1. Download and install JDK from [Oracle](https://www.oracle.com/java/technologies/downloads/) or [OpenJDK](https://openjdk.org/)
-2. Add Java to your PATH:
-   ```bash
-   # macOS/Linux - Add to ~/.zshrc or ~/.bashrc
-   export JAVA_HOME=/path/to/jdk
-   export PATH=$JAVA_HOME/bin:$PATH
-   
-   # Windows - Set environment variables in System Properties
-   ```
-3. Verify: `javac --version`
-
-### Port Already in Use
-
-**Problem**: Port 3000 or 5173 is already in use.
-
-**Solution**:
-```bash
-# macOS/Linux - Find and kill processes
-lsof -ti:3000 | xargs kill -9
-lsof -ti:5173 | xargs kill -9
-
-# Windows (PowerShell)
-Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process -Force
-Get-Process -Id (Get-NetTCPConnection -LocalPort 5173).OwningProcess | Stop-Process -Force
-
-# Or change ports in:
-# - backend/src/server.ts (PORT=3000)
-# - frontend/vite.config.ts (port: 5173)
+```text
+http://localhost:3000/health
 ```
 
-### Module Not Found Errors
+If you changed `PORT`, also update the Vite proxy target in `frontend/vite.config.ts`, or the frontend will still send `/api` requests to port `3000` during development.
 
-**Problem**: Dependencies not installed.
+### Port 3000 or 5173 is already in use
 
-**Solution**:
+Stop the existing process, then run `npm run dev` again.
+
+macOS/Linux:
+
 ```bash
-# Cross-platform clean install
-npm run clean:modules
-npm install
+lsof -ti:3000 | xargs kill
+lsof -ti:5173 | xargs kill
 ```
 
-## Security Note
+Windows PowerShell:
 
-This project is designed for personal learning and local use. Docker sandbox mode is the intended boundary for running untrusted snippets on your own machine. Do not expose JustCode directly as a public multi-user judge without adding authentication, per-user storage, request rate limits, container lifecycle monitoring, and host-level hardening.
+```powershell
+Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process
+Get-Process -Id (Get-NetTCPConnection -LocalPort 5173).OwningProcess | Stop-Process
+```
 
-## Future Enhancements
+### `javac: command not found` or Java compilation always fails
 
-- [x] Import problems via LeetCode URL
-- [x] Support Python3
-- [x] Solution Editorial with tabbed multi-language code blocks
-- [x] Error highlighting in code editor
-- [x] Progress persistence (auto-save code, status tracking)
-- [x] Problem deletion with built-in problem protection
-- [x] Copy-to-clipboard button on editorial code blocks
-- [x] Problem status and code history
+Install a JDK, not just a JRE, and confirm:
 
-## Contributing
+```bash
+javac --version
+java --version
+```
 
-This is a personal learning project, but suggestions and improvements are welcome:
-1. Fork the repository
-2. Create your feature branch
-3. Submit a pull request
+You can also use Docker mode after pulling the Java image:
 
-## License
+```bash
+docker pull eclipse-temurin:17-jdk
+JUSTCODE_SANDBOX_MODE=docker npm run dev
+```
 
-MIT License - feel free to use this project for learning purposes.
+### `python3: command not found`
 
-## Acknowledgments
+Install Python 3 and confirm:
 
-- Inspired by [LeetCode](https://leetcode.com)
-- Built with [Monaco Editor](https://microsoft.github.io/monaco-editor/)
-- Powered by [React](https://react.dev/), [Express](https://expressjs.com/), and [TypeScript](https://www.typescriptlang.org/)
+```bash
+python3 --version
+```
+
+Or use Docker mode after pulling the Python image:
+
+```bash
+docker pull python:3.11-slim
+JUSTCODE_SANDBOX_MODE=docker npm run dev
+```
+
+### Docker mode fails
+
+Make sure Docker Desktop or the Docker daemon is running, then pull the images used by the app:
+
+```bash
+docker pull eclipse-temurin:17-jdk
+docker pull python:3.11-slim
+```
+
+`JUSTCODE_SANDBOX_MODE=docker` fails closed if Docker or the image is unavailable. `auto` falls back to local execution when Docker is not ready.
+
+### LeetCode import fails
+
+Check that the URL matches this shape:
+
+```text
+https://leetcode.com/problems/<problem-slug>/
+```
+
+The importer depends on network access, LeetCode's public GraphQL response, and the current statement HTML format. If LeetCode changes its response shape, the importer may need code changes in `backend/src/services/leetcodeService.ts`.
+
+### Custom input is rejected
+
+Custom input must be valid JSON and must match the problem parameter names. Use the first visible testcase as a template.
+
+### A problem does not appear in the list
+
+The backend skips invalid problem directories. Check that the directory contains a valid `problem.json` and `testcases_visible.json`.
+
+Also start the backend through the workspace command so it can find the problem store:
+
+```bash
+npm run dev:backend
+```
