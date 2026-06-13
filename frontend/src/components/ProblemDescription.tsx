@@ -7,10 +7,13 @@ import React, { useState, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkCodeGroup from '../plugins/remarkCodeGroup';
-import { Problem } from '../types';
+import { Problem, ProblemProgress } from '../types';
+import SolveStatsPanel from './SolveStatsPanel';
 
 interface ProblemDescriptionProps {
     problem: Problem;
+    progress: ProblemProgress | null;
+    currentElapsedMs: number;
 }
 
 /* ---- Tabbed code-group renderer ---- */
@@ -157,7 +160,7 @@ const markdownComponents: Record<string, React.FC<any>> = {
 
 /* ---- Main component ---- */
 
-const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem }) => {
+const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progress, currentElapsedMs }) => {
     const [activeTab, setActiveTab] = useState<'description' | 'editorial'>('description');
 
     return (
@@ -177,6 +180,8 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem }) => {
                     ))}
                 </div>
             </div>
+
+            <SolveStatsPanel progress={progress} currentElapsedMs={currentElapsedMs} />
 
             <div className="tabs" data-active-tab={activeTab}>
                 <button

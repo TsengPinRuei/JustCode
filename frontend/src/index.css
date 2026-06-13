@@ -330,6 +330,177 @@ body {
   flex-wrap: wrap;
 }
 
+/* Solve stats live near the title because they summarize this problem's local AC history. */
+.solve-stats-panel {
+  margin: 14px 20px 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.solve-stats-panel.expanded {
+  padding-bottom: 12px;
+}
+
+.solve-stats-toggle {
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.solve-stats-toggle:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.solve-stats-toggle:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: -2px;
+}
+
+.solve-stats-panel.expanded .solve-stats-toggle {
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.solve-stats-toggle-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.solve-stats-toggle-summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solve-stats-toggle-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-blue);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.solve-stats-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+  margin-right: 12px;
+  margin-bottom: 12px;
+  margin-left: 12px;
+}
+
+.solve-stat-item {
+  min-width: 0;
+  padding: 8px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.solve-stat-label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.solve-stat-item strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.solve-rank-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-right: 12px;
+  margin-left: 12px;
+}
+
+.solve-rank-row {
+  display: grid;
+  grid-template-columns: 34px minmax(72px, 1fr) minmax(58px, auto) minmax(132px, 1.35fr);
+  gap: 8px;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.solve-rank-row.latest {
+  color: var(--text-primary);
+}
+
+.solve-rank-number {
+  color: var(--accent-blue);
+  font-weight: 700;
+}
+
+.solve-rank-bar-track {
+  height: 8px;
+  overflow: hidden;
+  background-color: var(--bg-tertiary);
+  border-radius: 999px;
+}
+
+.solve-rank-bar {
+  height: 100%;
+  background: linear-gradient(135deg, var(--accent-red), var(--accent-yellow), var(--accent-blue));
+  border-radius: inherit;
+}
+
+.solve-rank-row.latest .solve-rank-bar {
+  background: linear-gradient(135deg, var(--accent-red), var(--accent-yellow), var(--accent-blue));
+}
+
+.solve-rank-duration {
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.solve-rank-meta {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solve-stats-empty {
+  margin-right: 12px;
+  margin-left: 12px;
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  background-color: var(--bg-tertiary);
+  border: 1px dashed var(--border-hover);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
 .tabs {
   display: flex;
   gap: 0;
@@ -1683,6 +1854,23 @@ body {
   .problem-table td.problem-tags .tag {
     margin-right: 0;
     margin-bottom: 0;
+  }
+
+  /* Rank rows lose the metadata column on narrow screens, then place it under the timing bar. */
+  .solve-stats-panel {
+    margin: 12px;
+  }
+
+  .solve-stats-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .solve-rank-row {
+    grid-template-columns: 32px minmax(64px, 1fr) minmax(58px, auto);
+  }
+
+  .solve-rank-meta {
+    grid-column: 2 / 4;
   }
 
   .split-pane {

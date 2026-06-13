@@ -41,11 +41,12 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
         }
 
         // Match debug sections against the result rows that failed.
-        const failingIndices = new Set(
-            result.testcaseResults
-                .filter(tc => tc.status !== 'Passed')
-                .map(tc => tc.index)
-        );
+        const failingIndices = new Set<number>();
+        for (const tc of result.testcaseResults) {
+            if (tc.status !== 'Passed') {
+                failingIndices.add(tc.index);
+            }
+        }
 
         if (failingIndices.size === 0) return null;
 

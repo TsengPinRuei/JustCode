@@ -87,10 +87,22 @@ export interface SubmitRequest {
 /** Problem completion status: none (not started), attempted (code saved), solved (AC) */
 export type ProblemStatus = 'none' | 'attempted' | 'solved';
 
+// One accepted submission snapshot persisted in progress.json for frontend statistics/history.
+export interface SolveRecord {
+    id: string;
+    solvedAt: string;        // ISO timestamp from the client when AC is recorded.
+    durationMs: number;      // Time spent in the current attempt window before AC.
+    submitDurationMs?: number; // Optional because older progress files did not store submit timing.
+    language: Language;
+    passedTestcases: number;
+    totalTestcases: number;
+}
+
 /** Persisted user progress for a problem, stored in progress.json */
 export interface ProblemProgress {
     status: ProblemStatus;
     code: Record<string, string>;       // Saved code keyed by language so switching tabs is non-destructive.
     selectedLanguage: Language;
+    solveRecords?: SolveRecord[];
     lastUpdated: string;                 // ISO timestamp assigned by the API on save.
 }

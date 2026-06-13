@@ -268,14 +268,17 @@ export class LeetCodeService {
 
         for (let i = 0; i < exampleTestcaseList.length; i++) {
             const rawInput = exampleTestcaseList[i];
-            const lines = rawInput.split('\n').filter(l => l.trim() !== '');
+            const lines = rawInput
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line !== '');
 
             const input: Record<string, unknown> = {};
 
             // Each line corresponds to one parameter; JSON.parse handles arrays/numbers/booleans.
             for (let j = 0; j < params.length && j < lines.length; j++) {
                 const param = params[j];
-                const line = lines[j].trim();
+                const line = lines[j];
                 try {
                     input[param.name] = JSON.parse(line);
                 } catch {
