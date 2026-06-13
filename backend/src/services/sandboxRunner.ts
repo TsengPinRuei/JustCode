@@ -228,11 +228,26 @@ export class SandboxRunner {
                 stdio: ['pipe', 'pipe', 'pipe'],
             });
 
-            let stdout = '';
-            let stderr = '';
+            let stdoutChunks: string[] = [];
+            let stderrChunks: string[] = [];
+            let stdoutLength = 0;
+            let stderrLength = 0;
             let settled = false;
             let timedOut = false;
             let outputExceeded = false;
+
+            const getStdout = () => stdoutChunks.join('');
+            const getStderr = () => stderrChunks.join('');
+
+            const setStdout = (value: string) => {
+                stdoutChunks = [value];
+                stdoutLength = value.length;
+            };
+
+            const setStderr = (value: string) => {
+                stderrChunks = [value];
+                stderrLength = value.length;
+            };
 
             const finish = (exitCode: number) => {
                 // Multiple events can fire after a forced kill; resolve exactly once.
@@ -240,8 +255,8 @@ export class SandboxRunner {
                 settled = true;
                 clearTimeout(timeout);
                 resolve({
-                    stdout,
-                    stderr,
+                    stdout: getStdout(),
+                    stderr: getStderr(),
                     exitCode,
                     timedOut,
                     outputExceeded,
@@ -266,16 +281,17 @@ export class SandboxRunner {
                 if (settled || outputExceeded) return;
                 const text = chunk.toString('utf-8');
                 if (target === 'stdout') {
-                    stdout += text;
+                    stdoutChunks.push(text);
+                    stdoutLength += text.length;
                 } else {
-                    stderr += text;
+                    stderrChunks.push(text);
+                    stderrLength += text.length;
                 }
 
-                if (stdout.length + stderr.length > MAX_OUTPUT_LENGTH) {
+                if (stdoutLength + stderrLength > MAX_OUTPUT_LENGTH) {
                     outputExceeded = true;
-                    stdout = stdout.slice(0, MAX_OUTPUT_LENGTH);
-                    stderr = stderr.slice(0, MAX_OUTPUT_LENGTH);
-                    stderr = `${stderr}\nOutput limit exceeded`;
+                    setStdout(getStdout().slice(0, MAX_OUTPUT_LENGTH));
+                    setStderr(`${getStderr().slice(0, MAX_OUTPUT_LENGTH)}\nOutput limit exceeded`);
                     killChild();
                 }
             };
@@ -283,7 +299,9 @@ export class SandboxRunner {
             const timeout = setTimeout(() => {
                 // The language executors map this sentinel exitCode to TLE.
                 timedOut = true;
-                stderr = stderr || 'Time Limit Exceeded';
+                if (stderrLength === 0) {
+                    setStderr('Time Limit Exceeded');
+                }
                 options.onTimeout?.();
                 killChild();
             }, options.timeoutMs);
@@ -292,7 +310,7 @@ export class SandboxRunner {
             child.stderr?.on('data', (chunk: Buffer) => appendOutput('stderr', chunk));
 
             child.on('error', (error) => {
-                stderr = error.message;
+                setStderr(error.message);
                 finish(1);
             });
 

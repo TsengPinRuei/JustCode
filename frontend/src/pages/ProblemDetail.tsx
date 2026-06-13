@@ -21,6 +21,9 @@ const ProblemDetail: FC = () => {
     const [executing, setExecuting] = useState(false);
     const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
     const [activeTab, setActiveTab] = useState<'testcase' | 'result'>('testcase');
+    const [progressSnapshot, setProgressSnapshot] = useState<ProblemProgress | null>(null);
+    const [currentElapsedMs, setCurrentElapsedMs] = useState(0);
+    const attemptStartedAtRef = useRef(Date.now());
 
     const getErrorMessage = (error: unknown, fallback: string): string => {
         if (typeof error === 'object' && error !== null && 'response' in error) {
@@ -46,10 +49,16 @@ const ProblemDetail: FC = () => {
             status: 'none' as const,
             code: {},
             selectedLanguage: 'java' as Language,
+            solveRecords: [],
             lastUpdated: '',
         };
-        const updated: ProblemProgress = { ...current, ...updates };
+        const updated: ProblemProgress = {
+            ...current,
+            ...updates,
+            solveRecords: updates.solveRecords ?? current.solveRecords ?? [],
+        };
         progressRef.current = updated;
+        setProgressSnapshot(updated);
         try {
             await problemsApi.saveProgress(id, updated);
         } catch {
@@ -90,6 +99,16 @@ const ProblemDetail: FC = () => {
         }
     }, [id]);
 
+    useEffect(() => {
+        if (!problem) return;
+
+        const timer = setInterval(() => {
+            setCurrentElapsedMs(Date.now() - attemptStartedAtRef.current);
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [problem?.metadata.id]);
+
     const loadProblem = async (problemId: string) => {
         try {
             const [data, progress] = await Promise.all([
@@ -97,20 +116,32 @@ const ProblemDetail: FC = () => {
                 problemsApi.getProgress(problemId),
             ]);
             setProblem(data);
+            attemptStartedAtRef.current = Date.now();
+            setCurrentElapsedMs(0);
 
-            if (progress && progress.status !== 'none') {
+            const fallbackLanguage = data.metadata.supportedLanguages[0] || 'java';
+            const normalizedProgress: ProblemProgress | null = progress
+                ? {
+                    ...progress,
+                    code: progress.code || {},
+                    selectedLanguage: progress.selectedLanguage || fallbackLanguage,
+                    solveRecords: progress.solveRecords || [],
+                }
+                : null;
+            progressRef.current = normalizedProgress;
+            setProgressSnapshot(normalizedProgress);
+
+            if (normalizedProgress && normalizedProgress.status !== 'none') {
                 // Restore saved progress only after both problem metadata and progress are available.
-                progressRef.current = progress;
-                const lang = progress.selectedLanguage || data.metadata.supportedLanguages[0] || 'java';
+                const lang = normalizedProgress.selectedLanguage;
                 setSelectedLanguage(lang);
                 // A language can be selected without saved code yet; fall back to its starter template.
-                const savedCode = progress.code?.[lang];
+                const savedCode = normalizedProgress.code?.[lang];
                 setCode(savedCode !== undefined ? savedCode : data.templates[lang]);
             } else {
                 // First visit starts from the problem's first supported language and template.
-                const initialLang = data.metadata.supportedLanguages[0] || 'java';
-                setSelectedLanguage(initialLang);
-                setCode(data.templates[initialLang]);
+                setSelectedLanguage(fallbackLanguage);
+                setCode(data.templates[fallbackLanguage]);
             }
         } catch (error) {
             console.error('Error loading problem:', error);
@@ -183,6 +214,7 @@ const ProblemDetail: FC = () => {
     const handleSubmit = async () => {
         if (!id) return;
 
+        const submitStartedAt = Date.now();
         setExecuting(true);
         setActiveTab('result');
         try {
@@ -194,11 +226,27 @@ const ProblemDetail: FC = () => {
                 const currentProgress = progressRef.current;
                 const codeMap = { ...(currentProgress?.code || {}) };
                 codeMap[selectedLanguage] = code;
+                const solvedAt = new Date().toISOString();
+                const solveRecords = currentProgress?.solveRecords || [];
+                // Store one immutable AC snapshot for the stats panel; code remains saved separately by language.
+                const solveRecord = {
+                    id: `${solvedAt}-${solveRecords.length + 1}`,
+                    solvedAt,
+                    durationMs: Math.max(1000, Date.now() - attemptStartedAtRef.current),
+                    submitDurationMs: Math.max(1, Date.now() - submitStartedAt),
+                    language: selectedLanguage,
+                    passedTestcases: result.passedTestcases,
+                    totalTestcases: result.totalTestcases,
+                };
                 saveProgress({
                     status: 'solved',
                     code: codeMap,
                     selectedLanguage,
+                    solveRecords: [...solveRecords, solveRecord],
                 });
+                // A successful submit starts a fresh timing window for the next attempt on this problem.
+                attemptStartedAtRef.current = Date.now();
+                setCurrentElapsedMs(0);
             }
         } catch (error) {
             console.error('Error submitting code:', error);
@@ -239,7 +287,13 @@ const ProblemDetail: FC = () => {
                 direction="horizontal"
                 minPrimarySizePx={450}
                 minSecondarySizePx={450}
-                left={<ProblemDescription problem={problem} />}
+                left={
+                    <ProblemDescription
+                        problem={problem}
+                        progress={progressSnapshot}
+                        currentElapsedMs={currentElapsedMs}
+                    />
+                }
                 right={
                     <ResizableSplitPane
                         direction="vertical"

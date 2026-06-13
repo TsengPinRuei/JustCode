@@ -72,11 +72,23 @@ export interface ExecutionResult {
 
 export type ProblemStatus = 'none' | 'attempted' | 'solved';
 
+// One accepted submission snapshot used by the stats panel; progress.json may contain many records.
+export interface SolveRecord {
+    id: string;
+    solvedAt: string; // ISO timestamp from the browser at the moment AC is recorded.
+    durationMs: number; // Time spent in the current attempt window before AC.
+    submitDurationMs?: number; // Optional for backwards compatibility with older progress files.
+    language: Language;
+    passedTestcases: number;
+    totalTestcases: number;
+}
+
 export interface ProblemProgress {
     status: ProblemStatus;
     // Saved code is keyed by language so switching languages does not overwrite another buffer.
     code: Record<string, string>;
     selectedLanguage: Language;
+    solveRecords?: SolveRecord[];
     // Assigned by the backend when progress is saved.
     lastUpdated: string;
 }
