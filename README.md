@@ -2,7 +2,7 @@
 
 JustCode is a single-machine coding practice app inspired by LeetCode. It runs a React frontend and an Express backend on your own computer, stores problems as files under `problems/`, and executes Java or Python3 solutions locally or in Docker.
 
-The project is meant for personal learning and local practice. It is not a hosted multi-user online judge.
+The project is meant for personal learning and local practice. It is not a hosted multi-user online judge, and it does not need an account, database, API key, or cloud service for normal local use.
 
 ![JustCode](https://img.shields.io/badge/JustCode-v1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -10,13 +10,14 @@ The project is meant for personal learning and local practice. It is not a hoste
 ## Key Features
 
 - Browse local coding problems with difficulty, tags, and solved/attempted status.
-- Solve problems in Java or Python3 using a Monaco-based code editor.
+- Solve problems in Java or Python3 using a Monaco-based code editor with reset and font-size controls.
 - Run visible testcases, run one custom JSON input, or submit against visible plus hidden testcases.
-- Save progress automatically per problem, including selected language and code for each language.
+- Save progress automatically per problem, including selected language, code for each language, accepted submission records, and solve timing.
 - Import public LeetCode problem data by URL, including statement text, examples, constraints, Java/Python3 templates, and example testcases.
 - Delete imported problems from the UI. Built-in problems are protected from deletion.
 - Read Markdown editorials with GitHub-flavored Markdown, tabbed adjacent code blocks, and copy buttons.
-- See AC, WA, CE, RE, and TLE feedback, per-testcase details, timing, and compile-error markers in the editor.
+- See AC, WA, CE, RE, and TLE feedback, per-testcase details, timing, compile-error markers in the editor, and filtered debug output for failing cases.
+- Review solve statistics such as current attempt time, best total time, latest submit runtime, and ranked accepted submissions.
 - Run code through a sandbox runner with temporary workspaces, timeout handling, bounded output, and optional Docker isolation.
 - Resize the problem, editor, and console panes while working.
 
@@ -24,7 +25,7 @@ The project is meant for personal learning and local practice. It is not a hoste
 
 - Node.js 18 or newer, with npm.
 - Java Development Kit 11 or newer if you want to run Java in local sandbox mode.
-- Python 3 if you want to run Python3 in local sandbox mode.
+- Python 3.9 or newer if you want to run Python3 in local sandbox mode. The bundled Python templates use `list[int]` type hints.
 - Docker is optional, but strongly recommended when running code you do not fully trust.
 - Internet access is required for `npm install` and for LeetCode imports.
 - macOS, Linux, or Windows. The `install.sh` and `uninstall.sh` scripts are for macOS/Linux; the npm commands work cross-platform.
@@ -80,6 +81,8 @@ Sandbox modes:
 | `docker` | Requires Docker and the configured image. If Docker is unavailable, execution fails instead of falling back. Use this for untrusted code. |
 | `local` | Runs local `javac`, `java`, and `python3` without a shell and with a minimal environment. This is convenient, but it is not a full security boundary. |
 
+Execution limits are currently defined in `backend/src/constants.ts`: Java compilation has a 10 second timeout, each testcase has a 1 second timeout, and combined stdout/stderr is capped at 10 MB. These limits are not exposed as environment variables.
+
 For Docker mode:
 
 ```bash
@@ -126,10 +129,11 @@ http://localhost:3000/health
 2. Select a problem.
 3. Choose Java or Python3 if the problem supports both.
 4. Edit the starter code.
-5. Use `Run` to run visible testcases or the current custom input.
-6. Use `Submit` to run visible and hidden testcases.
+5. Use `Reset` if you want to restore the starter template for the selected language.
+6. Use `Run` to run visible testcases or the current custom input.
+7. Use `Submit` to run visible and hidden testcases.
 
-Only `Submit` can mark a problem as solved because `Run` does not use hidden testcases.
+Only `Submit` can mark a problem as solved because `Run` does not use hidden testcases. Each accepted submit creates a solve record in `progress.json`; the stats panel uses those records to show timing and ranking for that problem.
 
 ### Custom Input
 
@@ -168,24 +172,28 @@ Important limits:
 - Only Java and Python3 snippets are imported.
 - Only public example testcases are imported as visible testcases.
 - LeetCode hidden judge testcases are not available. JustCode creates an empty `testcases_hidden.json` file so you can add hidden cases manually later.
+- Editorials are not imported from LeetCode. The problem detail page shows `Editorial coming soon...` unless you add an `editorial.md` file.
+- The runners support common primitive, array, and list types. Problems that need custom structures such as linked lists, trees, or graphs may import but still need runner support before they can execute correctly.
 - Imported problems are ignored by the current `.gitignore` unless you explicitly change the ignore rules or force-add the files.
 
 ### Local Problem Files
 
-Each problem directory uses this layout:
+Each problem directory is a folder under `problems/`. A complete local problem can use this layout:
 
 ```text
 problems/<problem-id>/
 ├── problem.json
 ├── template.java
 ├── template.py
-├── editorial.md
 ├── testcases_visible.json
 ├── testcases_hidden.json
+├── editorial.md
 └── progress.json
 ```
 
-`problem.json` defines title, difficulty, tags, statement text, examples, constraints, supported languages, function name, parameters, return type, and displayed function signatures.
+Required files are `problem.json`, `testcases_visible.json`, and one template file for each supported language listed in `problem.json`. `testcases_hidden.json` is optional for execution, but imported problems create an empty one so you can add private cases later. `editorial.md` is optional. `progress.json` is created or updated automatically after the user edits or submits code.
+
+`problem.json` defines title, difficulty, tags, statement text, examples, constraints, supported languages, function name, parameters, return type, and displayed function signatures. The `params` names must match the keys in testcase input objects.
 
 Testcase files are JSON arrays:
 
@@ -216,6 +224,7 @@ Run these from the repository root unless noted.
 | `npm run build:frontend` | Builds only the frontend. |
 | `npm run build:backend` | Builds only the backend TypeScript output. |
 | `npm run start:backend` | Starts the built backend from the backend workspace. Run `npm run build:backend` first. |
+| `npm run preview --workspace=frontend` | Serves the built frontend locally with Vite preview. Run `npm run build:frontend` first. |
 | `npm run clean` | Removes dependencies, build output, temporary execution files, and lock files. |
 | `npm run clean:modules` | Removes `node_modules` and lock files only. |
 | `npm run clean:build` | Removes build output and TypeScript build info only. |
@@ -223,6 +232,8 @@ Run these from the repository root unless noted.
 | `./uninstall.sh` | macOS/Linux helper for cleaning dependencies and build output. |
 
 There is currently no `npm test` or lint script in this repository. Use `npm run build` to type-check and build both apps.
+
+Be careful with `npm run clean` and `npm run clean:modules`: both remove `package-lock.json`. Run `npm install` again to recreate it.
 
 ## Build and Deployment Notes
 
@@ -241,6 +252,22 @@ npm run start:backend
 Use the workspace script instead of running `node backend/dist/server.js` directly from the repository root. The backend expects its working directory to be `backend/` so it can find `../problems`.
 
 There is no bundled single-command production server for both frontend and backend. For deployment, serve `frontend/dist` with a static file server or reverse proxy, and route `/api` requests to the backend. The development setup uses Vite's proxy for `/api`.
+
+You can preview the built frontend locally:
+
+```bash
+npm run preview --workspace=frontend
+```
+
+## Limitations and Notes
+
+- JustCode is designed for one local user. It does not implement authentication, accounts, shared progress, or a database.
+- Local sandbox mode is a compatibility fallback, not a full security boundary. Use Docker mode for code you do not fully trust.
+- Docker mode disables networking inside execution containers and applies CPU, memory, PID, read-only filesystem, and timeout limits, but this project should still be treated as a local practice tool rather than a production-grade judge.
+- Only Java and Python3 execution are implemented.
+- The generated runners support common JSON-shaped inputs: numbers, strings, booleans, arrays, nested arrays, and supported Java list forms. Custom LeetCode data structures such as `ListNode` or `TreeNode` are not implemented.
+- Output comparison uses exact JSON serialization. For unordered outputs, floating-point tolerance, or multiple valid answers, you need to adjust the testcase data or runner logic.
+- Progress is stored in each problem directory as `progress.json`; deleting a problem directory deletes that problem's saved code and solve history.
 
 ## Project Structure
 
@@ -339,7 +366,7 @@ JUSTCODE_SANDBOX_MODE=docker npm run dev
 
 ### `python3: command not found`
 
-Install Python 3 and confirm:
+Install Python 3.9 or newer and confirm:
 
 ```bash
 python3 --version
@@ -363,6 +390,10 @@ docker pull python:3.11-slim
 
 `JUSTCODE_SANDBOX_MODE=docker` fails closed if Docker or the image is unavailable. `auto` falls back to local execution when Docker is not ready.
 
+### Run or Submit times out
+
+Each testcase has a 1 second backend execution timeout, and the frontend API client waits up to 30 seconds for a response. If a solution is correct but too slow, optimize the solution or reduce the testcase size for local practice. The current timeout values are code constants, not environment variables.
+
 ### LeetCode import fails
 
 Check that the URL matches this shape:
@@ -372,6 +403,8 @@ https://leetcode.com/problems/<problem-slug>/
 ```
 
 The importer depends on network access, LeetCode's public GraphQL response, and the current statement HTML format. If LeetCode changes its response shape, the importer may need code changes in `backend/src/services/leetcodeService.ts`.
+
+If import succeeds but running the imported problem fails, check `problem.json` for unsupported `params` or `returnType` values. The current runners do not implement custom LeetCode structures such as linked lists or trees.
 
 ### Custom input is rejected
 
