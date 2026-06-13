@@ -28,6 +28,44 @@ interface LeetCodeMetaData {
     return: { type: string };
 }
 
+const LEETCODE_PROBLEM_SLUG_REGEX = /leetcode\.com\/problems\/([a-z0-9-]+)/i;
+// Signature regexes are for display/reference only; execution uses LeetCode metaData instead.
+const JAVA_SIGNATURE_REGEX = /public\s+\S+\s+\w+\s*\([^)]*\)/;
+const PYTHON_SIGNATURE_REGEX = /def\s+\w+\s*\(self[^)]*\)\s*->[^:]+/;
+// Normalize LeetCode type labels to the narrower set supported by the generated runners.
+const LEETCODE_TYPE_MAP: Record<string, string> = {
+    integer: 'int',
+    int: 'int',
+    'integer[]': 'int[]',
+    'int[]': 'int[]',
+    'integer[][]': 'int[][]',
+    'int[][]': 'int[][]',
+    string: 'string',
+    'string[]': 'string[]',
+    'string[][]': 'string[][]',
+    boolean: 'boolean',
+    'boolean[]': 'boolean[]',
+    double: 'double',
+    float: 'double',
+    'double[]': 'double[]',
+    'float[]': 'double[]',
+    long: 'long',
+    'long[]': 'long[]',
+    character: 'char',
+    char: 'char',
+    'character[]': 'char[]',
+    'char[]': 'char[]',
+    'character[][]': 'char[][]',
+    'char[][]': 'char[][]',
+    'list<integer>': 'list<integer>',
+    'list<int>': 'list<integer>',
+    'list<string>': 'list<string>',
+    'list<list<integer>>': 'list<list<integer>>',
+    'list<list<int>>': 'list<list<integer>>',
+    'list<list<string>>': 'list<list<string>>',
+    'list<boolean>': 'list<boolean>',
+};
+
 export class LeetCodeService {
     private readonly GRAPHQL_URL = 'https://leetcode.com/graphql';
 
@@ -38,7 +76,7 @@ export class LeetCodeService {
      *           https://leetcode.com/problems/two-sum
      */
     private extractSlug(url: string): string {
-        const match = url.match(/leetcode\.com\/problems\/([a-z0-9-]+)/i);
+        const match = url.match(LEETCODE_PROBLEM_SLUG_REGEX);
         if (!match) {
             throw new Error('Invalid LeetCode URL. Expected format: https://leetcode.com/problems/<problem-slug>/');
         }
@@ -214,29 +252,7 @@ export class LeetCodeService {
      */
     private mapLeetCodeType(lcType: string): string {
         const t = lcType.trim();
-        // Common scalar, array, and nested-list types supported by runner generation.
-        if (t === 'integer' || t === 'int') return 'int';
-        if (t === 'integer[]' || t === 'int[]') return 'int[]';
-        if (t === 'integer[][]' || t === 'int[][]') return 'int[][]';
-        if (t === 'string') return 'string';
-        if (t === 'string[]') return 'string[]';
-        if (t === 'string[][]') return 'string[][]';
-        if (t === 'boolean') return 'boolean';
-        if (t === 'boolean[]') return 'boolean[]';
-        if (t === 'double' || t === 'float') return 'double';
-        if (t === 'double[]' || t === 'float[]') return 'double[]';
-        if (t === 'long') return 'long';
-        if (t === 'long[]') return 'long[]';
-        if (t === 'character' || t === 'char') return 'char';
-        if (t === 'character[]' || t === 'char[]') return 'char[]';
-        if (t === 'character[][]' || t === 'char[][]') return 'char[][]';
-        if (t === 'list<integer>' || t === 'list<int>') return 'list<integer>';
-        if (t === 'list<string>') return 'list<string>';
-        if (t === 'list<list<integer>>' || t === 'list<list<int>>') return 'list<list<integer>>';
-        if (t === 'list<list<string>>') return 'list<list<string>>';
-        if (t === 'list<boolean>') return 'list<boolean>';
-        // Default preserves imported metadata even when execution support is not implemented yet.
-        return t;
+        return LEETCODE_TYPE_MAP[t] ?? t;
     }
 
     /**
@@ -327,12 +343,12 @@ export class LeetCodeService {
                 supportedLanguages.push('java');
                 templates['java'] = snippet.code;
                 // Keep the displayed signature for UI/reference; execution uses metadata instead.
-                const sigMatch = snippet.code.match(/public\s+\S+\s+\w+\s*\([^)]*\)/);
+                const sigMatch = snippet.code.match(JAVA_SIGNATURE_REGEX);
                 functionSignatures['java'] = sigMatch ? sigMatch[0] : '';
             } else if (snippet.langSlug === 'python3') {
                 supportedLanguages.push('python3');
                 templates['python3'] = snippet.code;
-                const sigMatch = snippet.code.match(/def\s+\w+\s*\(self[^)]*\)\s*->[^:]+/);
+                const sigMatch = snippet.code.match(PYTHON_SIGNATURE_REGEX);
                 functionSignatures['python3'] = sigMatch ? sigMatch[0] : '';
             }
         }

@@ -2,7 +2,7 @@
  * Testcase Tab — Displays visible testcase inputs or a custom JSON input textarea.
  * Users can switch between predefined cases and custom input mode.
  */
-import { useEffect, useState, type FC } from 'react';
+import { useEffect, useMemo, useState, type FC } from 'react';
 import { Problem } from '../types';
 
 interface TestcaseTabProps {
@@ -22,6 +22,17 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
 }) => {
     const [selectedTestcase, setSelectedTestcase] = useState(0);
     const selectedVisibleTestcase = problem.visibleTestcases[selectedTestcase];
+    const selectedInputRows = useMemo(() => {
+        // Keep param/value formatting stable while switching between visible cases.
+        if (!selectedVisibleTestcase) return [];
+        return Object.entries(selectedVisibleTestcase.input).map(
+            ([key, value]) => [key, JSON.stringify(value)] as const
+        );
+    }, [selectedVisibleTestcase]);
+    const selectedExpectedOutput = useMemo(() => {
+        // Expected output is display-only in this tab; execution uses backend testcase files.
+        return selectedVisibleTestcase ? JSON.stringify(selectedVisibleTestcase.output) : '';
+    }, [selectedVisibleTestcase]);
 
     // Imported/new problems can change testcase count while the tab stays mounted.
     useEffect(() => {
@@ -65,17 +76,15 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
                         <div className="testcase-display">
                             <div className="testcase-label">Input:</div>
                             <div className="testcase-value">
-                                {Object.entries(selectedVisibleTestcase.input).map(
-                                    ([key, value]) => (
-                                        <div key={key}>{key} = {JSON.stringify(value)}</div>
-                                    )
-                                )}
+                                {selectedInputRows.map(([key, value]) => (
+                                    <div key={key}>{key} = {value}</div>
+                                ))}
                             </div>
                         </div>
                         <div className="testcase-display">
                             <div className="testcase-label">Expected Output:</div>
                             <div className="testcase-value">
-                                {JSON.stringify(selectedVisibleTestcase.output)}
+                                {selectedExpectedOutput}
                             </div>
                         </div>
                     </div>

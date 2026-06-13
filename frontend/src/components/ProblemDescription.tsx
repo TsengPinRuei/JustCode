@@ -28,28 +28,78 @@ const LANG_LABELS: Record<string, string> = {
 };
 
 const DESCRIPTION_REMARK_PLUGINS = [remarkGfm];
+// Editorials may contain adjacent language-specific code blocks that should become tabs.
 const EDITORIAL_REMARK_PLUGINS = [remarkGfm, remarkCodeGroup];
 
+const extractText = (node: React.ReactNode): string => {
+    // ReactMarkdown may pass nested elements to <pre>; flatten them so copy works for all code blocks.
+    if (node === null || node === undefined || typeof node === 'boolean') return '';
+    if (typeof node === 'string' || typeof node === 'number') return String(node);
+    if (Array.isArray(node)) return node.map(extractText).join('');
+    if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+        return extractText(node.props.children);
+    }
+    return '';
+};
+
+const copyTextToClipboard = async (text: string) => {
+    // Prefer the modern async clipboard API, then fall back for browsers/contexts where it is unavailable.
+    if (navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch {
+            // Fall through to the textarea fallback below.
+        }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    // Keep the fallback textarea off-screen so copying does not shift or flash the layout.
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+        const copied = document.execCommand('copy');
+        if (!copied) throw new Error('Copy command failed');
+    } finally {
+        document.body.removeChild(textarea);
+    }
+};
+
 function CopyButton({ getText }: { getText: () => string }) {
-    const [copied, setCopied] = useState(false);
+    const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
     const handleCopy = useCallback(async () => {
         try {
-            await navigator.clipboard.writeText(getText());
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            await copyTextToClipboard(getText());
+            setCopyState('copied');
+            setTimeout(() => setCopyState('idle'), 2000);
         } catch {
-            // Clipboard permissions vary by browser; a failed copy should not break rendering.
+            setCopyState('failed');
+            setTimeout(() => setCopyState('idle'), 2000);
         }
     }, [getText]);
 
+    const label = copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Failed' : 'Copy';
+
     return (
         <button
-            className={`code-copy-btn ${copied ? 'copied' : ''}`}
+            type="button"
+            className={`code-copy-btn ${copyState}`}
             onClick={handleCopy}
-            title={copied ? 'Copied!' : 'Copy code'}
+            title={copyState === 'copied' ? 'Copied!' : copyState === 'failed' ? 'Copy failed' : 'Copy code'}
+            aria-label={copyState === 'copied' ? 'Copied code' : copyState === 'failed' ? 'Copy failed' : 'Copy code'}
         >
-            {copied ? '✓' : '⧉'}
+            {copyState === 'copied' && (
+                <span className="code-copy-icon" aria-hidden="true">✓</span>
+            )}
+            <span>{label}</span>
         </button>
     );
 }
@@ -95,13 +145,7 @@ const markdownComponents: Record<string, React.FC<any>> = {
         return <CodeGroupBlock languages={langs} />;
     },
     pre: (props: any) => {
-        const codeChild = props.children;
-        const getText = () => {
-            // ReactMarkdown wraps fenced code text in a code child; copy only plain string content.
-            const code = codeChild?.props?.children;
-            if (typeof code === 'string') return code;
-            return '';
-        };
+        const getText = () => extractText(props.children);
         return (
             <div className="code-block-wrapper">
                 <CopyButton getText={getText} />

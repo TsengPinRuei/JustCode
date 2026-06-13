@@ -17,6 +17,11 @@ interface CodeEditorProps {
     onLanguageChange: (language: Language) => void;
 }
 
+const LANGUAGE_LABELS: Record<Language, string> = {
+    java: 'Java',
+    python3: 'Python3',
+};
+
 const CodeEditor: FC<CodeEditorProps> = ({
     code,
     onChange,
@@ -107,12 +112,9 @@ const CodeEditor: FC<CodeEditorProps> = ({
         }
     }, [compilationErrors]);
 
-    const getLanguageLabel = (lang: Language): string => {
-        return lang === 'java' ? 'Java' : 'Python3';
-    };
-
     const editorLanguage = selectedLanguage === 'java' ? 'java' : 'python';
     const editorOptions = useMemo<editor.IStandaloneEditorConstructionOptions>(() => ({
+        // Keep Monaco options stable except for font size so the editor is not reconfigured on every render.
         fontSize,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
@@ -141,7 +143,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
                     >
                         {supportedLanguages.map(lang => (
                             <option key={lang} value={lang}>
-                                {getLanguageLabel(lang)}
+                                {LANGUAGE_LABELS[lang]}
                             </option>
                         ))}
                     </select>

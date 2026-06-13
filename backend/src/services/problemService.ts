@@ -24,24 +24,28 @@ export class ProblemService {
         return path.join(PROBLEMS_DIR, problemId);
     }
 
+    /** Read and parse JSON files that make up problem metadata, testcases, and progress. */
     private async readJsonFile<T>(filePath: string): Promise<T> {
         const content = await fs.readFile(filePath, 'utf-8');
         return JSON.parse(content) as T;
     }
 
+    /** problem.json is the canonical metadata file for list/detail/execution paths. */
     private async readProblemMetadata(problemDir: string): Promise<ProblemMetadata> {
         return this.readJsonFile<ProblemMetadata>(path.join(problemDir, 'problem.json'));
     }
 
+    /** Visible testcases are required because Run mode and problem list validation depend on them. */
     private async readVisibleTestcases(problemDir: string): Promise<Testcase[]> {
         return this.readJsonFile<Testcase[]>(path.join(problemDir, 'testcases_visible.json'));
     }
 
+    /** Hidden testcases are optional so imported problems can run before maintainers add private cases. */
     private async readHiddenTestcases(problemDir: string): Promise<Testcase[]> {
         try {
             return await this.readJsonFile<Testcase[]>(path.join(problemDir, 'testcases_hidden.json'));
         } catch {
-            // Hidden testcases are optional
+            // Missing or unreadable hidden tests should not block Run mode or problem details.
             return [];
         }
     }
@@ -123,6 +127,22 @@ export class ProblemService {
         return { metadata, visibleTestcases, hiddenTestcases };
     }
 
+    /** Load only metadata for custom Run mode, where testcase files are not used. */
+    async getProblemMetadata(problemId: string): Promise<ProblemMetadata> {
+        return this.readProblemMetadata(this.getProblemDir(problemId));
+    }
+
+    /** Load only metadata plus visible cases for Run mode, without touching hidden testcase files. */
+    async getProblemForRun(problemId: string): Promise<Pick<Problem, 'metadata' | 'visibleTestcases'>> {
+        const problemDir = this.getProblemDir(problemId);
+        const [metadata, visibleTestcases] = await Promise.all([
+            this.readProblemMetadata(problemDir),
+            this.readVisibleTestcases(problemDir),
+        ]);
+
+        return { metadata, visibleTestcases };
+    }
+
     /** Get only visible testcases (for Run mode) — reads file directly for efficiency */
     async getVisibleTestcases(problemId: string): Promise<Testcase[]> {
         return this.readVisibleTestcases(this.getProblemDir(problemId));
@@ -152,36 +172,38 @@ export class ProblemService {
         const problemDir = this.getProblemDir(problemId);
         await fs.mkdir(problemDir, { recursive: true });
 
-        // Persist the imported problem in the same file layout consumed by getProblem().
-        await fs.writeFile(
-            path.join(problemDir, 'problem.json'),
-            JSON.stringify(data.metadata, null, 4),
-            'utf-8'
-        );
+        const writes: Array<Promise<void>> = [
+            // Persist the imported problem in the same file layout consumed by getProblem().
+            fs.writeFile(
+                path.join(problemDir, 'problem.json'),
+                JSON.stringify(data.metadata, null, 4),
+                'utf-8'
+            ),
+            // Write visible testcases.
+            fs.writeFile(
+                path.join(problemDir, 'testcases_visible.json'),
+                JSON.stringify(data.visibleTestcases, null, 4),
+                'utf-8'
+            ),
+            // Imported LeetCode problems only provide example cases; keep a placeholder for future manual hidden tests.
+            fs.writeFile(
+                path.join(problemDir, 'testcases_hidden.json'),
+                JSON.stringify([], null, 4),
+                'utf-8'
+            ),
+        ];
 
-        // Write templates
+        // Template filenames are derived from language keys so imported snippets match getProblem() lookup rules.
         for (const [lang, template] of Object.entries(data.templates)) {
             const ext = lang === 'java' ? 'java' : 'py';
-            await fs.writeFile(
+            writes.push(fs.writeFile(
                 path.join(problemDir, `template.${ext}`),
                 template,
                 'utf-8'
-            );
+            ));
         }
 
-        // Write visible testcases
-        await fs.writeFile(
-            path.join(problemDir, 'testcases_visible.json'),
-            JSON.stringify(data.visibleTestcases, null, 4),
-            'utf-8'
-        );
-
-        // Imported LeetCode problems only provide example cases; keep a placeholder for future manual hidden tests.
-        await fs.writeFile(
-            path.join(problemDir, 'testcases_hidden.json'),
-            JSON.stringify([], null, 4),
-            'utf-8'
-        );
+        await Promise.all(writes);
     }
 
     /** Read user progress from progress.json; returns null for missing or unreadable progress. */

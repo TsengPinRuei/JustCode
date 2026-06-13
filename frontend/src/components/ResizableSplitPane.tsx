@@ -37,6 +37,9 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
     const [size, setSize] = useState(direction === 'horizontal' ? defaultLeftWidth : defaultTopHeight);
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    // Mousemove can fire much faster than React can render; keep only the latest pointer per frame.
+    const pendingPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
+    const dragFrameRef = useRef<number | null>(null);
 
     const clampPercent = useCallback((value: number): number => {
         return Math.min(100, Math.max(0, value));
@@ -85,22 +88,59 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
     };
 
     useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!isDragging || !containerRef.current) return;
+        const updateSizeFromPointer = (pointer: { clientX: number; clientY: number }) => {
+            const container = containerRef.current;
+            if (!container) return;
 
-            const containerRect = containerRef.current.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
             let newSize: number;
 
             if (direction === 'horizontal') {
-                newSize = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+                newSize = ((pointer.clientX - containerRect.left) / containerRect.width) * 100;
             } else {
-                newSize = ((e.clientY - containerRect.top) / containerRect.height) * 100;
+                newSize = ((pointer.clientY - containerRect.top) / containerRect.height) * 100;
             }
 
-            setSize(clampSizeByConstraints(newSize));
+            const nextSize = clampSizeByConstraints(newSize);
+            setSize((prev) => (Object.is(prev, nextSize) ? prev : nextSize));
+        };
+
+        const cancelPendingFrame = () => {
+            if (dragFrameRef.current !== null) {
+                window.cancelAnimationFrame(dragFrameRef.current);
+                dragFrameRef.current = null;
+            }
+        };
+
+        const flushPendingPointer = () => {
+            // Apply the last queued pointer position before ending drag so the pane does not lag behind.
+            cancelPendingFrame();
+            const pointer = pendingPointerRef.current;
+            pendingPointerRef.current = null;
+            if (pointer) {
+                updateSizeFromPointer(pointer);
+            }
+        };
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging) return;
+
+            pendingPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
+            if (dragFrameRef.current !== null) return;
+
+            // Throttle layout reads/writes to animation frames during drag.
+            dragFrameRef.current = window.requestAnimationFrame(() => {
+                dragFrameRef.current = null;
+                const pointer = pendingPointerRef.current;
+                pendingPointerRef.current = null;
+                if (pointer) {
+                    updateSizeFromPointer(pointer);
+                }
+            });
         };
 
         const handleMouseUp = () => {
+            flushPendingPointer();
             setIsDragging(false);
         };
 
@@ -115,6 +155,8 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         return () => {
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
+            cancelPendingFrame();
+            pendingPointerRef.current = null;
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
         };

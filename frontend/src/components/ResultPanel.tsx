@@ -10,6 +10,29 @@ interface ResultPanelProps {
     result: ExecutionResult | null;
 }
 
+const DEBUG_SECTION_SPLIT_REGEX = /\n\n(?=\[Testcase \d+\])/;
+const DEBUG_SECTION_HEADER_REGEX = /^\[Testcase (\d+)\]/;
+// Keep status text in one mapping so new backend statuses fail visibly during type-checking.
+const STATUS_LABELS: Record<ExecutionResult['status'], string> = {
+    AC: 'Accepted',
+    WA: 'Wrong Answer',
+    CE: 'Compile Error',
+    RE: 'Runtime Error',
+    TLE: 'Time Limit Exceeded',
+};
+
+const formatInputValue = (value: unknown): string => {
+    // Testcase input is usually an object of named params; display one param per line for scanning.
+    if (typeof value === 'object' && value !== null) {
+        return Object.entries(value as Record<string, unknown>)
+            .map(([key, entryValue]) => `${key} = ${JSON.stringify(entryValue)}`)
+            .join('\n');
+    }
+    return JSON.stringify(value) ?? String(value);
+};
+
+const formatJsonValue = (value: unknown): string => JSON.stringify(value) ?? String(value);
+
 const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
     const filteredDebugOutput = useMemo(() => {
         // Skip if no debug output or all tests passed.
@@ -28,9 +51,9 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
 
         // Debug output is labeled by the backend as "[Testcase n]"; split only at those labels.
         const filteredDebug = result.debugOutput
-            .split(/\n\n(?=\[Testcase \d+\])/)
+            .split(DEBUG_SECTION_SPLIT_REGEX)
             .filter(section => {
-                const match = section.match(/^\[Testcase (\d+)\]/);
+                const match = section.match(DEBUG_SECTION_HEADER_REGEX);
                 if (!match) return false;
                 const index = parseInt(match[1], 10);
                 return failingIndices.has(index);
@@ -38,6 +61,15 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
             .join('\n\n');
 
         return filteredDebug.trim() ? filteredDebug : null;
+    }, [result]);
+    const formattedTestcaseResults = useMemo(() => {
+        // Pre-format JSON once per result so render markup stays focused on layout.
+        return result?.testcaseResults.map((testResult) => ({
+            testResult,
+            input: testResult.input !== undefined ? formatInputValue(testResult.input) : undefined,
+            expected: testResult.expected !== undefined ? formatJsonValue(testResult.expected) : undefined,
+            actual: testResult.actual !== undefined ? formatJsonValue(testResult.actual) : undefined,
+        })) ?? [];
     }, [result]);
 
     if (executing) {
@@ -60,14 +92,10 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
     const statusClass = result.status.toLowerCase();
 
     return (
-        <div>
+        <div className="result-panel">
             <div className={`result-summary ${statusClass}`}>
                 <div className={`result-title ${statusClass}`}>
-                    {result.status === 'AC' && 'Accepted'}
-                    {result.status === 'WA' && 'Wrong Answer'}
-                    {result.status === 'CE' && 'Compile Error'}
-                    {result.status === 'RE' && 'Runtime Error'}
-                    {result.status === 'TLE' && 'Time Limit Exceeded'}
+                    {STATUS_LABELS[result.status]}
                 </div>
                 <div className="result-message">
                     {result.message}
@@ -95,9 +123,9 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
                 </div>
             )}
 
-            {result.testcaseResults && result.testcaseResults.length > 0 && (
+            {formattedTestcaseResults.length > 0 && (
                 <div className="testcase-results">
-                    {result.testcaseResults.map((testResult) => (
+                    {formattedTestcaseResults.map(({ testResult, input, expected, actual }) => (
                         <div key={testResult.index} className="testcase-result">
                             <div className="testcase-result-header">
                                 <span className="testcase-index">Testcase {testResult.index}</span>
@@ -106,25 +134,22 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
                                 </span>
                             </div>
                             <div className="testcase-result-details">
-                                {testResult.input !== undefined && (
-                                    <div>
-                                        <strong>Input:</strong>{' '}
-                                        {typeof testResult.input === 'object' && testResult.input !== null
-                                            ? Object.entries(testResult.input as Record<string, unknown>)
-                                                .map(([key, value]) => `${key} = ${JSON.stringify(value)}`)
-                                                .join(', ')
-                                            : JSON.stringify(testResult.input)
-                                        }
+                                {input !== undefined && (
+                                    <div className="testcase-result-row">
+                                        <strong>Input:</strong>
+                                        <pre className="testcase-result-value">{input}</pre>
                                     </div>
                                 )}
-                                {testResult.expected !== undefined && (
-                                    <div>
-                                        <strong>Expected:</strong> {JSON.stringify(testResult.expected)}
+                                {expected !== undefined && (
+                                    <div className="testcase-result-row">
+                                        <strong>Expected:</strong>
+                                        <pre className="testcase-result-value">{expected}</pre>
                                     </div>
                                 )}
-                                {testResult.actual !== undefined && (
-                                    <div>
-                                        <strong>Actual:</strong> {JSON.stringify(testResult.actual)}
+                                {actual !== undefined && (
+                                    <div className="testcase-result-row">
+                                        <strong>Actual:</strong>
+                                        <pre className="testcase-result-value">{actual}</pre>
                                     </div>
                                 )}
                                 {testResult.executionTime !== undefined && (

@@ -16,6 +16,7 @@ import {
 
 type SandboxMode = 'auto' | 'docker' | 'local';
 
+// Public command contract used by language executors; args are passed to spawn/docker without a shell.
 export interface SandboxCommandOptions {
     command: string;
     args: string[];
@@ -35,6 +36,7 @@ export interface SandboxCommandResult {
     sandboxMode: 'docker' | 'local';
 }
 
+// Internal process runner options shared by Docker checks, Docker runs, and local fallback runs.
 interface ProcessRunOptions {
     command: string;
     args: string[];
@@ -54,9 +56,11 @@ interface ProcessRunResult {
     outputExceeded: boolean;
 }
 
+// Cache Docker image checks per process so each testcase does not probe the daemon again.
 const dockerAvailability = new Map<string, Promise<boolean>>();
 
 export class SandboxRunner {
+    /** Choose Docker when explicitly requested or available in auto mode; otherwise use local fallback. */
     async execute(options: SandboxCommandOptions): Promise<SandboxCommandResult> {
         const mode = this.normalizeMode(SANDBOX_MODE);
         if (mode === 'docker' || (mode === 'auto' && await this.isDockerImageReady(options.image))) {
@@ -81,6 +85,7 @@ export class SandboxRunner {
     }
 
     private async checkDockerImage(image: string): Promise<boolean> {
+        // Docker mode is considered ready only when both daemon and requested image are available locally.
         const dockerVersion = await this.runProcess({
             command: 'docker',
             args: ['version', '--format', '{{.Server.Version}}'],
@@ -99,6 +104,8 @@ export class SandboxRunner {
     }
 
     private async executeLocal(options: SandboxCommandOptions): Promise<SandboxCommandResult> {
+        // Local mode is a compatibility fallback, not a full security sandbox.
+        // It still avoids shell execution and strips inherited secrets from the child environment.
         const result = await this.runProcess({
             command: options.command,
             args: options.args,
@@ -118,6 +125,8 @@ export class SandboxRunner {
     private async executeDocker(options: SandboxCommandOptions): Promise<SandboxCommandResult> {
         const containerName = `justcode-${uuidv4()}`;
         const workspaceMode = options.writableWorkspace ? 'rw' : 'ro';
+        // The container has no network, dropped capabilities, read-only root FS, and bounded CPU/memory/PIDs.
+        // Only /workspace is mounted, and it is writable only for compile steps that need class/cache files.
         const dockerArgs = [
             'run',
             '--rm',
@@ -164,6 +173,7 @@ export class SandboxRunner {
             timeoutMs: options.timeoutMs,
             stdin: options.stdin,
             onTimeout: () => {
+                // child_process timeout kills docker CLI, but the named container may still need cleanup.
                 void this.runProcess({
                     command: 'docker',
                     args: ['kill', containerName],
@@ -179,6 +189,7 @@ export class SandboxRunner {
     }
 
     private createLocalEnv(workspaceDir: string): NodeJS.ProcessEnv {
+        // Whitelist environment variables so submitted code cannot read host credentials by inheritance.
         return {
             PATH: process.env.PATH || '',
             HOME: workspaceDir,
@@ -193,6 +204,7 @@ export class SandboxRunner {
     }
 
     private getDockerUserArgs(): string[] {
+        // Running as the host user prevents root-owned files in temp workspaces on Unix-like systems.
         if (process.platform === 'win32') {
             return [];
         }
@@ -208,6 +220,7 @@ export class SandboxRunner {
 
     private runProcess(options: ProcessRunOptions): Promise<ProcessRunResult> {
         return new Promise((resolve) => {
+            // spawn(args) avoids shell interpolation; this matters because user code influences workspace contents.
             const child = spawn(options.command, options.args, {
                 cwd: options.cwd,
                 env: options.env,
@@ -222,6 +235,7 @@ export class SandboxRunner {
             let outputExceeded = false;
 
             const finish = (exitCode: number) => {
+                // Multiple events can fire after a forced kill; resolve exactly once.
                 if (settled) return;
                 settled = true;
                 clearTimeout(timeout);
@@ -236,6 +250,7 @@ export class SandboxRunner {
 
             const killChild = () => {
                 try {
+                    // Detached Unix children get their own process group so runaway grandchildren are killed too.
                     if (options.detached && child.pid && process.platform !== 'win32') {
                         process.kill(-child.pid, 'SIGKILL');
                     } else {
@@ -247,6 +262,7 @@ export class SandboxRunner {
             };
 
             const appendOutput = (target: 'stdout' | 'stderr', chunk: Buffer) => {
+                // Stop collecting and terminate once combined output crosses the project-wide cap.
                 if (settled || outputExceeded) return;
                 const text = chunk.toString('utf-8');
                 if (target === 'stdout') {
@@ -265,6 +281,7 @@ export class SandboxRunner {
             };
 
             const timeout = setTimeout(() => {
+                // The language executors map this sentinel exitCode to TLE.
                 timedOut = true;
                 stderr = stderr || 'Time Limit Exceeded';
                 options.onTimeout?.();

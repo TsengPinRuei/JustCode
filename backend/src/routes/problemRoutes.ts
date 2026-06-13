@@ -6,7 +6,7 @@ import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
 import { CodeExecutorFactory } from '../services/codeExecutorFactory';
 import { LeetCodeService } from '../services/leetcodeService';
-import { RunRequest, SubmitRequest, Testcase, ProblemProgress } from '../types';
+import { RunRequest, SubmitRequest, Testcase, ProblemProgress, ProblemMetadata } from '../types';
 import { PROTECTED_PROBLEMS } from '../constants';
 
 const router = express.Router();
@@ -48,11 +48,12 @@ router.post('/run', async (req: Request, res: Response) => {
     try {
         const { problemId, code, language, inputMode, customInput }: RunRequest = req.body;
 
-        // Metadata drives runner generation, so load it even when the user supplies custom input.
-        const problem = await problemService.getProblemForExecution(problemId);
         let testcases: Testcase[] = [];
+        let metadata: ProblemMetadata;
 
         if (inputMode === 'custom') {
+            // Metadata drives runner generation; custom mode avoids testcase reads to keep ad-hoc runs cheap.
+            metadata = await problemService.getProblemMetadata(problemId);
             if (typeof customInput !== 'string' || customInput.trim() === '') {
                 return res.status(400).json({ error: 'Custom input cannot be empty in custom mode' });
             }
@@ -70,6 +71,8 @@ router.post('/run', async (req: Request, res: Response) => {
             }
         } else {
             // Run mode intentionally excludes hidden tests so users can inspect every input/result pair.
+            const problem = await problemService.getProblemForRun(problemId);
+            metadata = problem.metadata;
             testcases = problem.visibleTestcases;
         }
 
@@ -79,7 +82,7 @@ router.post('/run', async (req: Request, res: Response) => {
             code,
             testcases,
             true,
-            problem.metadata,
+            metadata,
             testcases.length
         );
         if (inputMode === 'custom' && result.status !== 'CE') {
