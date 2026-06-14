@@ -268,10 +268,13 @@ export class LeetCodeService {
 
         for (let i = 0; i < exampleTestcaseList.length; i++) {
             const rawInput = exampleTestcaseList[i];
-            const lines = rawInput
-                .split('\n')
-                .map(line => line.trim())
-                .filter(line => line !== '');
+            const lines: string[] = [];
+            for (const rawLine of rawInput.split('\n')) {
+                const line = rawLine.trim();
+                if (line !== '') {
+                    lines.push(line);
+                }
+            }
 
             const input: Record<string, unknown> = {};
 

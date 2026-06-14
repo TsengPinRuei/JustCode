@@ -70,6 +70,24 @@ export interface ExecutionResult {
     debugOutput?: string; // Captured stdout before the backend result separator.
 }
 
+export type HiddenTestcaseImportMode = 'append' | 'replace';
+// Mirrors backend import sources: pasted/uploaded JSON text or a backend-validated project path.
+export type HiddenTestcaseSourceType = 'content' | 'projectPath';
+
+export interface HiddenTestcaseImportRequest {
+    sourceType: HiddenTestcaseSourceType;
+    content?: string;
+    projectPath?: string;
+    mode: HiddenTestcaseImportMode;
+}
+
+export interface HiddenTestcaseImportResponse {
+    success: true;
+    added: number;
+    totalHidden: number; // Count after append/replace has been written to testcases_hidden.json.
+    mode: HiddenTestcaseImportMode;
+}
+
 export type ProblemStatus = 'none' | 'attempted' | 'solved';
 
 // One accepted submission snapshot used by the stats panel; progress.json may contain many records.

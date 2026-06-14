@@ -5,10 +5,30 @@
  */
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { Problem, ProblemMetadata, Testcase, ProblemProgress } from '../types';
+import {
+    HiddenTestcaseImportRequest,
+    HiddenTestcaseImportResponse,
+    Problem,
+    ProblemMetadata,
+    ProblemProgress,
+    Testcase,
+} from '../types';
 
 // Backend commands run from backend/, so ../problems resolves to the shared problem store.
-const PROBLEMS_DIR = path.join(process.cwd(), '..', 'problems');
+const PROJECT_ROOT = path.resolve(process.cwd(), '..');
+const PROBLEMS_DIR = path.join(PROJECT_ROOT, 'problems');
+// Cache the real project root path because hidden testcase imports may validate multiple paths per process.
+let projectRootRealPathPromise: Promise<string> | null = null;
+
+// Runtime guard for JSON payloads whose shape is not guaranteed by TypeScript.
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+};
+
+const getProjectRootRealPath = (): Promise<string> => {
+    projectRootRealPathPromise ??= fs.realpath(PROJECT_ROOT);
+    return projectRootRealPathPromise;
+};
 
 export class ProblemService {
     /** Reject path separators so problem IDs cannot escape the problems/ directory. */
@@ -48,6 +68,90 @@ export class ProblemService {
             // Missing or unreadable hidden tests should not block Run mode or problem details.
             return [];
         }
+    }
+
+    /** Read a user-provided project-relative file while preventing escapes through ../ or symlinks. */
+    private async readProjectRelativeFile(projectPath: string): Promise<string> {
+        const rawPath = projectPath.trim();
+        if (!rawPath) {
+            throw new Error('Project path is required');
+        }
+        if (path.isAbsolute(rawPath)) {
+            throw new Error('Project path must be relative to the JustCode project');
+        }
+
+        const resolvedPath = path.resolve(PROJECT_ROOT, rawPath);
+        const projectRootRealPath = await getProjectRootRealPath();
+        let fileRealPath: string;
+        try {
+            // Compare real paths so symlinks cannot point a project-relative path outside the project.
+            fileRealPath = await fs.realpath(resolvedPath);
+        } catch {
+            throw new Error('Project path must point to an existing file');
+        }
+        if (fileRealPath !== projectRootRealPath && !fileRealPath.startsWith(projectRootRealPath + path.sep)) {
+            throw new Error('Project path must stay inside the JustCode project');
+        }
+
+        const stat = await fs.stat(fileRealPath);
+        if (!stat.isFile()) {
+            throw new Error('Project path must point to a file');
+        }
+
+        return fs.readFile(fileRealPath, 'utf-8');
+    }
+
+    /** Validate AI-generated hidden testcase JSON before it can affect submit judging. */
+    private parseHiddenTestcases(content: string, metadata: ProblemMetadata): Testcase[] {
+        if (!content.trim()) {
+            throw new Error('Hidden testcase content cannot be empty');
+        }
+
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(content);
+        } catch {
+            throw new Error('Hidden testcase content must be valid JSON');
+        }
+
+        if (!Array.isArray(parsed)) {
+            throw new Error('Hidden testcase content must be a JSON array');
+        }
+        if (parsed.length === 0) {
+            throw new Error('Hidden testcase array cannot be empty');
+        }
+
+        const expectedParamNames = metadata.params?.map((param) => param.name) ?? [];
+        const expectedParamNameSet = new Set(expectedParamNames);
+
+        return parsed.map((item, index): Testcase => {
+            const label = `Testcase ${index + 1}`;
+            if (!isRecord(item)) {
+                throw new Error(`${label} must be an object`);
+            }
+            if (!isRecord(item.input)) {
+                throw new Error(`${label} input must be an object`);
+            }
+            if (!Object.prototype.hasOwnProperty.call(item, 'output')) {
+                throw new Error(`${label} must include an output field`);
+            }
+
+            if (expectedParamNames.length > 0) {
+                // Runner generation indexes inputs by metadata param name, so hidden cases must match exactly.
+                const actualParamNames = Object.keys(item.input);
+                const matchesParams =
+                    actualParamNames.length === expectedParamNames.length &&
+                    actualParamNames.every((name) => expectedParamNameSet.has(name));
+                if (!matchesParams) {
+                    throw new Error(`${label} input keys must exactly match params: ${expectedParamNames.join(', ')}`);
+                }
+            }
+
+            return {
+                input: item.input,
+                output: item.output,
+            };
+        });
     }
 
     /** Scan problems/ directory and return metadata for all valid problems, sorted by title */
@@ -151,6 +255,55 @@ export class ProblemService {
     /** Get hidden testcases only (for Submit mode) */
     async getHiddenTestcases(problemId: string): Promise<Testcase[]> {
         return this.readHiddenTestcases(this.getProblemDir(problemId));
+    }
+
+    /** Import AI-generated hidden testcases into testcases_hidden.json. */
+    async importHiddenTestcases(
+        problemId: string,
+        request: HiddenTestcaseImportRequest
+    ): Promise<HiddenTestcaseImportResponse> {
+        if (!isRecord(request)) {
+            throw new Error('Hidden testcase import request is required');
+        }
+        if (request.mode !== 'append' && request.mode !== 'replace') {
+            throw new Error('Mode must be append or replace');
+        }
+        if (request.sourceType !== 'content' && request.sourceType !== 'projectPath') {
+            throw new Error('Source type must be content or projectPath');
+        }
+
+        const problemDir = this.getProblemDir(problemId);
+        const metadata = await this.readProblemMetadata(problemDir);
+        // Content source comes from paste/upload; projectPath is read server-side after containment checks.
+        const content = request.sourceType === 'content'
+            ? request.content
+            : request.projectPath
+                ? await this.readProjectRelativeFile(request.projectPath)
+                : undefined;
+
+        if (typeof content !== 'string') {
+            throw new Error(request.sourceType === 'content' ? 'Content is required' : 'Project path is required');
+        }
+
+        const incomingTestcases = this.parseHiddenTestcases(content, metadata);
+        // Read existing cases only after incoming data is valid so bad imports leave testcases_hidden.json unchanged.
+        const existingTestcases = request.mode === 'append'
+            ? await this.readHiddenTestcases(problemDir)
+            : [];
+        const nextTestcases = [...existingTestcases, ...incomingTestcases];
+
+        await fs.writeFile(
+            path.join(problemDir, 'testcases_hidden.json'),
+            JSON.stringify(nextTestcases, null, 4),
+            'utf-8'
+        );
+
+        return {
+            success: true,
+            added: incomingTestcases.length,
+            totalHidden: nextTestcases.length,
+            mode: request.mode,
+        };
     }
 
     /** Get all testcases — visible + hidden (for Submit mode) — reads files directly for efficiency */
