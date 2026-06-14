@@ -15,7 +15,7 @@ import SolveStatsPanel from './SolveStatsPanel';
 interface ProblemDescriptionProps {
     problem: Problem;
     progress: ProblemProgress | null;
-    currentElapsedMs: number;
+    attemptStartedAt: number;
 }
 
 /* ---- 分頁式 code-group renderer ---- */
@@ -260,7 +260,7 @@ const downloadTextFile = (filename: string, content: string) => {
 
 /* ---- 主元件 ---- */
 
-const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progress, currentElapsedMs }) => {
+const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progress, attemptStartedAt }) => {
     const [activeTab, setActiveTab] = useState<'description' | 'editorial'>('description');
     const [showHiddenTestModal, setShowHiddenTestModal] = useState(false);
 
@@ -304,7 +304,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progre
                 </div>
             </div>
 
-            <SolveStatsPanel progress={progress} currentElapsedMs={currentElapsedMs} />
+            <SolveStatsPanel progress={progress} attemptStartedAt={attemptStartedAt} />
 
             <div className="tabs" data-active-tab={activeTab}>
                 <button

@@ -2,12 +2,12 @@
  * 解題統計面板：顯示目前嘗試計時與已保存的 AC 歷史。
  * 解題紀錄先以 submit runtime 排名，再以總解題時間作為排序決勝條件。
  */
-import { useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useState, type FC } from 'react';
 import type { ProblemProgress, SolveRecord } from '../types';
 
 interface SolveStatsPanelProps {
     progress: ProblemProgress | null;
-    currentElapsedMs: number;
+    attemptStartedAt: number;
 }
 
 const formatDuration = (durationMs: number): string => {
@@ -60,8 +60,9 @@ const rankRecords = (records: SolveRecord[]) => {
         }));
 };
 
-const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, currentElapsedMs }) => {
+const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt }) => {
     const [expanded, setExpanded] = useState(false);
+    const [currentElapsedMs, setCurrentElapsedMs] = useState(() => Date.now() - attemptStartedAt);
     const records = progress?.solveRecords ?? EMPTY_SOLVE_RECORDS;
     const {
         rankedRecords,
@@ -99,6 +100,16 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, currentElapsedMs 
             maxSubmitDuration,
         };
     }, [records]);
+
+    useEffect(() => {
+        const updateElapsed = () => {
+            setCurrentElapsedMs(Date.now() - attemptStartedAt);
+        };
+
+        updateElapsed();
+        const timer = window.setInterval(updateElapsed, 1000);
+        return () => window.clearInterval(timer);
+    }, [attemptStartedAt]);
 
     return (
         <section className={`solve-stats-panel ${expanded ? 'expanded' : 'collapsed'}`} aria-label="Solve statistics">
