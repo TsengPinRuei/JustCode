@@ -2,19 +2,18 @@ import { visit } from 'unist-util-visit';
 import type { Root } from 'mdast';
 
 /**
- * Remark plugin that groups consecutive fenced code blocks (with different
- * language tags) into a single `codeGroup` node.  The React renderer can
- * then display these as a tabbed component.
+ * Remark plugin：將連續且語言標籤不同的 fenced code block
+ * 群組成單一 `codeGroup` node，讓 React renderer 可顯示為分頁元件。
  *
- * Example input AST:
+ * 輸入 AST 範例：
  *   code(lang=java)  →  codeGroup { data: { languages: [{lang:'java', value:'…'}, {lang:'python', value:'…'}] } }
  *   code(lang=python)
  *
- * Lone code blocks are left untouched.
+ * 單獨的 code block 會維持原樣。
  */
 export default function remarkCodeGroup() {
     return (tree: Root) => {
-        // Grouping requires parent-level access because consecutive code blocks are sibling nodes.
+        // 連續 code block 是 sibling node，因此分組需要 parent-level 存取。
         visit(tree, (node: any) => {
             if (!node.children || !Array.isArray(node.children)) return;
 
@@ -25,9 +24,9 @@ export default function remarkCodeGroup() {
             while (i < children.length) {
                 const child = children[i];
 
-                // Only fenced code blocks with language tags can become tab labels.
+                // 只有帶語言標籤的 fenced code block 可成為分頁標籤。
                 if (child.type === 'code' && child.lang) {
-                    // Collect adjacent languages until a duplicate language or non-code node appears.
+                    // 收集相鄰語言，直到遇到重複語言或非 code node。
                     const group: { lang: string; value: string }[] = [];
                     const seenLangs = new Set<string>();
 
@@ -43,7 +42,7 @@ export default function remarkCodeGroup() {
                     }
 
                     if (group.length > 1) {
-                        // Use hName/hProperties so ReactMarkdown can render a custom <code-group> element.
+                        // 使用 hName/hProperties，讓 ReactMarkdown 可渲染自訂 <code-group> 元素。
                         newChildren.push({
                             type: 'codeGroup',
                             data: {
@@ -55,7 +54,7 @@ export default function remarkCodeGroup() {
                             children: [],
                         });
                     } else {
-                        // Single code blocks should keep normal markdown rendering and copy behavior.
+                        // 單一 code block 應保留一般 Markdown 渲染與複製行為。
                         newChildren.push({
                             type: 'code',
                             lang: group[0].lang,

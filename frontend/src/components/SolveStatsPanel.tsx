@@ -1,6 +1,6 @@
 /**
- * Solve Stats Panel - Shows current attempt timing and persisted AC history.
- * Solve records are ranked by submit runtime first, with total solve time as the tie-breaker.
+ * 解題統計面板：顯示目前嘗試計時與已保存的 AC 歷史。
+ * 解題紀錄先以 submit runtime 排名，再以總解題時間作為排序決勝條件。
  */
 import { useMemo, useState, type FC } from 'react';
 import type { ProblemProgress, SolveRecord } from '../types';
@@ -23,13 +23,13 @@ const formatDuration = (durationMs: number): string => {
 };
 
 const formatSubmitDuration = (durationMs?: number): string => {
-    // Older progress files may not have submitDurationMs; keep them displayable without inventing data.
+    // 舊版 progress 檔案可能沒有 submitDurationMs；維持可顯示，但不捏造資料。
     if (durationMs === undefined) return '-';
     return `${Math.max(1, Math.round(durationMs))}ms`;
 };
 
 const getSubmitDuration = (record: SolveRecord): number => {
-    // Missing submit timing sorts after timed records while still remaining visible in history.
+    // 缺少 submit timing 的紀錄會排在有計時紀錄之後，但仍保留在歷史中。
     return record.submitDurationMs ?? Number.POSITIVE_INFINITY;
 };
 
@@ -47,7 +47,7 @@ const formatSolvedAt = (value: string): string => {
 };
 
 const rankRecords = (records: SolveRecord[]) => {
-    // Tie-breakers keep ranks deterministic when two submissions have the same measured runtime.
+    // 兩次提交測得相同 runtime 時，排序決勝條件讓排名保持可重現。
     return [...records]
         .sort((a, b) =>
             getSubmitDuration(a) - getSubmitDuration(b) ||
@@ -70,7 +70,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, currentElapsedMs 
         latestRank,
         maxSubmitDuration,
     } = useMemo(() => {
-        // Derive leaderboard state from progress in one pass so UI state cannot drift from persisted history.
+        // 從 progress 一次推導排行榜狀態，避免 UI state 與持久化歷史不同步。
         const rankedRecords = rankRecords(records);
         const latestRecord = records.length > 0 ? records[records.length - 1] : null;
         let bestTotalRecord: SolveRecord | null = null;
@@ -80,7 +80,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, currentElapsedMs 
             if (!bestTotalRecord || record.durationMs < bestTotalRecord.durationMs) {
                 bestTotalRecord = record;
             }
-            // Keep at least 1ms as the chart denominator so very fast/legacy records still render.
+            // 圖表分母至少保留 1ms，讓極快或舊版紀錄仍能渲染。
             const submitDuration = getSubmitDuration(record);
             if (Number.isFinite(submitDuration) && submitDuration > maxSubmitDuration) {
                 maxSubmitDuration = submitDuration;
@@ -147,7 +147,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, currentElapsedMs 
                             {rankedRecords.map(({ record, rank }) => {
                                 const isLatest = latestRecord?.id === record.id;
                                 const submitDuration = getSubmitDuration(record);
-                                // Missing timings get a small placeholder bar instead of disappearing from the chart.
+                                // 缺少計時的紀錄顯示小型占位長條，而不是從圖表消失。
                                 const width = Number.isFinite(submitDuration)
                                     ? Math.max(10, Math.round((submitDuration / maxSubmitDuration) * 100))
                                     : 10;

@@ -276,18 +276,18 @@ JustCode/
 ├── backend/                    # Express + TypeScript API
 │   ├── src/
 │   │   ├── constants.ts        # 逾時、沙盒環境變數、受保護題目 ID
-│   │   ├── routes/             # REST API routes
+│   │   ├── routes/             # REST API 路由
 │   │   ├── services/           # 題目儲存、LeetCode 匯入、程式碼執行
-│   │   ├── server.ts           # Express server 入口
+│   │   ├── server.ts           # Express 伺服器入口
 │   │   └── types.ts            # 後端 API/資料型別
 │   └── package.json
-├── frontend/                   # React + TypeScript + Vite app
+├── frontend/                   # React + TypeScript + Vite 應用
 │   ├── public/                 # 靜態資源
 │   ├── src/
 │   │   ├── components/         # 編輯器、console、題目敘述、版面元件
 │   │   ├── pages/              # 題目列表與題目詳細頁
 │   │   ├── plugins/            # Markdown code-group 外掛
-│   │   ├── services/           # Axios API client
+│   │   ├── services/           # Axios API 客戶端
 │   │   ├── types/              # 前端 API/資料型別
 │   │   ├── App.tsx
 │   │   └── main.tsx
@@ -297,7 +297,7 @@ JustCode/
 │   └── sort-array/             # 內建受保護題目
 ├── install.sh                  # macOS/Linux 安裝輔助腳本
 ├── uninstall.sh                # macOS/Linux 清理輔助腳本
-├── package.json                # npm workspace scripts
+├── package.json                # npm workspace 腳本
 └── package-lock.json
 ```
 

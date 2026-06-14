@@ -19,7 +19,7 @@ fi
 echo ""
 echo "開始移除..."
 
-# 若 root 依賴仍存在，優先使用 package.json 中維護的 clean 指令。
+# 若根目錄依賴仍存在，優先使用 package.json 中維護的 clean 指令。
 if command -v npx &> /dev/null && [ -d "node_modules" ]; then
     echo ""
     echo "使用 npm clean 指令..."
@@ -29,7 +29,7 @@ else
     echo "手動清理依賴..."
     
     # 手動模式逐層清理 workspaces，保留原始碼與設定檔。
-    # 刪除 root node_modules
+    # 刪除根目錄 node_modules
     echo ""
     echo "步驟 1: 清理 root 依賴..."
     if [ -d "node_modules" ]; then
@@ -80,7 +80,7 @@ else
         echo "frontend package-lock.json 不存在"
     fi
 
-    # 清理 build 產物
+    # 清理建置產物
     echo ""
     echo "步驟 4: 清理 build 產物..."
 
@@ -108,7 +108,7 @@ else
         echo "已刪除 temp 目錄"
     fi
 
-    # 清理 TypeScript build info
+    # 清理 TypeScript 建置資訊
     if [ -f "backend/tsconfig.tsbuildinfo" ]; then
         rm -f backend/tsconfig.tsbuildinfo
         echo "已刪除 backend TypeScript build info"

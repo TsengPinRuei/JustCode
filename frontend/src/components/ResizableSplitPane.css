@@ -30,7 +30,7 @@
 }
 
 .split-pane-divider {
-    /* The divider has an 8px hit area while the inner line stays visually narrow. */
+    /* 分隔線有 8px 命中區域，但內部線條視覺上維持較窄。 */
     background: transparent;
     position: relative;
     flex-shrink: 0;

@@ -1,6 +1,6 @@
 /**
- * Hidden Testcase Modal - Imports AI-generated hidden testcase JSON for one problem.
- * The modal only collects text or a project-relative path; backend validation owns filesystem and JSON safety.
+ * Hidden Testcase Modal：為單一題目匯入 AI 產生的 hidden testcase JSON。
+ * Modal 只收集文字或 project-relative path；檔案系統與 JSON 安全性由後端驗證。
  */
 import { useState, type ChangeEvent, type FC } from 'react';
 import { problemsApi } from '../services/apiClient';
@@ -35,7 +35,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
-    // Enable import only for the active source mode so stale textarea/path state is not submitted accidentally.
+    // 只根據目前啟用的來源模式開啟匯入，避免誤送過期的 textarea/path 狀態。
     const hasInput = sourceMode === 'content' ? content.trim().length > 0 : projectPath.trim().length > 0;
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -44,7 +44,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
         if (!file) return;
 
         try {
-            // Browser-picked files are read as text and sent through the same content path as pasted JSON.
+            // 瀏覽器選取的檔案會讀成文字，並走與貼上 JSON 相同的 content 路徑。
             const text = await file.text();
             setSourceMode('content');
             setContent(text);
@@ -64,7 +64,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
         setSuccess(null);
 
         try {
-            // Send only the chosen source field; the backend rejects missing, invalid, or escaping inputs.
+            // 只送出被選取的來源欄位；缺漏、無效或逃逸專案範圍的輸入由後端拒絕。
             const result = await problemsApi.importHiddenTestcases(problem.metadata.id, {
                 mode,
                 sourceType: sourceMode,
@@ -135,43 +135,53 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
                         </div>
                     </div>
 
-                    {sourceMode === 'content' ? (
-                        <div className="hidden-test-section">
-                            <div className="hidden-test-file-row">
-                                <label className="hidden-test-file-btn">
-                                    Choose File
-                                    <input type="file" accept=".json,application/json,text/plain" onChange={handleFileChange} />
-                                </label>
+                    <div className="hidden-test-section hidden-test-source-section">
+                        <div
+                            className={`hidden-test-source-pane ${sourceMode === 'content' ? 'active' : ''}`}
+                            aria-hidden={sourceMode !== 'content'}
+                        >
+                            <div className="hidden-test-source-pane-inner">
+                                <div className="hidden-test-file-row">
+                                    <label className="hidden-test-file-btn">
+                                        Choose File
+                                        <input type="file" accept=".json,application/json,text/plain" onChange={handleFileChange} />
+                                    </label>
+                                </div>
+                                <textarea
+                                    className="hidden-test-textarea"
+                                    value={content}
+                                    onChange={(event) => {
+                                        setContent(event.target.value);
+                                        setError(null);
+                                        setSuccess(null);
+                                    }}
+                                    placeholder='[{"input":{"paramName":"value"},"output":"expected"}]'
+                                />
                             </div>
-                            <textarea
-                                className="hidden-test-textarea"
-                                value={content}
-                                onChange={(event) => {
-                                    setContent(event.target.value);
-                                    setError(null);
-                                    setSuccess(null);
-                                }}
-                                placeholder='[{"input":{"paramName":"value"},"output":"expected"}]'
-                            />
                         </div>
-                    ) : (
-                        <div className="hidden-test-section">
-                            <input
-                                type="text"
-                                className="hidden-test-path-input"
-                                value={projectPath}
-                                onChange={(event) => {
-                                    setProjectPath(event.target.value);
-                                    setError(null);
-                                    setSuccess(null);
-                                }}
-                                placeholder="tmp/generated-hidden-tests.json"
-                            />
-                            <p className="hidden-test-help">
-                                Path must be relative to the JustCode project and point to a JSON file inside this project.
-                            </p>
+
+                        <div
+                            className={`hidden-test-source-pane ${sourceMode === 'projectPath' ? 'active' : ''}`}
+                            aria-hidden={sourceMode !== 'projectPath'}
+                        >
+                            <div className="hidden-test-source-pane-inner">
+                                <input
+                                    type="text"
+                                    className="hidden-test-path-input"
+                                    value={projectPath}
+                                    onChange={(event) => {
+                                        setProjectPath(event.target.value);
+                                        setError(null);
+                                        setSuccess(null);
+                                    }}
+                                    placeholder="tmp/generated-hidden-tests.json"
+                                />
+                                <p className="hidden-test-help">
+                                    Path must be relative to the JustCode project and point to a JSON file inside this project.
+                                </p>
+                            </div>
                         </div>
-                    )}
+                    </div>
 
                     {error && (
                         <div className="import-feedback import-error">
@@ -187,9 +197,6 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
                     )}
 
                     <div className="hidden-test-actions">
-                        <button type="button" className="secondary-action-btn" onClick={onClose}>
-                            Close
-                        </button>
                         <button
                             type="button"
                             className="primary-action-btn"

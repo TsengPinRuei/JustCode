@@ -1,13 +1,13 @@
 /**
- * Frontend type definitions.
- * Mirrors backend types for problems, testcases, execution results, and user progress.
- * Keep this file synchronized with backend/src/types.ts because API responses are not generated.
+ * 前端型別定義。
+ * 對應題目、測資、執行結果與使用者進度的後端型別。
+ * 因為 API response 沒有自動產生型別，需與 backend/src/types.ts 保持同步。
  */
 export type Language = 'java' | 'python3';
 
 export interface ParamInfo {
     name: string;
-    // Internal type label consumed by backend runner generation.
+    // 後端 runner 產生流程使用的內部型別標籤。
     type: string;
 }
 
@@ -66,12 +66,12 @@ export interface ExecutionResult {
     testcaseResults: TestcaseResult[];
     totalTestcases: number;
     passedTestcases: number;
-    compilationErrors?: CompilationError[]; // Structured locations used for Monaco markers.
-    debugOutput?: string; // Captured stdout before the backend result separator.
+    compilationErrors?: CompilationError[]; // Monaco marker 使用的結構化位置。
+    debugOutput?: string; // 後端結果分隔符之前擷取到的 stdout。
 }
 
 export type HiddenTestcaseImportMode = 'append' | 'replace';
-// Mirrors backend import sources: pasted/uploaded JSON text or a backend-validated project path.
+// 對應後端匯入來源：貼上/上傳的 JSON 文字，或經後端驗證的專案路徑。
 export type HiddenTestcaseSourceType = 'content' | 'projectPath';
 
 export interface HiddenTestcaseImportRequest {
@@ -84,18 +84,18 @@ export interface HiddenTestcaseImportRequest {
 export interface HiddenTestcaseImportResponse {
     success: true;
     added: number;
-    totalHidden: number; // Count after append/replace has been written to testcases_hidden.json.
+    totalHidden: number; // append/replace 寫入 testcases_hidden.json 後的總數。
     mode: HiddenTestcaseImportMode;
 }
 
 export type ProblemStatus = 'none' | 'attempted' | 'solved';
 
-// One accepted submission snapshot used by the stats panel; progress.json may contain many records.
+// 統計面板使用的一筆 accepted 提交快照；progress.json 可包含多筆紀錄。
 export interface SolveRecord {
     id: string;
-    solvedAt: string; // ISO timestamp from the browser at the moment AC is recorded.
-    durationMs: number; // Time spent in the current attempt window before AC.
-    submitDurationMs?: number; // Optional for backwards compatibility with older progress files.
+    solvedAt: string; // 瀏覽器記錄 AC 當下的 ISO timestamp。
+    durationMs: number; // 本次嘗試視窗中，AC 前花費的時間。
+    submitDurationMs?: number; // 為了相容舊 progress 檔案而保持 optional。
     language: Language;
     passedTestcases: number;
     totalTestcases: number;
@@ -103,10 +103,10 @@ export interface SolveRecord {
 
 export interface ProblemProgress {
     status: ProblemStatus;
-    // Saved code is keyed by language so switching languages does not overwrite another buffer.
+    // 已儲存程式碼以語言為 key，避免切換語言時覆蓋另一個 buffer。
     code: Record<string, string>;
     selectedLanguage: Language;
     solveRecords?: SolveRecord[];
-    // Assigned by the backend when progress is saved.
+    // 儲存進度時由後端指定。
     lastUpdated: string;
 }

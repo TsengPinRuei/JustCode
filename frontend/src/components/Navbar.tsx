@@ -1,6 +1,6 @@
 /**
- * Navbar Component \u2014 Top navigation bar with logo and menu links.
- * \"Explore\" and \"Discuss\" links are placeholder (disabled) for future features.
+ * Navbar 元件：包含 logo 與選單連結的頂部導覽列。
+ * \"Explore\" 與 \"Discuss\" 連結是未來功能的 placeholder（目前停用）。
  */
 import { type FC } from 'react';
 import { Link, useLocation } from 'react-router-dom';

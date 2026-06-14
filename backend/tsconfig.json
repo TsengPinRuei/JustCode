@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        /* Build backend TypeScript into dist/ for npm start. */
+        /* 將後端 TypeScript 編譯到 dist/，供 npm start 使用。 */
         "target": "ES2020",
         "module": "commonjs",
         "lib": [
@@ -13,7 +13,7 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
-        /* Match Node's module resolver for Express/backend imports. */
+        /* 對齊 Node 的模組解析方式，供 Express/後端 import 使用。 */
         "moduleResolution": "node"
     },
     "include": [

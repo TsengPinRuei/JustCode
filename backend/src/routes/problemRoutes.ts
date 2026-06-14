@@ -1,6 +1,6 @@
 /**
- * API Routes \u2014 All REST endpoints for problems, code execution, progress, and import.
- * Routes: GET/DELETE problems, POST run/submit, POST import, hidden testcase import, GET/PUT progress.
+ * API Routes：題目、程式執行、進度與匯入的所有 REST endpoint。
+ * 路由：GET/DELETE problems、POST run/submit、POST import、hidden 測試案例匯入、GET/PUT progress。
  */
 import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
@@ -20,7 +20,7 @@ const router = express.Router();
 const problemService = new ProblemService();
 const leetcodeService = new LeetCodeService();
 
-// GET /api/problems - Get list of all problems.
+// GET /api/problems - 取得所有題目列表。
 router.get('/problems', async (req: Request, res: Response) => {
     try {
         const problems = await problemService.getAllProblems();
@@ -31,13 +31,13 @@ router.get('/problems', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/problems/:id - Get problem details.
+// GET /api/problems/:id - 取得題目詳細資料。
 router.get('/problems/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const problem = await problemService.getProblem(id);
 
-        // Never expose hidden testcases from the detail endpoint; Submit loads them server-side.
+        // 詳細資料 endpoint 絕不暴露隱藏測試案例；Submit 會在伺服器端載入。
         res.json({
             metadata: problem.metadata,
             templates: problem.templates,
@@ -50,7 +50,7 @@ router.get('/problems/:id', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/run - Run code with visible or custom testcases.
+// POST /api/run - 使用可見或自訂測試案例執行程式碼。
 router.post('/run', async (req: Request, res: Response) => {
     try {
         const { problemId, code, language, inputMode, customInput }: RunRequest = req.body;
@@ -59,31 +59,31 @@ router.post('/run', async (req: Request, res: Response) => {
         let metadata: ProblemMetadata;
 
         if (inputMode === 'custom') {
-            // Metadata drives runner generation; custom mode avoids testcase reads to keep ad-hoc runs cheap.
+            // Metadata 驅動 runner 產生；custom 模式避免讀取測試案例，讓臨時執行成本較低。
             metadata = await problemService.getProblemMetadata(problemId);
             if (typeof customInput !== 'string' || customInput.trim() === '') {
                 return res.status(400).json({ error: 'Custom input cannot be empty in custom mode' });
             }
-            // Custom input must be the same JSON object shape as testcase.input.
+            // 自訂輸入必須與 testcase.input 使用相同 JSON 物件形狀。
             try {
                 const parsedInput = JSON.parse(customInput);
                 testcases = [
                     {
                         input: parsedInput,
-                        output: [], // We don't have expected output for custom input
+                        output: [], // 自訂輸入沒有預期輸出。
                     },
                 ];
             } catch (error) {
                 return res.status(400).json({ error: 'Invalid custom input JSON format' });
             }
         } else {
-            // Run mode intentionally excludes hidden tests so users can inspect every input/result pair.
+            // Run 模式刻意排除隱藏測試，讓使用者可檢查每組輸入/結果。
             const problem = await problemService.getProblemForRun(problemId);
             metadata = problem.metadata;
             testcases = problem.visibleTestcases;
         }
 
-        // Delegate language-specific harness generation and execution to the selected executor.
+        // 將語言專屬 harness 產生與執行委派給選定的 executor。
         const executor = CodeExecutorFactory.getExecutor(language);
         const result = await executor.executeCode(
             code,
@@ -93,7 +93,7 @@ router.post('/run', async (req: Request, res: Response) => {
             testcases.length
         );
         if (inputMode === 'custom' && result.status !== 'CE') {
-            // Custom runs have no expected answer, so a value mismatch is still a successful execution.
+            // 自訂執行沒有預期答案，因此值不相符仍算成功執行。
             const testcaseResults = result.testcaseResults.map((testcaseResult) => {
                 const nextStatus = testcaseResult.status === 'Failed' ? 'Passed' : testcaseResult.status;
                 return {
@@ -126,20 +126,20 @@ router.post('/run', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/submit - Submit code with all testcases.
+// POST /api/submit - 使用所有測試案例提交程式碼。
 router.post('/submit', async (req: Request, res: Response) => {
     try {
         const { problemId, code, language }: SubmitRequest = req.body;
 
-        // Metadata is required for runner generation across both visible and hidden cases.
+        // 可見與隱藏案例都需要 metadata 產生 runner。
         const problem = await problemService.getProblemForExecution(problemId);
 
-        // Preserve the boundary so executor can summarize hidden cases without revealing their inputs.
+        // 保留邊界，讓 executor 可摘要隱藏案例，但不揭露其輸入。
         const visibleTestcases = problem.visibleTestcases;
         const hiddenTestcases = problem.hiddenTestcases || [];
         const testcases = [...visibleTestcases, ...hiddenTestcases];
 
-        // Submit hides hidden inputs but still counts them in total/passed statistics.
+        // Submit 會隱藏隱藏輸入，但仍將其納入 total/passed 統計。
         const executor = CodeExecutorFactory.getExecutor(language);
         const result = await executor.executeCode(
             code,
@@ -155,7 +155,7 @@ router.post('/submit', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/import-problem - Import a LeetCode problem by URL.
+// POST /api/import-problem - 透過 URL 匯入 LeetCode 題目。
 router.post('/import-problem', async (req: Request, res: Response) => {
     try {
         const { url } = req.body;
@@ -178,7 +178,7 @@ router.post('/import-problem', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/problems/:id/hidden-testcases - Append or replace local hidden testcase JSON.
+// POST /api/problems/:id/hidden-testcases - append 或 replace 本機隱藏測試案例 JSON。
 router.post('/problems/:id/hidden-testcases', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -192,7 +192,7 @@ router.post('/problems/:id/hidden-testcases', async (req: Request, res: Response
     }
 });
 
-// GET /api/progress - Get progress for all problems.
+// GET /api/progress - 取得所有題目的進度。
 router.get('/progress', async (req: Request, res: Response) => {
     try {
         const progress = await problemService.getAllProgress();
@@ -203,7 +203,7 @@ router.get('/progress', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/progress/:id - Get progress for a specific problem.
+// GET /api/progress/:id - 取得指定題目的進度。
 router.get('/progress/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -215,12 +215,12 @@ router.get('/progress/:id', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/progress/:id - Save progress for a specific problem.
+// PUT /api/progress/:id - 儲存指定題目的進度。
 router.put('/progress/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const progress: ProblemProgress = req.body;
-        // Trust the server clock so progress ordering is consistent across clients.
+        // 使用伺服器時間，讓不同 client 的進度排序一致。
         progress.lastUpdated = new Date().toISOString();
         await problemService.saveProgress(id, progress);
         res.json({ success: true });
@@ -230,11 +230,11 @@ router.put('/progress/:id', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE /api/problems/:id - Delete a problem.
+// DELETE /api/problems/:id - 刪除題目。
 router.delete('/problems/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        // The UI also hides this action, but the API must enforce it for direct requests.
+        // UI 也會隱藏此動作，但 API 必須防範直接請求。
         if (PROTECTED_PROBLEMS.has(id)) {
             return res.status(403).json({ error: 'Cannot delete built-in problems' });
         }

@@ -143,8 +143,8 @@ class Solution {
     }
     
     private int partition(int[] nums, int left, int right) {
-        // Median-of-three optimization: choose the middle value among first, middle, and last elements
-        // This helps avoid O(n²) performance on already-sorted arrays
+        // 三數取中最佳化：在第一個、中間、最後一個元素中選擇中間值
+        // 這有助於避免已排序陣列造成 O(n²) 效能
         int mid = left + (right - left) / 2;
         if (nums[mid] < nums[left]) swap(nums, left, mid);
         if (nums[right] < nums[left]) swap(nums, left, right);
@@ -178,7 +178,7 @@ class Solution:
     def sortArray(self, nums: list[int]) -> list[int]:
         if len(nums) <= 1:
             return nums
-        # Iterative quick sort using explicit stack (avoids recursion limit)
+        # 使用明確 stack 的迭代 quick sort（避免遞迴深度限制）
         stack = [(0, len(nums) - 1)]
         while stack:
             left, right = stack.pop()
@@ -190,10 +190,10 @@ class Solution:
         return nums
 
     def _three_way_partition(self, nums: list[int], left: int, right: int) -> tuple[int, int]:
-        # Randomized pivot to avoid worst-case on sorted arrays
+        # 隨機選擇 pivot，避免已排序陣列的最差情況
         pivot_idx = random.randint(left, right)
         pivot = nums[pivot_idx]
-        # Dutch National Flag: partition into [< pivot | == pivot | > pivot]
+        # Dutch National Flag：分割成 [< pivot | == pivot | > pivot]
         lt = left   # nums[left..lt-1]  < pivot
         i = left    # nums[lt..i-1]    == pivot
         gt = right  # nums[gt+1..right] > pivot
@@ -266,14 +266,14 @@ class Solution {
     }
     
     private void merge(int[] nums, int left, int mid, int right, int[] temp) {
-        // Copy to temporary array
+        // 複製到暫存陣列
         for (int i = left; i <= right; i++) {
             temp[i] = nums[i];
         }
         
-        int i = left;      // Left half pointer
-        int j = mid + 1;   // Right half pointer
-        int k = left;      // Merged array pointer
+        int i = left;      // 左半部指標
+        int j = mid + 1;   // 右半部指標
+        int k = left;      // 合併陣列指標
         
         while (i <= mid && j <= right) {
             if (temp[i] <= temp[j]) {
@@ -283,7 +283,7 @@ class Solution {
             }
         }
         
-        // Copy remaining elements
+        // 複製剩餘元素
         while (i <= mid) {
             nums[k++] = temp[i++];
         }
@@ -312,9 +312,9 @@ class Solution:
 
     def _merge(self, nums: list[int], left: int, mid: int, right: int) -> None:
         temp = nums[left:right + 1]
-        i = 0                  # Left half pointer
-        j = mid - left + 1     # Right half pointer
-        k = left               # Merged array pointer
+        i = 0                  # 左半部指標
+        j = mid - left + 1     # 右半部指標
+        k = left               # 合併陣列指標
         length = right - left + 1
 
         while i <= mid - left and j < length:
@@ -375,12 +375,12 @@ class Solution {
         
         int n = nums.length;
         
-        // Build heap: start from last non-leaf node
+        // 建立 heap：從最後一個非葉節點開始
         for (int i = n / 2 - 1; i >= 0; i--) {
             heapify(nums, n, i);
         }
         
-        // Extract elements from heap one by one
+        // 逐一從 heap 取出元素
         for (int i = n - 1; i > 0; i--) {
             swap(nums, 0, i);
             heapify(nums, i, 0);
@@ -423,11 +423,11 @@ class Solution:
 
         n = len(nums)
 
-        # Build heap: start from last non-leaf node
+        # 建立 heap：從最後一個非葉節點開始
         for i in range(n // 2 - 1, -1, -1):
             self._heapify(nums, n, i)
 
-        # Extract elements from heap one by one
+        # 逐一從 heap 取出元素
         for i in range(n - 1, 0, -1):
             nums[0], nums[i] = nums[i], nums[0]
             self._heapify(nums, i, 0)
@@ -486,7 +486,7 @@ class Solution {
             return nums;
         }
         
-        // Find min and max values to determine range
+        // 找出最小值與最大值以決定範圍
         int min = Integer.MAX_VALUE;
         int max = Integer.MIN_VALUE;
         for (int num : nums) {
@@ -494,14 +494,14 @@ class Solution {
             max = Math.max(max, num);
         }
         
-        // Count occurrences
+        // 計算出現次數
         int range = max - min + 1;
         int[] count = new int[range];
         for (int num : nums) {
             count[num - min]++;
         }
         
-        // Fill back into original array
+        // 填回原始陣列
         int index = 0;
         for (int i = 0; i < range; i++) {
             while (count[i]-- > 0) {
@@ -520,16 +520,16 @@ class Solution:
         if len(nums) <= 1:
             return nums
 
-        # Find min and max values to determine range
+        # 找出最小值與最大值以決定範圍
         min_val = min(nums)
         max_val = max(nums)
 
-        # Count occurrences
+        # 計算出現次數
         count = [0] * (max_val - min_val + 1)
         for num in nums:
             count[num - min_val] += 1
 
-        # Fill back into original array
+        # 填回原始陣列
         index = 0
         for i, cnt in enumerate(count):
             for _ in range(cnt):
@@ -578,7 +578,7 @@ class Solution {
             return nums;
         }
         
-        // Separate positive and negative numbers
+        // 分離正數與負數
         List<Integer> positive = new ArrayList<>();
         List<Integer> negative = new ArrayList<>();
         
@@ -586,20 +586,20 @@ class Solution {
             if (num >= 0) {
                 positive.add(num);
             } else {
-                negative.add(-num);  // Convert to positive for sorting
+                negative.add(-num);  // 轉成正數以便排序
             }
         }
         
-        // Sort separately
+        // 分開排序
         if (!positive.isEmpty()) {
             radixSort(positive);
         }
         if (!negative.isEmpty()) {
             radixSort(negative);
-            Collections.reverse(negative);  // Reverse to get correct negative order
+            Collections.reverse(negative);  // 反轉以取得正確的負數順序
         }
         
-        // Merge results: negatives first, then positives
+        // 合併結果：負數在前，正數在後
         int index = 0;
         for (int num : negative) {
             nums[index++] = -num;
@@ -614,10 +614,10 @@ class Solution {
     private void radixSort(List<Integer> list) {
         if (list.isEmpty()) return;
         
-        // Find maximum to determine number of digits
+        // 找出最大值以決定位數
         int max = Collections.max(list);
         
-        // Sort by each digit position using counting sort
+        // 使用 counting sort 依每個位數排序
         for (int exp = 1; max / exp > 0; exp *= 10) {
             countingSortByDigit(list, exp);
         }
@@ -626,20 +626,20 @@ class Solution {
     private void countingSortByDigit(List<Integer> list, int exp) {
         int n = list.size();
         int[] output = new int[n];
-        int[] count = new int[10];  // Digits 0-9
+        int[] count = new int[10];  // 數字 0-9
         
-        // Count digit occurrences
+        // 計算各數字出現次數
         for (int num : list) {
             int digit = (num / exp) % 10;
             count[digit]++;
         }
         
-        // Calculate cumulative counts
+        // 計算累積次數
         for (int i = 1; i < 10; i++) {
             count[i] += count[i - 1];
         }
         
-        // Build output array (backwards to maintain stability)
+        // 由後往前建立輸出陣列，以保持穩定性
         for (int i = n - 1; i >= 0; i--) {
             int num = list.get(i);
             int digit = (num / exp) % 10;
@@ -647,7 +647,7 @@ class Solution {
             count[digit]--;
         }
         
-        // Copy back to original list
+        // 複製回原始 list
         for (int i = 0; i < n; i++) {
             list.set(i, output[i]);
         }
@@ -661,17 +661,17 @@ class Solution:
         if len(nums) <= 1:
             return nums
 
-        # Separate positive and negative numbers
+        # 分離正數與負數
         positive = [n for n in nums if n >= 0]
-        negative = [-n for n in nums if n < 0]  # Convert to positive for sorting
+        negative = [-n for n in nums if n < 0]  # 轉成正數以便排序
 
         if positive:
             self._radix_sort(positive)
         if negative:
             self._radix_sort(negative)
-            negative.reverse()  # Reverse to get correct negative order
+            negative.reverse()  # 反轉以取得正確的負數順序
 
-        # Merge results: negatives first, then positives
+        # 合併結果：負數在前，正數在後
         index = 0
         for num in negative:
             nums[index] = -num
@@ -694,7 +694,7 @@ class Solution:
     def _counting_sort_by_digit(self, lst: list[int], exp: int) -> None:
         n = len(lst)
         output = [0] * n
-        count = [0] * 10  # Digits 0-9
+        count = [0] * 10  # 數字 0-9
 
         for num in lst:
             digit = (num // exp) % 10
@@ -703,7 +703,7 @@ class Solution:
         for i in range(1, 10):
             count[i] += count[i - 1]
 
-        # Build output array (backwards to maintain stability)
+        # 由後往前建立輸出陣列，以保持穩定性
         for i in range(n - 1, -1, -1):
             digit = (lst[i] // exp) % 10
             output[count[digit] - 1] = lst[i]
@@ -785,23 +785,23 @@ Start
 **Wrong:** Always choosing first or last element
 
 ```java
-int pivot = nums[right];  // Degrades to O(n²) for sorted arrays
+int pivot = nums[right];  // 對已排序陣列會退化成 O(n²)
 ```
 ```python
-pivot = nums[right]  # Degrades to O(n²) for sorted arrays
+pivot = nums[right]  # 對已排序陣列會退化成 O(n²)
 ```
 
 **Correct:** Use median-of-three or random selection
 
 ```java
 int mid = left + (right - left) / 2;
-// Choose median of first, middle, and last elements
-// This avoids worst-case on sorted/reverse-sorted arrays
+// 選擇第一個、中間、最後一個元素的中位數
+// 這可避免已排序/反向排序陣列的最差情況
 ```
 ```python
 mid = left + (right - left) // 2
-# Choose median of first, middle, and last elements
-# This avoids worst-case on sorted/reverse-sorted arrays
+# 選擇第一個、中間、最後一個元素的中位數
+# 這可避免已排序/反向排序陣列的最差情況
 ```
 
 ### 2. Merge Sort Memory Allocation
@@ -809,19 +809,19 @@ mid = left + (right - left) // 2
 **Wrong:** Creating new array each time
 
 ```java
-int[] temp = new int[right - left + 1];  // Creates many arrays!
+int[] temp = new int[right - left + 1];  // 會建立許多陣列！
 ```
 ```python
-temp = nums[left:right + 1]  # Creates a new list every call!
+temp = nums[left:right + 1]  # 每次呼叫都會建立新的 list！
 ```
 
 **Correct:** Reuse temporary array
 
 ```java
-int[] temp = new int[nums.length];  // Allocate once, reuse throughout
+int[] temp = new int[nums.length];  // 只配置一次，整段流程重複使用
 ```
 ```python
-temp = [0] * len(nums)  # Allocate once, pass to recursive calls
+temp = [0] * len(nums)  # 只配置一次，傳給遞迴呼叫
 ```
 
 ### 3. Heap Sort Index Calculation
@@ -829,23 +829,23 @@ temp = [0] * len(nums)  # Allocate once, pass to recursive calls
 **Wrong:** Incorrect child indices (1-indexed formula)
 
 ```java
-int left = i * 2;      // Wrong for 0-indexed arrays
-int right = i * 2 + 1; // Wrong
+int left = i * 2;      // 對 0-indexed 陣列是錯的
+int right = i * 2 + 1; // 錯誤
 ```
 ```python
-left = i * 2       # Wrong for 0-indexed arrays
-right = i * 2 + 1   # Wrong
+left = i * 2       # 對 0-indexed 陣列是錯的
+right = i * 2 + 1   # 錯誤
 ```
 
 **Correct:** Proper 0-indexed calculation
 
 ```java
-int left = 2 * i + 1;   // Correct for 0-indexed
-int right = 2 * i + 2;  // Correct for 0-indexed
+int left = 2 * i + 1;   // 適用於 0-indexed
+int right = 2 * i + 2;  // 適用於 0-indexed
 ```
 ```python
-left = 2 * i + 1    # Correct for 0-indexed
-right = 2 * i + 2   # Correct for 0-indexed
+left = 2 * i + 1    # 適用於 0-indexed
+right = 2 * i + 2   # 適用於 0-indexed
 ```
 
 ### 4. Integer Overflow
@@ -853,18 +853,18 @@ right = 2 * i + 2   # Correct for 0-indexed
 **Wrong:** Potential overflow when calculating mid
 
 ```java
-int mid = (left + right) / 2;  // left + right may overflow!
+int mid = (left + right) / 2;  // left + right 可能溢位！
 ```
 
 **Correct:** Safe calculation
 
 ```java
-int mid = left + (right - left) / 2;  // Avoids overflow
+int mid = left + (right - left) / 2;  // 避免溢位
 ```
 ```python
-mid = left + (right - left) // 2  # Same pattern applies in Python
-# Note: Python integers have arbitrary precision so overflow isn't
-# a concern, but this pattern is still good practice for readability.
+mid = left + (right - left) // 2  # Python 也可使用相同模式
+# 注意：Python 整數是任意精度，所以不必擔心溢位，
+# 但這個寫法對可讀性仍是良好實務。
 ```
 
 ---
@@ -874,30 +874,30 @@ mid = left + (right - left) // 2  # Same pattern applies in Python
 ### Test Cases
 
 ```java
-// Case 1: Random array
+// 案例 1：隨機陣列
 [5, 2, 3, 1, 8, 7, 6, 4]
 
-// Case 2: Already sorted
+// 案例 2：已排序
 [1, 2, 3, 4, 5, 6, 7, 8]
 
-// Case 3: Reverse sorted
+// 案例 3：反向排序
 [8, 7, 6, 5, 4, 3, 2, 1]
 
-// Case 4: Many duplicates
+// 案例 4：大量重複值
 [5, 5, 5, 1, 1, 1, 3, 3]
 ```
 
 ```python
-# Case 1: Random array
+# 案例 1：隨機陣列
 [5, 2, 3, 1, 8, 7, 6, 4]
 
-# Case 2: Already sorted
+# 案例 2：已排序
 [1, 2, 3, 4, 5, 6, 7, 8]
 
-# Case 3: Reverse sorted
+# 案例 3：反向排序
 [8, 7, 6, 5, 4, 3, 2, 1]
 
-# Case 4: Many duplicates
+# 案例 4：大量重複值
 [5, 5, 5, 1, 1, 1, 3, 3]
 ```
 

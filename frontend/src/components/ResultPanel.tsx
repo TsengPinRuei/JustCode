@@ -1,6 +1,6 @@
 /**
- * Result Panel \u2014 Displays code execution results: status (AC/WA/CE/RE/TLE),
- * pass counts, per-testcase details, and filtered debug console output.
+ * 結果面板：顯示程式執行結果，包含狀態（AC/WA/CE/RE/TLE）、
+     * 通過數、逐筆測試案例詳細資訊，以及篩選後的除錯 console output。
  */
 import { useMemo, type FC } from 'react';
 import { ExecutionResult } from '../types';
@@ -12,7 +12,7 @@ interface ResultPanelProps {
 
 const DEBUG_SECTION_SPLIT_REGEX = /\n\n(?=\[Testcase \d+\])/;
 const DEBUG_SECTION_HEADER_REGEX = /^\[Testcase (\d+)\]/;
-// Keep status text in one mapping so new backend statuses fail visibly during type-checking.
+// 將狀態文字集中在同一個 mapping，讓新增後端狀態時能在型別檢查中明顯失敗。
 const STATUS_LABELS: Record<ExecutionResult['status'], string> = {
     AC: 'Accepted',
     WA: 'Wrong Answer',
@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<ExecutionResult['status'], string> = {
 };
 
 const formatInputValue = (value: unknown): string => {
-    // Testcase input is usually an object of named params; display one param per line for scanning.
+    // 測試案例 input 通常是具名參數物件；每列顯示一個參數以便掃描。
     if (typeof value === 'object' && value !== null) {
         return Object.entries(value as Record<string, unknown>)
             .map(([key, entryValue]) => `${key} = ${JSON.stringify(entryValue)}`)
@@ -35,12 +35,12 @@ const formatJsonValue = (value: unknown): string => JSON.stringify(value) ?? Str
 
 const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
     const filteredDebugOutput = useMemo(() => {
-        // Skip if no debug output or all tests passed.
+        // 若沒有除錯輸出，或所有測試都通過，就略過。
         if (!result || result.status === 'AC' || !result.debugOutput || !result.testcaseResults) {
             return null;
         }
 
-        // Match debug sections against the result rows that failed.
+        // 將除錯區段對應到失敗的結果列。
         const failingIndices = new Set<number>();
         for (const tc of result.testcaseResults) {
             if (tc.status !== 'Passed') {
@@ -50,7 +50,7 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
 
         if (failingIndices.size === 0) return null;
 
-        // Debug output is labeled by the backend as "[Testcase n]"; split only at those labels.
+        // 後端會以 "[Testcase n]" 標記除錯輸出；只在這些標籤處切分。
         const filteredDebug = result.debugOutput
             .split(DEBUG_SECTION_SPLIT_REGEX)
             .filter(section => {
@@ -64,7 +64,7 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
         return filteredDebug.trim() ? filteredDebug : null;
     }, [result]);
     const formattedTestcaseResults = useMemo(() => {
-        // Pre-format JSON once per result so render markup stays focused on layout.
+        // 每次 result 只預先格式化一次 JSON，讓 render markup 專注在版面。
         return result?.testcaseResults.map((testResult) => ({
             testResult,
             input: testResult.input !== undefined ? formatInputValue(testResult.input) : undefined,
@@ -114,7 +114,7 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
                 </div>
             )}
 
-            {/* Show debug output only for failing cases so successful noisy prints do not bury the signal. */}
+            {/* 只顯示失敗案例的除錯輸出，避免成功案例的雜訊蓋掉重點。 */}
             {filteredDebugOutput && (
                 <div className="debug-output-section">
                     <div className="debug-output-header">

@@ -1,6 +1,6 @@
 /**
- * Testcase Tab — Displays visible testcase inputs or a custom JSON input textarea.
- * Users can switch between predefined cases and custom input mode.
+ * Testcase 分頁：顯示可見測試案例 input，或自訂 JSON input textarea。
+ * 使用者可在預設 case 與 custom input 模式之間切換。
  */
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { Problem } from '../types';
@@ -23,18 +23,18 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
     const [selectedTestcase, setSelectedTestcase] = useState(0);
     const selectedVisibleTestcase = problem.visibleTestcases[selectedTestcase];
     const selectedInputRows = useMemo(() => {
-        // Keep param/value formatting stable while switching between visible cases.
+        // 切換可見案例時，保持參數/值格式穩定。
         if (!selectedVisibleTestcase) return [];
         return Object.entries(selectedVisibleTestcase.input).map(
             ([key, value]) => [key, JSON.stringify(value)] as const
         );
     }, [selectedVisibleTestcase]);
     const selectedExpectedOutput = useMemo(() => {
-        // Expected output is display-only in this tab; execution uses backend testcase files.
+        // 預期輸出在此分頁僅供顯示；執行時使用後端測試案例檔案。
         return selectedVisibleTestcase ? JSON.stringify(selectedVisibleTestcase.output) : '';
     }, [selectedVisibleTestcase]);
 
-    // Imported/new problems can change testcase count while the tab stays mounted.
+    // 匯入/新增題目時測試案例數量可能在分頁仍掛載時改變。
     useEffect(() => {
         if (selectedTestcase >= problem.visibleTestcases.length) {
             setSelectedTestcase(0);
@@ -59,7 +59,7 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
                 <button
                     className={`testcase-tab ${inputMode === 'custom' ? 'active' : ''}`}
                     onClick={() => {
-                        // Seed custom input with the first visible testcase so the JSON shape is obvious.
+                        // 用第一個可見測試案例預填自訂輸入，讓 JSON 形狀更明確。
                         if (!customInput && problem.visibleTestcases.length > 0) {
                             onCustomInputChange(JSON.stringify(problem.visibleTestcases[0].input, null, 2));
                         }

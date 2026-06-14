@@ -1,14 +1,13 @@
 /**
- * Problem List Page \u2014 Shows all problems in a table with status icons,
- * difficulty badges, tags, and delete actions. Includes LeetCode import modal.
- * Built-in problems (sort-array, add-two-integers) are protected from deletion.
+ * 題目列表頁：以表格顯示所有題目、狀態圖示、難度標籤、標籤與刪除動作。
+ * 也包含 LeetCode 匯入 modal；內建題目（sort-array、add-two-integers）不可刪除。
  */
 import { useEffect, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { problemsApi } from '../services/apiClient';
 import { ProblemMetadata, ProblemProgress } from '../types';
 
-/** Built-in problems hidden from delete UI; backend still enforces the same rule. */
+/** 刪除 UI 會隱藏內建題目；後端仍會強制套用相同規則。 */
 const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
 
 const ProblemList: FC = () => {
@@ -56,10 +55,10 @@ const ProblemList: FC = () => {
             const result = await problemsApi.importProblem(importUrl.trim());
             setImportSuccess(`Successfully imported: ${result.title}`);
             setImportUrl('');
-            // Refresh after import because the backend writes a new problem directory.
+            // 匯入後重新整理，因為後端會寫入新的題目目錄。
             const data = await problemsApi.getProblems();
             setProblems(data);
-            // Leave the success state visible briefly so users know the import completed.
+            // 成功狀態短暫保留，讓使用者知道匯入已完成。
             setTimeout(() => {
                 setShowImportModal(false);
                 setImportSuccess(null);
@@ -176,7 +175,7 @@ const ProblemList: FC = () => {
                 </table>
             </div>
 
-            {/* Import modal only creates local problems from visible LeetCode metadata/examples. */}
+            {/* 匯入對話框只會根據 LeetCode 可見 metadata/範例建立本機題目。 */}
             {showImportModal && (
                 <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
                     <div className="import-modal" onClick={(e) => e.stopPropagation()}>

@@ -1,4 +1,4 @@
-/** Vite config for the React app and local API proxy to the backend on port 3000. */
+/** React 應用程式的 Vite 設定，以及代理到 3000 連接埠後端的本機 API 代理。 */
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -7,7 +7,7 @@ export default defineConfig({
     server: {
         port: 5173,
         proxy: {
-            // Keep frontend code using relative /api URLs while developing on Vite's port.
+            // 開發時在 Vite 連接埠上仍讓前端程式使用相對 /api URL。
             '/api': {
                 target: 'http://localhost:3000',
                 changeOrigin: true,

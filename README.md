@@ -275,29 +275,29 @@ npm run preview --workspace=frontend
 JustCode/
 ├── backend/                    # Express + TypeScript API
 │   ├── src/
-│   │   ├── constants.ts        # Timeouts, sandbox env vars, protected problem IDs
-│   │   ├── routes/             # REST API routes
-│   │   ├── services/           # Problem storage, LeetCode import, code execution
-│   │   ├── server.ts           # Express server entry
-│   │   └── types.ts            # Backend API/data types
+│   │   ├── constants.ts        # 逾時、沙盒環境變數、受保護題目 ID
+│   │   ├── routes/             # REST API 路由
+│   │   ├── services/           # 題目儲存、LeetCode 匯入、程式碼執行
+│   │   ├── server.ts           # Express 伺服器入口
+│   │   └── types.ts            # 後端 API/資料型別
 │   └── package.json
-├── frontend/                   # React + TypeScript + Vite app
-│   ├── public/                 # Static assets
+├── frontend/                   # React + TypeScript + Vite 應用
+│   ├── public/                 # 靜態資源
 │   ├── src/
-│   │   ├── components/         # Editor, console, description, layout components
-│   │   ├── pages/              # Problem list and problem detail pages
-│   │   ├── plugins/            # Markdown code-group plugin
-│   │   ├── services/           # Axios API client
-│   │   ├── types/              # Frontend API/data types
+│   │   ├── components/         # 編輯器、console、題目敘述、版面元件
+│   │   ├── pages/              # 題目列表與題目詳細頁
+│   │   ├── plugins/            # Markdown code-group 外掛
+│   │   ├── services/           # Axios API 客戶端
+│   │   ├── types/              # 前端 API/資料型別
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   └── package.json
-├── problems/                   # File-backed problem store
-│   ├── add-two-integers/       # Built-in protected problem
-│   └── sort-array/             # Built-in protected problem
-├── install.sh                  # macOS/Linux install helper
-├── uninstall.sh                # macOS/Linux cleanup helper
-├── package.json                # npm workspace scripts
+├── problems/                   # 檔案式題目資料庫
+│   ├── add-two-integers/       # 內建受保護題目
+│   └── sort-array/             # 內建受保護題目
+├── install.sh                  # macOS/Linux 安裝輔助腳本
+├── uninstall.sh                # macOS/Linux 清理輔助腳本
+├── package.json                # npm workspace 腳本
 └── package-lock.json
 ```
 
