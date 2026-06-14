@@ -1,13 +1,13 @@
 /**
- * Type definitions shared across the backend.
- * Defines data structures for problems, testcases, execution results, and user progress.
+ * 後端共用型別定義。
+ * 定義題目、測試案例、執行結果與使用者進度的資料結構。
  */
 export type Language = 'java' | 'python3';
 
 export interface ParamInfo {
     name: string;
-    // Internal type label consumed by runner generation; keep in sync with executor type mappers.
-    type: string; // e.g. 'int[]', 'int', 'string', 'int[][]', 'string[]', 'ListNode', etc.
+    // runner 產生流程使用的內部型別標籤；需與 executor type mapper 保持同步。
+    type: string; // 例如 'int[]'、'int'、'string'、'int[][]'、'string[]'、'ListNode' 等。
 }
 
 export interface ProblemMetadata {
@@ -43,10 +43,10 @@ export interface Problem {
 }
 
 export interface CompilationError {
-    file: string;          // File displayed in the editor, e.g. "Solution.java" or "solution.py".
-    line: number;          // 1-based line number from the compiler/runtime diagnostic.
-    column: number;        // 1-based column; defaults to 1 when the language omits it.
-    message: string;       // Human-readable diagnostic shown in the UI.
+    file: string;          // 編輯器顯示的檔名，例如 "Solution.java" 或 "solution.py"。
+    line: number;          // 編譯器/執行期診斷提供的 1-based 行號。
+    column: number;        // 1-based 欄位；語言未提供時預設為 1。
+    message: string;       // 顯示在 UI 上的人類可讀診斷訊息。
     severity: 'error' | 'warning';
 }
 
@@ -56,8 +56,8 @@ export interface ExecutionResult {
     testcaseResults: TestcaseResult[];
     totalTestcases?: number;
     passedTestcases?: number;
-    compilationErrors?: CompilationError[];  // Structured locations used for Monaco markers.
-    debugOutput?: string;  // Captured stdout before RESULT_SEPARATOR.
+    compilationErrors?: CompilationError[];  // Monaco marker 使用的結構化位置。
+    debugOutput?: string;  // RESULT_SEPARATOR 前擷取到的 stdout。
 }
 
 export interface TestcaseResult {
@@ -85,7 +85,7 @@ export interface SubmitRequest {
 }
 
 export type HiddenTestcaseImportMode = 'append' | 'replace';
-// content is pasted/uploaded JSON text; projectPath is resolved by the backend inside the project root.
+// content 是貼上/上傳的 JSON 文字；projectPath 由後端在專案根目錄內解析。
 export type HiddenTestcaseSourceType = 'content' | 'projectPath';
 
 export interface HiddenTestcaseImportRequest {
@@ -98,29 +98,29 @@ export interface HiddenTestcaseImportRequest {
 export interface HiddenTestcaseImportResponse {
     success: true;
     added: number;
-    totalHidden: number; // Count after append/replace has been written to testcases_hidden.json.
+    totalHidden: number; // append/replace 寫入 testcases_hidden.json 後的總數。
     mode: HiddenTestcaseImportMode;
 }
 
-/** Problem completion status: none (not started), attempted (code saved), solved (AC) */
+/** 題目完成狀態：none（未開始）、attempted（已儲存程式碼）、solved（AC） */
 export type ProblemStatus = 'none' | 'attempted' | 'solved';
 
-// One accepted submission snapshot persisted in progress.json for frontend statistics/history.
+// 保存到 progress.json 的一筆 accepted 提交快照，供前端統計/歷史紀錄使用。
 export interface SolveRecord {
     id: string;
-    solvedAt: string;        // ISO timestamp from the client when AC is recorded.
-    durationMs: number;      // Time spent in the current attempt window before AC.
-    submitDurationMs?: number; // Optional because older progress files did not store submit timing.
+    solvedAt: string;        // client 記錄 AC 當下的 ISO timestamp。
+    durationMs: number;      // 本次嘗試視窗中，AC 前花費的時間。
+    submitDurationMs?: number; // 舊版 progress 檔案未保存 submit timing，因此保持 optional。
     language: Language;
     passedTestcases: number;
     totalTestcases: number;
 }
 
-/** Persisted user progress for a problem, stored in progress.json */
+/** 單一題目的持久化使用者進度，儲存在 progress.json。 */
 export interface ProblemProgress {
     status: ProblemStatus;
-    code: Record<string, string>;       // Saved code keyed by language so switching tabs is non-destructive.
+    code: Record<string, string>;       // 已儲存程式碼以語言為 key，讓切換分頁不會破壞另一份 buffer。
     selectedLanguage: Language;
     solveRecords?: SolveRecord[];
-    lastUpdated: string;                 // ISO timestamp assigned by the API on save.
+    lastUpdated: string;                 // 儲存時由 API 指定的 ISO timestamp。
 }

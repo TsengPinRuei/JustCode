@@ -1,12 +1,12 @@
 /**
- * Code Executor Factory — Returns the appropriate executor based on language.
- * Keeps route handlers independent from language-specific runner generation details.
+ * Code Executor Factory：依語言回傳對應 executor。
+ * 讓 route handler 不需要知道各語言 runner 產生細節。
  */
 import { JavaExecutor } from './javaExecutor';
 import { PythonExecutor } from './pythonExecutor';
 import { Language, Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../types';
 
-/** Shared contract implemented by every language-specific code executor. */
+/** 所有語言專屬 code executor 都需實作的共用合約。 */
 export interface CodeExecutor {
     executeCode(
         userCode: string,
@@ -25,7 +25,7 @@ export interface CodeExecutor {
     }>;
 }
 
-/** Factory that returns an executor for languages declared in ProblemMetadata.supportedLanguages. */
+/** 依 ProblemMetadata.supportedLanguages 宣告的語言回傳 executor 的 factory。 */
 export class CodeExecutorFactory {
     private static readonly javaExecutor = new JavaExecutor();
     private static readonly pythonExecutor = new PythonExecutor();

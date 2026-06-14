@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        /* Composite project lets the root frontend tsconfig reference Vite config type-checking. */
+        /* composite 專案讓前端根 tsconfig 可引用 Vite 設定的型別檢查。 */
         "composite": true,
         "skipLibCheck": true,
         "module": "ESNext",

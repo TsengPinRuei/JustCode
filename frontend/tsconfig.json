@@ -9,14 +9,14 @@
         ],
         "module": "ESNext",
         "skipLibCheck": true,
-        /* Vite handles bundling and path resolution, so TypeScript only type-checks source files here. */
+        /* Vite 負責打包與路徑解析，所以這裡 TypeScript 只檢查原始碼型別。 */
         "moduleResolution": "bundler",
         "allowImportingTsExtensions": true,
         "resolveJsonModule": true,
         "isolatedModules": true,
         "noEmit": true,
         "jsx": "react-jsx",
-        /* Strict checks catch accidental UI/API type drift before the Vite build runs. */
+        /* 嚴格檢查可在 Vite build 前抓出 UI/API 型別意外偏移。 */
         "strict": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,

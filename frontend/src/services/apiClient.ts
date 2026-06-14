@@ -1,6 +1,6 @@
 /**
- * API Client \u2014 Axios-based HTTP client for all backend API calls.
- * Provides methods for problems, code execution, progress, and import.
+ * API Client：所有後端 API 呼叫使用的 Axios HTTP client。
+ * 提供題目、程式執行、進度與匯入相關方法。
  */
 import axios from 'axios';
 import {
@@ -15,7 +15,7 @@ import {
 
 const API_BASE_URL = '/api';
 
-// In development, Vite proxies /api to the backend; production can serve the same path behind one host.
+// 開發時 Vite 會將 /api 代理到後端；正式環境可由同一 host 提供相同路徑。
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
     timeout: 30000,
@@ -70,7 +70,7 @@ export const problemsApi = {
         id: string,
         request: HiddenTestcaseImportRequest
     ): Promise<HiddenTestcaseImportResponse> {
-        // The backend owns validation because projectPath mode touches server-side files.
+        // projectPath 模式會讀取伺服器端檔案，因此驗證責任在後端。
         const response = await apiClient.post(`/problems/${id}/hidden-testcases`, request);
         return response.data;
     },

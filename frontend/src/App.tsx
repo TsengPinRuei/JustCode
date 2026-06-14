@@ -1,6 +1,6 @@
 /**
- * Root App Component \u2014 Sets up React Router and renders Navbar + page routes.
- * Routes: / (redirect), /problems (list), /problems/:id (detail).
+ * 根 App 元件：設定 React Router，並渲染 Navbar 與頁面路由。
+ * 路由：/（redirect）、/problems（列表）、/problems/:id（詳細頁）。
  */
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';

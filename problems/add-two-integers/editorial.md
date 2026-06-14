@@ -86,7 +86,7 @@ class Solution {
 ```python
 class Solution:
     def sum(self, num1: int, num2: int) -> int:
-        # Python integers have arbitrary precision, so we need a mask
+        # Python 整數是任意精度，因此需要 mask
         MASK = 0xFFFFFFFF
         MAX_INT = 0x7FFFFFFF
 
@@ -95,7 +95,7 @@ class Solution:
             num1 = (num1 ^ num2) & MASK
             num2 = carry
 
-        # Handle negative numbers in Python
+        # 處理 Python 中的負數
         return num1 if num1 <= MAX_INT else ~(num1 ^ MASK)
 ```
 
@@ -137,7 +137,7 @@ Result: 17 ✓
 **Wrong:**
 ```java
 public int sum(int num1, int num2) {
-    num1 + num2;  // Missing return statement!
+    num1 + num2;  // 缺少 return 陳述式！
 }
 ```
 
@@ -152,7 +152,7 @@ public int sum(int num1, int num2) {
 
 **Wrong:**
 ```python
-def sum(num1: int, num2: int) -> int:  # Missing self!
+def sum(num1: int, num2: int) -> int:  # 缺少 self！
     return num1 + num2
 ```
 

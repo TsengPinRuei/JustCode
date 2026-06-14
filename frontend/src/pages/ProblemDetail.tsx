@@ -1,7 +1,7 @@
 /**
- * Problem Detail Page \u2014 Main coding workspace with three resizable panels:
- * description (left), code editor (top-right), and console (bottom-right).
- * Handles progress persistence with debounced auto-save.
+ * 題目詳細頁：主要解題工作區，包含三個可調整大小的 panel：
+ * 題目敘述（左）、程式碼編輯器（右上）與 console（右下）。
+ * 透過 debounce auto-save 保存進度。
  */
 import { useEffect, useState, useRef, useCallback, type FC } from 'react';
 import { useParams } from 'react-router-dom';
@@ -38,11 +38,11 @@ const ProblemDetail: FC = () => {
         return fallback;
     };
 
-    // Keep the latest saved progress outside React render state so debounced saves read current data.
+    // 將最新儲存進度保存在 React render state 外，讓 debounce 後的儲存能讀到目前資料。
     const progressRef = useRef<ProblemProgress | null>(null);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Merge partial updates with the last known progress snapshot before writing progress.json.
+    // 寫入 progress.json 前，先將局部更新合併到最後已知的進度快照。
     const saveProgress = useCallback(async (updates: Partial<ProblemProgress>) => {
         if (!id) return;
         const current = progressRef.current || {
@@ -62,11 +62,11 @@ const ProblemDetail: FC = () => {
         try {
             await problemsApi.saveProgress(id, updated);
         } catch {
-            // Auto-save should not interrupt coding; explicit Run/Submit failures are shown separately.
+            // Auto-save 不應中斷作答；明確的 Run/Submit 失敗會另外顯示。
         }
     }, [id]);
 
-    // Debounce editor changes to avoid writing progress.json on every keystroke.
+    // 對編輯器變更做 debounce，避免每次按鍵都寫入 progress.json。
     const debouncedSave = useCallback((newCode: string, lang: Language) => {
         if (saveTimerRef.current) {
             clearTimeout(saveTimerRef.current);
@@ -84,7 +84,7 @@ const ProblemDetail: FC = () => {
         }, 1000);
     }, [saveProgress]);
 
-    // Clear a pending auto-save when navigating away from the problem detail page.
+    // 離開題目詳細頁時清除尚未執行的 auto-save。
     useEffect(() => {
         return () => {
             if (saveTimerRef.current) {
@@ -132,14 +132,14 @@ const ProblemDetail: FC = () => {
             setProgressSnapshot(normalizedProgress);
 
             if (normalizedProgress && normalizedProgress.status !== 'none') {
-                // Restore saved progress only after both problem metadata and progress are available.
+                // 等題目 metadata 與進度都可用後，才還原已儲存進度。
                 const lang = normalizedProgress.selectedLanguage;
                 setSelectedLanguage(lang);
-                // A language can be selected without saved code yet; fall back to its starter template.
+                // 語言可能已被選取但尚無儲存程式碼；此時回退到 starter template。
                 const savedCode = normalizedProgress.code?.[lang];
                 setCode(savedCode !== undefined ? savedCode : data.templates[lang]);
             } else {
-                // First visit starts from the problem's first supported language and template.
+                // 第一次進入時使用題目的第一個支援語言與 template。
                 setSelectedLanguage(fallbackLanguage);
                 setCode(data.templates[fallbackLanguage]);
             }
@@ -150,26 +150,26 @@ const ProblemDetail: FC = () => {
         }
     };
 
-    // Editor changes update local UI immediately and persist in the background.
+    // 編輯器變更會立即更新本機 UI，並在背景保存。
     const handleCodeChange = (value: string) => {
         setCode(value);
         debouncedSave(value, selectedLanguage);
     };
 
-    // Preserve the current language buffer before switching so users can move between languages safely.
+    // 切換前先保留目前語言的 buffer，讓使用者能安全地在語言間切換。
     const handleLanguageChange = (newLanguage: Language) => {
         if (!problem) return;
 
-        // Store the currently visible code before selecting the next language.
+        // 選取下一個語言前，先儲存目前可見的程式碼。
         const currentProgress = progressRef.current;
         const codeMap = { ...(currentProgress?.code || {}) };
         codeMap[selectedLanguage] = code;
 
-        // Prefer previously saved code for the target language; otherwise show the starter template.
+        // 目標語言優先使用先前儲存的程式碼；否則顯示 starter template。
         const savedCode = codeMap[newLanguage];
         const newCode = savedCode !== undefined ? savedCode : problem.templates[newLanguage];
 
-        // Warn only when the switch would replace unsaved edits with a template.
+        // 只有切換會用 template 取代未儲存編輯時才警告。
         const currentTemplate = problem.templates[selectedLanguage];
         if (code !== currentTemplate && code.trim() !== '' && savedCode === undefined) {
             const confirmSwitch = window.confirm(
@@ -221,7 +221,7 @@ const ProblemDetail: FC = () => {
             const result = await problemsApi.submitCode(id, code, selectedLanguage);
             setExecutionResult(result);
 
-            // Only Submit can mark a problem solved because it includes hidden testcases.
+            // 只有 Submit 可將題目標記為 solved，因為它包含隱藏測試案例。
             if (result.status === 'AC') {
                 const currentProgress = progressRef.current;
                 const codeMap = { ...(currentProgress?.code || {}) };
@@ -229,7 +229,7 @@ const ProblemDetail: FC = () => {
                 const completedAt = Date.now();
                 const solvedAt = new Date(completedAt).toISOString();
                 const solveRecords = currentProgress?.solveRecords || [];
-                // Store one immutable AC snapshot for the stats panel; code remains saved separately by language.
+                // 為統計面板保存一筆不可變 AC 快照；程式碼仍按語言分開保存。
                 const solveRecord = {
                     id: `${solvedAt}-${solveRecords.length + 1}`,
                     solvedAt,
@@ -245,7 +245,7 @@ const ProblemDetail: FC = () => {
                     selectedLanguage,
                     solveRecords: [...solveRecords, solveRecord],
                 });
-                // A successful submit starts a fresh timing window for the next attempt on this problem.
+                // 成功 submit 後，為此題下一次嘗試開啟新的計時視窗。
                 attemptStartedAtRef.current = completedAt;
                 setCurrentElapsedMs(0);
             }

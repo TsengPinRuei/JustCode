@@ -1,7 +1,7 @@
 /**
- * Python Executor — Runs Python3 code in an isolated temp workspace.
- * Generates a runner.py harness that handles JSON I/O and result comparison.
- * Syntax errors are detected from the first interpreted run and surfaced as CE.
+ * Python Executor：在隔離的暫存 workspace 中執行 Python3 程式碼。
+ * 產生 runner.py harness，處理 JSON I/O 與結果比對。
+ * 語法錯誤會在第一次 interpreted run 中偵測，並以 CE 回報。
  */
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -13,7 +13,7 @@ import { SandboxRunner } from './sandboxRunner';
 export class PythonExecutor {
     private readonly sandboxRunner = new SandboxRunner();
 
-    /** Create a per-run workspace so user files never collide across executions. */
+    /** 為每次執行建立專屬 workspace，避免使用者檔案在不同執行間衝突。 */
     private async createTempWorkspace(): Promise<string> {
         const tmpDir = path.join(process.cwd(), 'temp', uuidv4());
         await fs.mkdir(tmpDir, { recursive: true });
@@ -28,7 +28,7 @@ export class PythonExecutor {
         }
     }
 
-    /** Run one testcase through runner.py and separate user logs from the JSON answer. */
+    /** 透過 runner.py 執行單一測試案例，並將使用者日誌與 JSON 答案分離。 */
     private async runTestcase(
         workspaceDir: string,
         testcase: Testcase
@@ -47,7 +47,7 @@ export class PythonExecutor {
         });
         const executionTime = Date.now() - startTime;
 
-        // User print output is allowed before the separator; only the suffix is parsed as JSON.
+        // separator 前允許使用者 print 輸出；只有後綴會被解析為 JSON。
         let debugOutput = '';
         let jsonOutput = result.stdout;
         const separatorIndex = result.stdout.indexOf(RESULT_SEPARATOR);
@@ -56,7 +56,7 @@ export class PythonExecutor {
             jsonOutput = result.stdout.substring(separatorIndex + RESULT_SEPARATOR.length).trim();
         }
 
-        // Treat either the child_process timeout flag or elapsed time boundary as TLE.
+        // child_process timeout 旗標或經過時間邊界任一成立都視為 TLE。
         if (result.exitCode === -1 || executionTime >= TESTCASE_TIMEOUT_MS) {
             return {
                 result: {
@@ -70,7 +70,7 @@ export class PythonExecutor {
             };
         }
 
-        // Runtime failures surface stderr and skip JSON parsing.
+        // 執行期失敗會呈現 stderr，並略過 JSON 解析。
         if (result.exitCode !== 0) {
             return {
                 result: {
@@ -85,12 +85,12 @@ export class PythonExecutor {
             };
         }
 
-        // Runner must emit {"result": ...}; malformed output is a runtime-style error.
+        // Runner 必須輸出 {"result": ...}；格式錯誤視為執行期類型錯誤。
         try {
             const parsed = JSON.parse(jsonOutput);
             const actual = parsed.result;
 
-            // Expected values are stored as JSON-compatible data, so structural stringify compare is enough here.
+            // 預期值以 JSON 相容資料儲存，因此這裡使用結構化 stringify 比對即可。
             const isCorrect = this.compareOutputs(testcase.output, actual);
 
             return {
@@ -119,19 +119,19 @@ export class PythonExecutor {
         }
     }
 
-    /** Deep-compare expected vs actual output using JSON serialization. */
+    /** 使用 JSON 序列化深度比對預期輸出與實際輸出。 */
     private compareOutputs(expected: unknown, actual: unknown): boolean {
         return JSON.stringify(expected) === JSON.stringify(actual);
     }
 
-    /** Convert Python traceback snippets into editor markers when possible. */
+    /** 盡可能將 Python traceback 片段轉成編輯器標記。 */
     private parsePythonSyntaxErrors(stderr: string): CompilationError[] {
         const errors: CompilationError[] = [];
-        // Python error format: '  File "solution.py", line 3',
-        // followed by a message like 'SyntaxError: invalid syntax'.
+        // Python 錯誤格式：'  File "solution.py", line 3'，
+        // 接著是類似 'SyntaxError: invalid syntax' 的訊息。
         const fileLineRegex = /File "(.+?)", line (\d+)/g;
         const errorMsgRegex = /(SyntaxError|IndentationError|NameError|TypeError):\s*(.+)/;
-        // Tracebacks can contain many frames; use the first matching diagnostic message for each marker.
+        // Traceback 可能包含多個 frame；每個 marker 使用第一個符合的診斷訊息。
         const errorMatch = stderr.match(errorMsgRegex);
         const message = errorMatch ? `${errorMatch[1]}: ${errorMatch[2]}` : 'Syntax error';
 
@@ -143,7 +143,7 @@ export class PythonExecutor {
             errors.push({
                 file: path.basename(file),
                 line,
-                column: 1,  // Python tracebacks do not always expose a stable column.
+                column: 1,  // Python traceback 不一定提供穩定欄位。
                 message: message.trim(),
                 severity: 'error',
             });
@@ -152,7 +152,7 @@ export class PythonExecutor {
         return errors;
     }
 
-    /** Main entry: write user code, run all testcases, and aggregate results */
+    /** 主要入口：寫入使用者程式碼、執行所有測試案例，並彙整結果。 */
     async executeCode(
         userCode: string,
         testcases: Testcase[],
@@ -172,16 +172,16 @@ export class PythonExecutor {
         const hiddenStartIndex = Math.max(0, Math.min(visibleTestcaseCount, testcases.length));
 
         try {
-            // solution.py is the only user-controlled file imported by the generated runner.
+            // solution.py 是產生的 runner 會 import 的唯一使用者可控檔案。
             await fs.writeFile(path.join(workspaceDir, 'solution.py'), userCode);
 
-            // runner.py adapts metadata-defined params to the user's LeetCode-style method.
+            // runner.py 會將 metadata 定義的 params 接到使用者 LeetCode 風格 method。
             const runnerCode = this.getRunnerTemplate(metadata);
             await fs.writeFile(path.join(workspaceDir, 'runner.py'), runnerCode);
 
-            // Python has no compile phase here; syntax errors appear when runner.py imports solution.py.
+            // Python 在此沒有編譯階段；語法錯誤會在 runner.py import solution.py 時出現。
 
-            // Run sequentially to keep per-case debug output ordered and easy to attribute.
+            // 依序執行以保持每個案例的除錯輸出有序且易於歸因。
             const results: TestcaseResult[] = [];
             const debugOutputs: string[] = [];
             let passed = 0;
@@ -192,14 +192,14 @@ export class PythonExecutor {
                 const { result, debugOutput } = await this.runTestcase(workspaceDir, testcases[i]);
                 result.index = i + 1;
 
-                // Include testcase labels now because stdout from different cases is combined later.
+                // 因為不同案例的 stdout 稍後會合併，所以現在先加入測試案例標籤。
                 if (debugOutput) {
                     debugOutputs.push(`[Testcase ${i + 1}]\n${debugOutput}`);
                 }
 
-                // Reclassify import-time syntax errors as CE so the editor can show markers.
+                // 將 import-time 語法錯誤重新分類為 CE，讓編輯器可顯示 markers。
                 if (i === 0 && result.status === 'Error' && result.errorMessage) {
-                    // Python reports syntax/indentation errors through the traceback on stderr.
+                    // Python 透過 stderr traceback 回報語法/縮排錯誤。
                     if (result.errorMessage.includes('SyntaxError') ||
                         result.errorMessage.includes('IndentationError') ||
                         result.errorMessage.includes('File "solution.py"')) {
@@ -215,22 +215,22 @@ export class PythonExecutor {
                     }
                 }
 
-                // On submit, hide hidden inputs while still counting every hidden pass/fail.
+                // Submit 時隱藏隱藏輸入，但仍計算每個隱藏案例通過/失敗。
                 if (!showHiddenInputs && i >= hiddenStartIndex) {
-                    // Do not add passing hidden cases to the visible result list.
+                    // 通過的隱藏案例不加入可見結果列表。
                     if (result.status === 'Passed') {
                         passed++;
                     } else {
                         if (!firstFailure) {
                             firstFailure = result;
                         }
-                        // Preserve one failing hidden case so users get a concrete failure signal.
+                        // 保留一個失敗的隱藏案例，讓使用者取得具體失敗訊號。
                         if (!firstHiddenFailure) {
                             firstHiddenFailure = result;
                         }
                     }
                 } else {
-                    // Visible cases can safely show input, expected, actual, and timing.
+                    // 可見案例可安全顯示輸入、預期值、實際值與計時。
                     results.push(result);
                     if (result.status === 'Passed') {
                         passed++;
@@ -240,12 +240,12 @@ export class PythonExecutor {
                 }
             }
 
-            // Reveal only the first hidden failure object; callers already decided whether hidden inputs are allowed.
+            // 只揭露第一個隱藏失敗物件；呼叫端已決定是否允許顯示隱藏輸入。
             if (firstHiddenFailure && !showHiddenInputs) {
                 results.push(firstHiddenFailure);
             }
 
-            // Overall status is based on the earliest failure, matching judge-style feedback.
+            // 整體狀態依最早失敗決定，符合評測器風格回饋。
             let status: 'AC' | 'WA' | 'RE' | 'TLE' = 'AC';
             let message = '';
 
@@ -274,12 +274,12 @@ export class PythonExecutor {
                 debugOutput: debugOutputs.length > 0 ? debugOutputs.join('\n\n') : undefined,
             };
         } finally {
-            // Always remove generated source, caches, and testcase input files.
+            // 一律移除產生的原始檔、快取與測試案例輸入檔。
             await this.cleanupWorkspace(workspaceDir);
         }
     }
 
-    /** Generate the runner.py harness that imports Solution and calls the metadata-defined method. */
+    /** 產生 runner.py 執行包裝，用來 import Solution 並呼叫 metadata 定義的方法。 */
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
         if (!metadata?.functionName || !metadata?.params) {
             console.warn('Missing problem metadata (functionName/params); using hardcoded defaults');
@@ -287,7 +287,7 @@ export class PythonExecutor {
         const functionName = metadata?.functionName || 'sortArray';
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
 
-        // These lines are injected into runner.py and assume testcase input is a JSON object.
+        // 這些行會注入 runner.py，並假設測試案例輸入是 JSON 物件。
         const paramLines = params.map(p => `        ${p.name} = data['${p.name}']`).join('\n');
         const argsList = params.map(p => p.name).join(', ');
 
@@ -297,21 +297,21 @@ from solution import Solution
 
 def main():
     try:
-        # Read the JSON testcase object written by the TypeScript executor.
+        # 讀取 TypeScript executor 寫入的 JSON 測試案例物件。
         input_json = sys.stdin.read().strip()
         data = json.loads(input_json)
         
-        # Convert metadata-defined fields into method arguments.
+        # 將 metadata 定義的欄位轉成方法參數。
 ${paramLines}
         
-        # Call the user's LeetCode-style solution method.
+        # 呼叫使用者的 LeetCode 風格 solution 方法。
         solution = Solution()
         result = solution.${functionName}(${argsList})
         
-        # Keep user debug output before this marker so the executor can split it safely.
+        # 將使用者除錯輸出保留在此 marker 前方，讓 executor 可安全切分。
         print("===RESULT_JSON_START===")
         
-        # Emit one JSON object so the executor can compare the result structurally.
+        # 輸出單一 JSON 物件，讓 executor 可用結構化方式比對結果。
         output = {'result': result}
         print(json.dumps(output))
         

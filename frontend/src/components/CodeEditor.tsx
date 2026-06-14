@@ -1,6 +1,6 @@
 /**
- * Code Editor Component \u2014 Monaco Editor wrapper with language switching,
- * font size controls, real-time error highlighting, and cursor-safe external updates.
+ * 程式碼編輯器元件：包裝 Monaco Editor，支援語言切換、字級控制、
+ * 即時錯誤標示，以及不干擾游標的外部更新。
  */
 import { useRef, useState, useEffect, useMemo, type FC } from 'react';
 import Editor from '@monaco-editor/react';
@@ -33,11 +33,11 @@ const CodeEditor: FC<CodeEditorProps> = ({
 }) => {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const [fontSize, setFontSize] = useState(14);
-    // Suppress onChange while setValue applies external resets/language switches.
+    // setValue 套用外部 reset/語言切換時，暫時抑制 onChange。
     const preventOnChangeRef = useRef(false);
-    // Track the previous code prop to detect external changes.
+    // 追蹤前一次 `code` prop，用來偵測外部變更。
     const prevCodeRef = useRef(code);
-    // User edits already update Monaco, so they should not be replayed through setValue.
+    // 使用者編輯已經更新 Monaco，不應再透過 setValue 重播。
     const isUserEditRef = useRef(false);
 
     const MIN_FONT_SIZE = 12;
@@ -63,15 +63,15 @@ const CodeEditor: FC<CodeEditorProps> = ({
         setFontSize(prev => Math.max(prev - 2, MIN_FONT_SIZE));
     };
 
-    // Sync external code changes (reset, language switch) through the editor ref.
-    // Replaying user typing with setValue would move the cursor, so that path is skipped.
+    // 透過 editor ref 同步外部程式碼變更（reset、語言切換）。
+    // 使用 setValue 重播使用者輸入會移動游標，因此會略過該路徑。
     useEffect(() => {
         if (editorRef.current && code !== prevCodeRef.current) {
             if (isUserEditRef.current) {
-                // Change originated from user typing; Monaco already has the latest text.
+                // 變更來自使用者輸入；Monaco 已經有最新文字。
                 isUserEditRef.current = false;
             } else {
-                // External change such as reset/language switch; update Monaco without firing onChange.
+                // reset/語言切換等外部變更：更新 Monaco，但不觸發 onChange。
                 const currentValue = editorRef.current.getValue();
                 if (code !== currentValue) {
                     preventOnChangeRef.current = true;
@@ -83,8 +83,8 @@ const CodeEditor: FC<CodeEditorProps> = ({
         prevCodeRef.current = code;
     }, [code]);
 
-    // Update Monaco markers when compilation errors change.
-    // The backend reports 1-based locations that Monaco can consume directly.
+    // 編譯錯誤變更時更新 Monaco markers。
+    // 後端回報的是 1-based 位置，Monaco 可直接使用。
     useEffect(() => {
         if (editorRef.current) {
             const monaco = (window as any).monaco;
@@ -106,7 +106,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
                 }));
                 monaco.editor.setModelMarkers(model, 'compilation', markers);
             } else {
-                // Clear old diagnostics after successful compilation/execution.
+                // 編譯/執行成功後清除舊診斷。
                 monaco.editor.setModelMarkers(model, 'compilation', []);
             }
         }
@@ -114,7 +114,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
 
     const editorLanguage = selectedLanguage === 'java' ? 'java' : 'python';
     const editorOptions = useMemo<editor.IStandaloneEditorConstructionOptions>(() => ({
-        // Keep Monaco options stable except for font size so the editor is not reconfigured on every render.
+        // 除字級外保持 Monaco options 穩定，避免每次 render 都重新設定編輯器。
         fontSize,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,

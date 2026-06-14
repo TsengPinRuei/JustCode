@@ -1,7 +1,7 @@
 /**
- * Sandbox Runner - Executes judge commands through a constrained process boundary.
- * Docker mode provides the strongest isolation; local mode keeps compatibility while
- * removing shell execution and inherited secrets from the runtime path.
+ * Sandbox Runner：透過受限制的 process 邊界執行 judge 指令。
+ * Docker 模式提供最強隔離；local 模式保持相容性，同時從執行路徑
+ * 移除 shell 執行與繼承的 secrets。
  */
 import { spawn } from 'child_process';
 import * as path from 'path';
@@ -16,7 +16,7 @@ import {
 
 type SandboxMode = 'auto' | 'docker' | 'local';
 
-// Public command contract used by language executors; args are passed to spawn/docker without a shell.
+// 語言 executor 使用的公開指令合約；args 會不經 shell 直接傳給 spawn/docker。
 export interface SandboxCommandOptions {
     command: string;
     args: string[];
@@ -36,7 +36,7 @@ export interface SandboxCommandResult {
     sandboxMode: 'docker' | 'local';
 }
 
-// Internal process runner options shared by Docker checks, Docker runs, and local fallback runs.
+// Docker 檢查、Docker 執行與 local 備援執行共用的內部 process runner 選項。
 interface ProcessRunOptions {
     command: string;
     args: string[];
@@ -56,11 +56,11 @@ interface ProcessRunResult {
     outputExceeded: boolean;
 }
 
-// Cache Docker image checks per process so each testcase does not probe the daemon again.
+// 每個 process 快取 Docker image 檢查，避免每個測試案例都再次探測 daemon。
 const dockerAvailability = new Map<string, Promise<boolean>>();
 
 export class SandboxRunner {
-    /** Choose Docker when explicitly requested or available in auto mode; otherwise use local fallback. */
+    /** 明確要求 Docker 或 auto 模式可用時選擇 Docker；否則使用 local 備援。 */
     async execute(options: SandboxCommandOptions): Promise<SandboxCommandResult> {
         const mode = this.normalizeMode(SANDBOX_MODE);
         if (mode === 'docker' || (mode === 'auto' && await this.isDockerImageReady(options.image))) {
@@ -85,7 +85,7 @@ export class SandboxRunner {
     }
 
     private async checkDockerImage(image: string): Promise<boolean> {
-        // Docker mode is considered ready only when both daemon and requested image are available locally.
+        // 只有 daemon 與指定 image 都在本機可用時，Docker 模式才視為就緒。
         const dockerVersion = await this.runProcess({
             command: 'docker',
             args: ['version', '--format', '{{.Server.Version}}'],
@@ -104,8 +104,8 @@ export class SandboxRunner {
     }
 
     private async executeLocal(options: SandboxCommandOptions): Promise<SandboxCommandResult> {
-        // Local mode is a compatibility fallback, not a full security sandbox.
-        // It still avoids shell execution and strips inherited secrets from the child environment.
+        // Local 模式是相容性備援，不是完整安全 sandbox。
+        // 它仍會避免 shell 執行，並移除 child environment 繼承的 secrets。
         const result = await this.runProcess({
             command: options.command,
             args: options.args,
@@ -125,8 +125,8 @@ export class SandboxRunner {
     private async executeDocker(options: SandboxCommandOptions): Promise<SandboxCommandResult> {
         const containerName = `justcode-${uuidv4()}`;
         const workspaceMode = options.writableWorkspace ? 'rw' : 'ro';
-        // The container has no network, dropped capabilities, read-only root FS, and bounded CPU/memory/PIDs.
-        // Only /workspace is mounted, and it is writable only for compile steps that need class/cache files.
+        // Container 沒有網路、移除 capabilities、root FS 唯讀，並限制 CPU/memory/PIDs。
+        // 只掛載 /workspace，且僅在需要 class/cache 檔案的編譯步驟可寫。
         const dockerArgs = [
             'run',
             '--rm',
@@ -173,7 +173,7 @@ export class SandboxRunner {
             timeoutMs: options.timeoutMs,
             stdin: options.stdin,
             onTimeout: () => {
-                // child_process timeout kills docker CLI, but the named container may still need cleanup.
+                // child_process timeout 會終止 docker CLI，但具名 container 可能仍需清理。
                 void this.runProcess({
                     command: 'docker',
                     args: ['kill', containerName],
@@ -189,7 +189,7 @@ export class SandboxRunner {
     }
 
     private createLocalEnv(workspaceDir: string): NodeJS.ProcessEnv {
-        // Whitelist environment variables so submitted code cannot read host credentials by inheritance.
+        // 白名單化 environment variables，避免提交程式碼透過繼承讀到 host credentials。
         return {
             PATH: process.env.PATH || '',
             HOME: workspaceDir,
@@ -204,7 +204,7 @@ export class SandboxRunner {
     }
 
     private getDockerUserArgs(): string[] {
-        // Running as the host user prevents root-owned files in temp workspaces on Unix-like systems.
+        // 以 host user 執行，可避免 Unix-like 系統中的暫存 workspace 產生 root 擁有的檔案。
         if (process.platform === 'win32') {
             return [];
         }
@@ -220,7 +220,7 @@ export class SandboxRunner {
 
     private runProcess(options: ProcessRunOptions): Promise<ProcessRunResult> {
         return new Promise((resolve) => {
-            // spawn(args) avoids shell interpolation; this matters because user code influences workspace contents.
+            // spawn(args) 可避免 shell 插值；使用者程式碼會影響 workspace 內容，因此這點很重要。
             const child = spawn(options.command, options.args, {
                 cwd: options.cwd,
                 env: options.env,
@@ -250,7 +250,7 @@ export class SandboxRunner {
             };
 
             const finish = (exitCode: number) => {
-                // Multiple events can fire after a forced kill; resolve exactly once.
+                // 強制 kill 後可能觸發多個事件；只 resolve 一次。
                 if (settled) return;
                 settled = true;
                 clearTimeout(timeout);
@@ -265,19 +265,19 @@ export class SandboxRunner {
 
             const killChild = () => {
                 try {
-                    // Detached Unix children get their own process group so runaway grandchildren are killed too.
+                    // Detached Unix child 會有自己的 process group，失控的孫行程也會一起被終止。
                     if (options.detached && child.pid && process.platform !== 'win32') {
                         process.kill(-child.pid, 'SIGKILL');
                     } else {
                         child.kill('SIGKILL');
                     }
                 } catch {
-                    // The process may have exited between timeout/output handling and kill.
+                    // process 可能已在 timeout/output 處理與終止之間結束。
                 }
             };
 
             const appendOutput = (target: 'stdout' | 'stderr', chunk: Buffer) => {
-                // Stop collecting and terminate once combined output crosses the project-wide cap.
+                // 合併輸出超過專案上限後，停止收集並終止 process。
                 if (settled || outputExceeded) return;
                 const text = chunk.toString('utf-8');
                 if (target === 'stdout') {
@@ -297,7 +297,7 @@ export class SandboxRunner {
             };
 
             const timeout = setTimeout(() => {
-                // The language executors map this sentinel exitCode to TLE.
+                // 語言 executor 會將這個 sentinel exitCode 映射為 TLE。
                 timedOut = true;
                 if (stderrLength === 0) {
                     setStderr('Time Limit Exceeded');

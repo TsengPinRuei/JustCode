@@ -1,7 +1,7 @@
 /**
- * Resizable Split Pane - A draggable divider between two panels.
- * Supports horizontal (left/right) and vertical (top/bottom) layouts.
- * Supports both percentage bounds and minimum pixel sizes per pane.
+ * 可調整大小的 Split Pane：在兩個 panel 之間提供可拖曳分隔線。
+ * 支援水平（左/右）與垂直（上/下）布局。
+ * 同時支援百分比邊界與每個 pane 的最小像素尺寸。
  */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './ResizableSplitPane.css';
@@ -11,13 +11,13 @@ interface ResizableSplitPaneProps {
     right?: React.ReactNode;
     top?: React.ReactNode;
     bottom?: React.ReactNode;
-    defaultLeftWidth?: number; // Percentage (for horizontal)
-    defaultTopHeight?: number; // Percentage (for vertical)
+    defaultLeftWidth?: number; // 百分比（水平布局）
+    defaultTopHeight?: number; // 百分比（垂直布局）
     direction?: 'horizontal' | 'vertical';
     minSizePercent?: number;
     maxSizePercent?: number;
-    minPrimarySizePx?: number;   // left width (horizontal) / top height (vertical)
-    minSecondarySizePx?: number; // right width (horizontal) / bottom height (vertical)
+    minPrimarySizePx?: number;   // 左側寬度（水平）/ 上方高度（垂直）
+    minSecondarySizePx?: number; // 右側寬度（水平）/ 下方高度（垂直）
 }
 
 const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
@@ -33,11 +33,11 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
     minPrimarySizePx,
     minSecondarySizePx,
 }) => {
-    // Store the primary pane size as a percentage so layout scales with the container.
+    // 以百分比保存主要 pane 尺寸，讓布局可隨 container 縮放。
     const [size, setSize] = useState(direction === 'horizontal' ? defaultLeftWidth : defaultTopHeight);
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    // Mousemove can fire much faster than React can render; keep only the latest pointer per frame.
+    // mousemove 可能比 React render 更頻繁；每個 frame 只保留最新指標位置。
     const pendingPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
     const dragFrameRef = useRef<number | null>(null);
 
@@ -49,7 +49,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         const container = containerRef.current;
         if (!container) return clampPercent(rawSize);
 
-        // Pixel minimums are converted to percentages against the current container size.
+        // 像素最小值會依目前 container 尺寸轉成百分比。
         const rect = container.getBoundingClientRect();
         const containerSize = direction === 'horizontal' ? rect.width : rect.height;
         if (containerSize <= 0) return clampPercent(rawSize);
@@ -68,7 +68,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
             maxBound = Math.min(maxBound, 100 - clampPercent((minSecondarySizePx / containerSize) * 100));
         }
 
-        // If both min pixel constraints cannot be satisfied, prioritize keeping the secondary pane visible.
+        // 若兩側最小像素限制無法同時滿足，優先保持 secondary pane 可見。
         if (minBound > maxBound) {
             return clampPercent(maxBound);
         }
@@ -113,7 +113,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         };
 
         const flushPendingPointer = () => {
-            // Apply the last queued pointer position before ending drag so the pane does not lag behind.
+            // 結束拖曳前套用最後排隊的指標位置，避免 pane 落後。
             cancelPendingFrame();
             const pointer = pendingPointerRef.current;
             pendingPointerRef.current = null;
@@ -128,7 +128,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
             pendingPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
             if (dragFrameRef.current !== null) return;
 
-            // Throttle layout reads/writes to animation frames during drag.
+            // 拖曳期間將 layout 讀寫節流到 animation frame。
             dragFrameRef.current = window.requestAnimationFrame(() => {
                 dragFrameRef.current = null;
                 const pointer = pendingPointerRef.current;
@@ -145,7 +145,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         };
 
         if (isDragging) {
-            // Listen on document so dragging continues even if the pointer leaves the divider.
+            // 監聽 document，讓指標離開分隔線後仍可繼續拖曳。
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
             document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
@@ -162,7 +162,7 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         };
     }, [isDragging, direction, clampSizeByConstraints]);
 
-    // Re-apply constraints after resize/prop changes so pixel minimums stay valid.
+    // resize/prop 變更後重新套用限制，確保像素最小值仍有效。
     useEffect(() => {
         const syncSize = () => setSize((prev) => clampSizeByConstraints(prev));
         syncSize();

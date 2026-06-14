@@ -1,7 +1,6 @@
 /**
- * Problem Service — File-based CRUD for problem data and user progress.
- * Reads/writes problem.json, templates, testcases, editorial, and progress.json
- * from the problems/ directory.
+ * Problem Service：以檔案為基礎管理題目資料與使用者進度的 CRUD。
+ * 從 problems/ 目錄讀寫 problem.json、templates、測試案例、editorial 與 progress.json。
  */
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -14,13 +13,13 @@ import {
     Testcase,
 } from '../types';
 
-// Backend commands run from backend/, so ../problems resolves to the shared problem store.
+// 後端指令從 backend/ 執行，因此 ../problems 會解析到共用題目儲存區。
 const PROJECT_ROOT = path.resolve(process.cwd(), '..');
 const PROBLEMS_DIR = path.join(PROJECT_ROOT, 'problems');
-// Cache the real project root path because hidden testcase imports may validate multiple paths per process.
+// 快取真實專案根路徑，因為 hidden 測試案例匯入可能在同一 process 中驗證多個路徑。
 let projectRootRealPathPromise: Promise<string> | null = null;
 
-// Runtime guard for JSON payloads whose shape is not guaranteed by TypeScript.
+// JSON payload 的形狀不受 TypeScript 保證，因此需要 runtime guard。
 const isRecord = (value: unknown): value is Record<string, unknown> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
@@ -31,46 +30,46 @@ const getProjectRootRealPath = (): Promise<string> => {
 };
 
 export class ProblemService {
-    /** Reject path separators so problem IDs cannot escape the problems/ directory. */
+    /** 拒絕 path separator，避免 problem ID 逃出 problems/ 目錄。 */
     private validateProblemId(problemId: string): void {
         if (!problemId || /[\/\\]/.test(problemId) || problemId === '.' || problemId === '..') {
             throw new Error(`Invalid problem ID: ${problemId}`);
         }
     }
 
-    /** Build the canonical directory path after validating the user-provided ID. */
+    /** 驗證使用者提供的 ID 後，建立標準目錄路徑。 */
     private getProblemDir(problemId: string): string {
         this.validateProblemId(problemId);
         return path.join(PROBLEMS_DIR, problemId);
     }
 
-    /** Read and parse JSON files that make up problem metadata, testcases, and progress. */
+    /** 讀取並解析組成題目 metadata、測試案例與 progress 的 JSON 檔案。 */
     private async readJsonFile<T>(filePath: string): Promise<T> {
         const content = await fs.readFile(filePath, 'utf-8');
         return JSON.parse(content) as T;
     }
 
-    /** problem.json is the canonical metadata file for list/detail/execution paths. */
+    /** problem.json 是 list/detail/execution 路徑使用的標準 metadata 檔案。 */
     private async readProblemMetadata(problemDir: string): Promise<ProblemMetadata> {
         return this.readJsonFile<ProblemMetadata>(path.join(problemDir, 'problem.json'));
     }
 
-    /** Visible testcases are required because Run mode and problem list validation depend on them. */
+    /** Visible 測試案例是必要資料，因為 Run 模式與題目列表驗證都依賴它們。 */
     private async readVisibleTestcases(problemDir: string): Promise<Testcase[]> {
         return this.readJsonFile<Testcase[]>(path.join(problemDir, 'testcases_visible.json'));
     }
 
-    /** Hidden testcases are optional so imported problems can run before maintainers add private cases. */
+    /** 隱藏測試案例是 optional，讓匯入題目可在維護者加入 private cases 前先執行。 */
     private async readHiddenTestcases(problemDir: string): Promise<Testcase[]> {
         try {
             return await this.readJsonFile<Testcase[]>(path.join(problemDir, 'testcases_hidden.json'));
         } catch {
-            // Missing or unreadable hidden tests should not block Run mode or problem details.
+            // 缺少或無法讀取隱藏測試時，不應阻擋 Run 模式或題目詳細資料。
             return [];
         }
     }
 
-    /** Read a user-provided project-relative file while preventing escapes through ../ or symlinks. */
+    /** 讀取使用者提供的 project-relative 檔案，同時防止透過 ../ 或 symlink 逃逸。 */
     private async readProjectRelativeFile(projectPath: string): Promise<string> {
         const rawPath = projectPath.trim();
         if (!rawPath) {
@@ -84,7 +83,7 @@ export class ProblemService {
         const projectRootRealPath = await getProjectRootRealPath();
         let fileRealPath: string;
         try {
-            // Compare real paths so symlinks cannot point a project-relative path outside the project.
+            // 比對真實路徑，避免 symlink 將 project-relative path 指向專案外。
             fileRealPath = await fs.realpath(resolvedPath);
         } catch {
             throw new Error('Project path must point to an existing file');
@@ -101,7 +100,7 @@ export class ProblemService {
         return fs.readFile(fileRealPath, 'utf-8');
     }
 
-    /** Validate AI-generated hidden testcase JSON before it can affect submit judging. */
+    /** 驗證 AI 產生的隱藏測試案例 JSON，避免無效資料影響 submit judging。 */
     private parseHiddenTestcases(content: string, metadata: ProblemMetadata): Testcase[] {
         if (!content.trim()) {
             throw new Error('Hidden testcase content cannot be empty');
@@ -137,7 +136,7 @@ export class ProblemService {
             }
 
             if (expectedParamNames.length > 0) {
-                // Runner generation indexes inputs by metadata param name, so hidden cases must match exactly.
+                // Runner 產生流程會依 metadata param name 取 input，因此隱藏案例必須完全吻合。
                 const actualParamNames = Object.keys(item.input);
                 const matchesParams =
                     actualParamNames.length === expectedParamNames.length &&
@@ -154,9 +153,9 @@ export class ProblemService {
         });
     }
 
-    /** Scan problems/ directory and return metadata for all valid problems, sorted by title */
+    /** 掃描 problems/ 目錄，回傳所有有效題目的 metadata，並依 title 排序。 */
     async getAllProblems(): Promise<ProblemMetadata[]> {
-        // Treat each immediate subdirectory as a candidate problem.
+        // 將每個第一層子目錄視為候選題目。
         const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
         const problemReads = entries
             .filter((entry) => entry.isDirectory())
@@ -164,11 +163,11 @@ export class ProblemService {
                 try {
                     const problemDir = this.getProblemDir(entry.name);
                     const metadata = await this.readProblemMetadata(problemDir);
-                    // Preserve the previous list behavior: directories without valid visible tests are skipped.
+                    // 保留既有列表行為：沒有有效可見測試的目錄會被略過。
                     await this.readVisibleTestcases(problemDir);
                     return metadata;
                 } catch (error) {
-                    // Skip directories without valid problem.json
+                    // 略過沒有有效 problem.json 的目錄。
                     console.warn(`Skipping invalid problem directory: ${entry.name}`);
                     return null;
                 }
@@ -177,20 +176,20 @@ export class ProblemService {
         const problems = (await Promise.all(problemReads))
             .filter((problem): problem is ProblemMetadata => problem !== null);
 
-        // Titles include LeetCode-style prefixes, so title sort keeps the visible list stable.
+        // Title 包含 LeetCode 風格前綴，因此 title 排序可讓可見列表保持穩定。
         problems.sort((a, b) => a.title.localeCompare(b.title));
 
         return problems;
     }
 
-    /** Load a complete problem by ID: metadata, templates, testcases, and editorial */
+    /** 依 ID 載入完整題目：metadata、templates、測試案例與 editorial。 */
     async getProblem(problemId: string): Promise<Problem> {
         const problemDir = this.getProblemDir(problemId);
 
-        // Read problem metadata
+        // 讀取題目 metadata。
         const metadata = await this.readProblemMetadata(problemDir);
 
-        // Missing templates should not make the whole problem unreadable; the editor can show an empty buffer.
+            // 缺少 template 不應讓整題無法讀取；編輯器可顯示空 buffer。
         const templateEntries = await Promise.all(metadata.supportedLanguages.map(async (lang) => {
             const ext = lang === 'java' ? 'java' : 'py';
             const templatePath = path.join(problemDir, `template.${ext}`);
@@ -198,7 +197,7 @@ export class ProblemService {
                 return [lang, await fs.readFile(templatePath, 'utf-8')] as const;
             } catch (error) {
                 console.error(`Template not found for ${lang}:`, error);
-                // If template doesn't exist, use empty string
+                // 若 template 不存在，使用空字串。
                 return [lang, ''] as const;
             }
         }));
@@ -219,7 +218,7 @@ export class ProblemService {
         };
     }
 
-    /** Load only the files required by Run/Submit execution paths. */
+    /** 只載入 Run/Submit 執行路徑需要的檔案。 */
     async getProblemForExecution(problemId: string): Promise<Pick<Problem, 'metadata' | 'visibleTestcases' | 'hiddenTestcases'>> {
         const problemDir = this.getProblemDir(problemId);
         const [metadata, visibleTestcases, hiddenTestcases] = await Promise.all([
@@ -231,12 +230,12 @@ export class ProblemService {
         return { metadata, visibleTestcases, hiddenTestcases };
     }
 
-    /** Load only metadata for custom Run mode, where testcase files are not used. */
+    /** Custom Run 模式不使用測試案例檔案，因此只載入 metadata。 */
     async getProblemMetadata(problemId: string): Promise<ProblemMetadata> {
         return this.readProblemMetadata(this.getProblemDir(problemId));
     }
 
-    /** Load only metadata plus visible cases for Run mode, without touching hidden testcase files. */
+    /** Run 模式只載入 metadata 與可見案例，不讀取隱藏測試案例檔案。 */
     async getProblemForRun(problemId: string): Promise<Pick<Problem, 'metadata' | 'visibleTestcases'>> {
         const problemDir = this.getProblemDir(problemId);
         const [metadata, visibleTestcases] = await Promise.all([
@@ -247,17 +246,17 @@ export class ProblemService {
         return { metadata, visibleTestcases };
     }
 
-    /** Get only visible testcases (for Run mode) — reads file directly for efficiency */
+    /** 只取得可見測試案例（Run 模式使用），為了效率直接讀檔。 */
     async getVisibleTestcases(problemId: string): Promise<Testcase[]> {
         return this.readVisibleTestcases(this.getProblemDir(problemId));
     }
 
-    /** Get hidden testcases only (for Submit mode) */
+    /** 只取得隱藏測試案例（Submit 模式使用）。 */
     async getHiddenTestcases(problemId: string): Promise<Testcase[]> {
         return this.readHiddenTestcases(this.getProblemDir(problemId));
     }
 
-    /** Import AI-generated hidden testcases into testcases_hidden.json. */
+    /** 將 AI 產生的隱藏測試案例匯入 testcases_hidden.json。 */
     async importHiddenTestcases(
         problemId: string,
         request: HiddenTestcaseImportRequest
@@ -274,7 +273,7 @@ export class ProblemService {
 
         const problemDir = this.getProblemDir(problemId);
         const metadata = await this.readProblemMetadata(problemDir);
-        // Content source comes from paste/upload; projectPath is read server-side after containment checks.
+        // Content 來源來自貼上/上傳；projectPath 會通過 containment 檢查後在伺服器端讀取。
         const content = request.sourceType === 'content'
             ? request.content
             : request.projectPath
@@ -286,7 +285,7 @@ export class ProblemService {
         }
 
         const incomingTestcases = this.parseHiddenTestcases(content, metadata);
-        // Read existing cases only after incoming data is valid so bad imports leave testcases_hidden.json unchanged.
+        // 只有傳入資料有效後才讀取既有 cases，讓錯誤匯入不會改動 testcases_hidden.json。
         const existingTestcases = request.mode === 'append'
             ? await this.readHiddenTestcases(problemDir)
             : [];
@@ -306,7 +305,7 @@ export class ProblemService {
         };
     }
 
-    /** Get all testcases — visible + hidden (for Submit mode) — reads files directly for efficiency */
+    /** 取得所有測試案例：可見 + 隱藏（Submit 模式使用），為了效率直接讀檔。 */
     async getAllTestcases(problemId: string): Promise<Testcase[]> {
         const problemDir = this.getProblemDir(problemId);
         const [visibleTestcases, hiddenTestcases] = await Promise.all([
@@ -316,7 +315,7 @@ export class ProblemService {
         return [...visibleTestcases, ...hiddenTestcases];
     }
 
-    /** Save a new problem: metadata, templates, and visible testcases */
+    /** 儲存新題目：metadata、templates 與可見測試案例。 */
     async saveProblem(problemId: string, data: {
         metadata: ProblemMetadata;
         templates: Record<string, string>;
@@ -326,19 +325,19 @@ export class ProblemService {
         await fs.mkdir(problemDir, { recursive: true });
 
         const writes: Array<Promise<void>> = [
-            // Persist the imported problem in the same file layout consumed by getProblem().
+            // 以 getProblem() 會讀取的相同檔案布局保存匯入題目。
             fs.writeFile(
                 path.join(problemDir, 'problem.json'),
                 JSON.stringify(data.metadata, null, 4),
                 'utf-8'
             ),
-            // Write visible testcases.
+            // 寫入可見測試案例。
             fs.writeFile(
                 path.join(problemDir, 'testcases_visible.json'),
                 JSON.stringify(data.visibleTestcases, null, 4),
                 'utf-8'
             ),
-            // Imported LeetCode problems only provide example cases; keep a placeholder for future manual hidden tests.
+            // 匯入的 LeetCode 題目只提供範例案例；保留 placeholder 供未來手動隱藏測試使用。
             fs.writeFile(
                 path.join(problemDir, 'testcases_hidden.json'),
                 JSON.stringify([], null, 4),
@@ -346,7 +345,7 @@ export class ProblemService {
             ),
         ];
 
-        // Template filenames are derived from language keys so imported snippets match getProblem() lookup rules.
+        // Template 檔名由語言 key 推導，讓匯入片段符合 getProblem() 查找規則。
         for (const [lang, template] of Object.entries(data.templates)) {
             const ext = lang === 'java' ? 'java' : 'py';
             writes.push(fs.writeFile(
@@ -359,7 +358,7 @@ export class ProblemService {
         await Promise.all(writes);
     }
 
-    /** Read user progress from progress.json; returns null for missing or unreadable progress. */
+    /** 從 progress.json 讀取使用者進度；缺少或無法讀取時回傳 null。 */
     async getProgress(problemId: string): Promise<ProblemProgress | null> {
         const progressPath = path.join(this.getProblemDir(problemId), 'progress.json');
         try {
@@ -369,13 +368,13 @@ export class ProblemService {
         }
     }
 
-    /** Write user progress to progress.json */
+    /** 將使用者進度寫入 progress.json。 */
     async saveProgress(problemId: string, progress: ProblemProgress): Promise<void> {
         const progressPath = path.join(this.getProblemDir(problemId), 'progress.json');
         await fs.writeFile(progressPath, JSON.stringify(progress, null, 4), 'utf-8');
     }
 
-    /** Collect progress from all problem directories */
+    /** 從所有題目目錄收集進度。 */
     async getAllProgress(): Promise<Record<string, ProblemProgress>> {
         const entries = await fs.readdir(PROBLEMS_DIR, { withFileTypes: true });
         const result: Record<string, ProblemProgress> = {};
@@ -400,7 +399,7 @@ export class ProblemService {
         return result;
     }
 
-    /** Permanently delete a problem directory; callers must enforce protected problem rules first. */
+    /** 永久刪除題目目錄；呼叫端必須先強制套用受保護題目規則。 */
     async deleteProblem(problemId: string): Promise<void> {
         const problemDir = this.getProblemDir(problemId);
         await fs.rm(problemDir, { recursive: true, force: true });
