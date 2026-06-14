@@ -14,6 +14,7 @@ The project is meant for personal learning and local practice. It is not a hoste
 - Run visible testcases, run one custom JSON input, or submit against visible plus hidden testcases.
 - Save progress automatically per problem, including selected language, code for each language, accepted submission records, and solve timing.
 - Import public LeetCode problem data by URL, including statement text, examples, constraints, Java/Python3 templates, and example testcases.
+- Download a problem brief and import hidden testcases from pasted JSON, a selected local JSON file, or a project-relative JSON file path.
 - Delete imported problems from the UI. Built-in problems are protected from deletion.
 - Read Markdown editorials with GitHub-flavored Markdown, tabbed adjacent code blocks, and copy buttons.
 - See AC, WA, CE, RE, and TLE feedback, per-testcase details, timing, compile-error markers in the editor, and filtered debug output for failing cases.
@@ -135,6 +136,32 @@ http://localhost:3000/health
 
 Only `Submit` can mark a problem as solved because `Run` does not use hidden testcases. Each accepted submit creates a solve record in `progress.json`; the stats panel uses those records to show timing and ranking for that problem.
 
+### Hidden Testcases
+
+On a problem detail page:
+
+1. Use `Download Description` to save a Markdown brief for the current problem. The brief includes the statement, function name, parameter names, examples, constraints, and the required hidden testcase JSON shape.
+2. Use `Add Hidden Tests` to import hidden testcase JSON.
+3. Choose `Append` to add to the existing `testcases_hidden.json`, or `Replace` to overwrite it.
+4. Choose one source:
+   - `Paste JSON`: paste JSON directly, or choose a local `.json`/text file in the browser.
+   - `Project Path`: enter a path relative to the JustCode project, such as `tmp/generated-hidden-tests.json`.
+
+Hidden testcase JSON must be a non-empty array. Each item must be an object with `input` and `output`; `input` must be an object whose keys exactly match the problem `params` names.
+
+```json
+[
+  {
+    "input": {
+      "nums": [3, 1, 2]
+    },
+    "output": [1, 2, 3]
+  }
+]
+```
+
+For `Project Path`, the backend only reads existing files inside the JustCode project directory. Absolute paths, missing files, directories, and paths that escape the project are rejected.
+
 ### Custom Input
 
 Custom input must be a JSON object with the same parameter names as the problem metadata. For example:
@@ -171,7 +198,7 @@ Important limits:
 - Import uses LeetCode's public GraphQL response and the current problem HTML shape.
 - Only Java and Python3 snippets are imported.
 - Only public example testcases are imported as visible testcases.
-- LeetCode hidden judge testcases are not available. JustCode creates an empty `testcases_hidden.json` file so you can add hidden cases manually later.
+- LeetCode hidden judge testcases are not available. JustCode creates an empty `testcases_hidden.json` file so you can add hidden cases later through `Add Hidden Tests` or by editing the file directly.
 - Editorials are not imported from LeetCode. The problem detail page shows `Editorial coming soon...` unless you add an `editorial.md` file.
 - The runners support common primitive, array, and list types. Problems that need custom structures such as linked lists, trees, or graphs may import but still need runner support before they can execute correctly.
 - Imported problems are ignored by the current `.gitignore` unless you explicitly change the ignore rules or force-add the files.
@@ -207,6 +234,8 @@ Testcase files are JSON arrays:
   }
 ]
 ```
+
+Visible and hidden testcase files use the same JSON shape. Hidden tests live in `testcases_hidden.json`; `Submit` uses them, but the problem detail API does not return their contents to the frontend.
 
 `progress.json` stores local user progress. The app writes it automatically.
 
@@ -275,29 +304,29 @@ npm run preview --workspace=frontend
 JustCode/
 ├── backend/                    # Express + TypeScript API
 │   ├── src/
-│   │   ├── constants.ts        # 逾時、沙盒環境變數、受保護題目 ID
-│   │   ├── routes/             # REST API 路由
-│   │   ├── services/           # 題目儲存、LeetCode 匯入、程式碼執行
-│   │   ├── server.ts           # Express 伺服器入口
-│   │   └── types.ts            # 後端 API/資料型別
+│   │   ├── constants.ts        # Timeouts, sandbox env vars, protected problem IDs
+│   │   ├── routes/             # REST API routes
+│   │   ├── services/           # Problem storage, LeetCode import, code execution
+│   │   ├── server.ts           # Express server entry
+│   │   └── types.ts            # Backend API/data types
 │   └── package.json
-├── frontend/                   # React + TypeScript + Vite 應用
-│   ├── public/                 # 靜態資源
+├── frontend/                   # React + TypeScript + Vite app
+│   ├── public/                 # Static assets
 │   ├── src/
-│   │   ├── components/         # 編輯器、console、題目敘述、版面元件
-│   │   ├── pages/              # 題目列表與題目詳細頁
-│   │   ├── plugins/            # Markdown code-group 外掛
-│   │   ├── services/           # Axios API 客戶端
-│   │   ├── types/              # 前端 API/資料型別
+│   │   ├── components/         # Editor, console, hidden-test, description, layout components
+│   │   ├── pages/              # Problem list and problem detail pages
+│   │   ├── plugins/            # Markdown code-group plugin
+│   │   ├── services/           # Axios API client
+│   │   ├── types/              # Frontend API/data types
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   └── package.json
-├── problems/                   # 檔案式題目資料庫
-│   ├── add-two-integers/       # 內建受保護題目
-│   └── sort-array/             # 內建受保護題目
-├── install.sh                  # macOS/Linux 安裝輔助腳本
-├── uninstall.sh                # macOS/Linux 清理輔助腳本
-├── package.json                # npm workspace 腳本
+├── problems/                   # File-backed problem store
+│   ├── add-two-integers/       # Built-in protected problem
+│   └── sort-array/             # Built-in protected problem
+├── install.sh                  # macOS/Linux install helper
+├── uninstall.sh                # macOS/Linux cleanup helper
+├── package.json                # npm workspace scripts
 └── package-lock.json
 ```
 
@@ -313,6 +342,7 @@ The frontend calls relative `/api` paths. In development, Vite proxies these to 
 | `POST` | `/api/run` | Run visible testcases or one custom input. |
 | `POST` | `/api/submit` | Submit against visible and hidden testcases. |
 | `POST` | `/api/import-problem` | Import a public LeetCode problem URL. |
+| `POST` | `/api/problems/:id/hidden-testcases` | Append or replace local hidden testcases from pasted JSON or a project-relative file path. |
 | `GET` | `/api/progress` | Read all saved progress files. |
 | `GET` | `/api/progress/:id` | Read one problem's progress. |
 | `PUT` | `/api/progress/:id` | Save one problem's progress. |
@@ -405,6 +435,23 @@ https://leetcode.com/problems/<problem-slug>/
 The importer depends on network access, LeetCode's public GraphQL response, and the current statement HTML format. If LeetCode changes its response shape, the importer may need code changes in `backend/src/services/leetcodeService.ts`.
 
 If import succeeds but running the imported problem fails, check `problem.json` for unsupported `params` or `returnType` values. The current runners do not implement custom LeetCode structures such as linked lists or trees.
+
+### Hidden testcase import is rejected
+
+Check that the JSON is a non-empty array and that every item has this shape:
+
+```json
+[
+  {
+    "input": {
+      "paramName": "value"
+    },
+    "output": "expected value"
+  }
+]
+```
+
+The `input` keys must exactly match the `params` names in `problem.json`. If you use `Project Path`, the path must be relative to the JustCode project and point to an existing file inside this project.
 
 ### Custom input is rejected
 

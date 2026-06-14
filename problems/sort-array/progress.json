@@ -1,65 +1,7 @@
 {
-    "status": "solved",
-    "code": {
-        "java": "class Solution {\n    public int[] sortArray(int[] nums) {\nzxX\n    }\n}",
-        "python3": "class Solution:\n    def sortArray(self, nums: list[int]) -> list[int]:\n        return sorted(nums)"
-    },
-    "selectedLanguage": "python3",
-    "solveRecords": [
-        {
-            "id": "2026-06-14T07:46:23.965Z-1",
-            "solvedAt": "2026-06-14T07:46:23.965Z",
-            "durationMs": 68596,
-            "submitDurationMs": 5511,
-            "language": "java",
-            "passedTestcases": 73,
-            "totalTestcases": 73
-        },
-        {
-            "id": "2026-06-14T07:47:32.615Z-2",
-            "solvedAt": "2026-06-14T07:47:32.615Z",
-            "durationMs": 68650,
-            "submitDurationMs": 5674,
-            "language": "java",
-            "passedTestcases": 73,
-            "totalTestcases": 73
-        },
-        {
-            "id": "2026-06-14T07:48:09.869Z-3",
-            "solvedAt": "2026-06-14T07:48:09.869Z",
-            "durationMs": 6722,
-            "submitDurationMs": 1972,
-            "language": "python3",
-            "passedTestcases": 73,
-            "totalTestcases": 73
-        },
-        {
-            "id": "2026-06-14T07:49:59.712Z-4",
-            "solvedAt": "2026-06-14T07:49:59.712Z",
-            "durationMs": 93485,
-            "submitDurationMs": 5668,
-            "language": "java",
-            "passedTestcases": 73,
-            "totalTestcases": 73
-        },
-        {
-            "id": "2026-06-14T11:23:19.553Z-5",
-            "solvedAt": "2026-06-14T11:23:19.553Z",
-            "durationMs": 35329,
-            "submitDurationMs": 3450,
-            "language": "python3",
-            "passedTestcases": 73,
-            "totalTestcases": 73
-        },
-        {
-            "id": "2026-06-14T11:23:50.374Z-6",
-            "solvedAt": "2026-06-14T11:23:50.374Z",
-            "durationMs": 30821,
-            "submitDurationMs": 2022,
-            "language": "python3",
-            "passedTestcases": 73,
-            "totalTestcases": 73
-        }
-    ],
-    "lastUpdated": "2026-06-14T11:23:50.376Z"
+    "status": "none",
+    "code": {},
+    "selectedLanguage": "",
+    "solveRecords": [],
+    "lastUpdated": ""
 }

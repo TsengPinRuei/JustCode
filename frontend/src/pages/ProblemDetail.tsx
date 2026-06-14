@@ -22,8 +22,8 @@ const ProblemDetail: FC = () => {
     const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
     const [activeTab, setActiveTab] = useState<'testcase' | 'result'>('testcase');
     const [progressSnapshot, setProgressSnapshot] = useState<ProblemProgress | null>(null);
-    const [currentElapsedMs, setCurrentElapsedMs] = useState(0);
-    const attemptStartedAtRef = useRef(Date.now());
+    const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
+    const attemptStartedAtRef = useRef(attemptStartedAt);
 
     const getErrorMessage = (error: unknown, fallback: string): string => {
         if (typeof error === 'object' && error !== null && 'response' in error) {
@@ -99,16 +99,6 @@ const ProblemDetail: FC = () => {
         }
     }, [id]);
 
-    useEffect(() => {
-        if (!problem) return;
-
-        const timer = setInterval(() => {
-            setCurrentElapsedMs(Date.now() - attemptStartedAtRef.current);
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [problem?.metadata.id]);
-
     const loadProblem = async (problemId: string) => {
         try {
             const [data, progress] = await Promise.all([
@@ -116,8 +106,9 @@ const ProblemDetail: FC = () => {
                 problemsApi.getProgress(problemId),
             ]);
             setProblem(data);
-            attemptStartedAtRef.current = Date.now();
-            setCurrentElapsedMs(0);
+            const startedAt = Date.now();
+            attemptStartedAtRef.current = startedAt;
+            setAttemptStartedAt(startedAt);
 
             const fallbackLanguage = data.metadata.supportedLanguages[0] || 'java';
             const normalizedProgress: ProblemProgress | null = progress
@@ -247,7 +238,7 @@ const ProblemDetail: FC = () => {
                 });
                 // 成功 submit 後，為此題下一次嘗試開啟新的計時視窗。
                 attemptStartedAtRef.current = completedAt;
-                setCurrentElapsedMs(0);
+                setAttemptStartedAt(completedAt);
             }
         } catch (error) {
             console.error('Error submitting code:', error);
@@ -292,7 +283,7 @@ const ProblemDetail: FC = () => {
                     <ProblemDescription
                         problem={problem}
                         progress={progressSnapshot}
-                        currentElapsedMs={currentElapsedMs}
+                        attemptStartedAt={attemptStartedAt}
                     />
                 }
                 right={

@@ -14,6 +14,7 @@ JustCode 是一個受 LeetCode 啟發的單機刷題練習工具。它會在你�
 - 執行可見測資、執行一筆自訂 JSON 輸入，或提交並跑可見加隱藏測資。
 - 自動儲存每題進度，包含已選語言、各語言的程式碼、AC 紀錄與解題時間。
 - 透過 URL 匯入公開 LeetCode 題目資料，包含題目敘述、範例、限制條件、Java/Python3 範本與範例測資。
+- 下載題目 brief，並從貼上的 JSON、瀏覽器選取的本機 JSON 檔，或專案相對路徑 JSON 檔匯入隱藏測資。
 - 可從 UI 刪除匯入題目。內建題目會被保護，不能刪除。
 - 閱讀 Markdown 題解，支援 GitHub-flavored Markdown、相鄰程式碼區塊分頁與複製按鈕。
 - 顯示 AC、WA、CE、RE、TLE 結果、各測資細節、執行時間、編譯錯誤在編輯器中的標記，以及失敗測資的 debug 輸出。
@@ -135,6 +136,32 @@ http://localhost:3000/health
 
 只有 `Submit` 可以把題目標成已通過，因為 `Run` 不會執行隱藏測資。每次 AC 提交都會在 `progress.json` 建立一筆解題紀錄；統計面板會用這些紀錄顯示該題的時間與排名。
 
+### 隱藏測資
+
+在題目詳細頁：
+
+1. 按 `Download Description` 下載目前題目的 Markdown brief。這份 brief 會包含題目敘述、函式名稱、參數名稱、範例、限制條件，以及 hidden testcase JSON 需要符合的格式。
+2. 按 `Add Hidden Tests` 匯入 hidden testcase JSON。
+3. 選 `Append` 可加入既有的 `testcases_hidden.json`，選 `Replace` 會覆蓋它。
+4. 選擇一種來源：
+   - `Paste JSON`：直接貼上 JSON，或在瀏覽器中選擇本機 `.json`/文字檔。
+   - `Project Path`：輸入相對於 JustCode 專案的路徑，例如 `tmp/generated-hidden-tests.json`。
+
+Hidden testcase JSON 必須是非空陣列。每一項都必須是含有 `input` 與 `output` 的 object；`input` 必須是 object，且 key 必須和題目 `params` 名稱完全一致。
+
+```json
+[
+  {
+    "input": {
+      "nums": [3, 1, 2]
+    },
+    "output": [1, 2, 3]
+  }
+]
+```
+
+使用 `Project Path` 時，後端只會讀取 JustCode 專案目錄內既有的檔案。絕對路徑、不存在的檔案、資料夾，以及會逃出專案目錄的路徑都會被拒絕。
+
 ### 自訂輸入
 
 自訂輸入必須是 JSON object，參數名稱要和題目 metadata 相同。例如：
@@ -171,7 +198,7 @@ https://leetcode.com/problems/two-sum/
 - 匯入功能依賴 LeetCode 的公開 GraphQL 回應與目前題目 HTML 結構。
 - 只會匯入 Java 與 Python3 程式碼片段。
 - 只會把公開範例測資匯入為可見測資。
-- 無法取得 LeetCode 隱藏 judge 測資。JustCode 會建立空的 `testcases_hidden.json`，方便你之後手動加入隱藏測資。
+- 無法取得 LeetCode 隱藏 judge 測資。JustCode 會建立空的 `testcases_hidden.json`，方便你之後透過 `Add Hidden Tests` 或直接編輯檔案加入隱藏測資。
 - 不會從 LeetCode 匯入題解。除非你自行加入 `editorial.md`，否則題目詳細頁會顯示 `Editorial coming soon...`。
 - runner 支援常見的 primitive、array 與 list 型別。需要 linked list、tree、graph 等自訂結構的題目可能可以匯入，但在補上 runner 支援前不一定能正確執行。
 - 目前 `.gitignore` 會忽略匯入題目，除非你調整 ignore 規則或強制加入檔案。
@@ -207,6 +234,8 @@ problems/<problem-id>/
   }
 ]
 ```
+
+可見與隱藏測資檔使用相同 JSON 形狀。隱藏測資存放在 `testcases_hidden.json`；`Submit` 會使用它，但題目詳細資料 API 不會把隱藏測資內容回傳給前端。
 
 `progress.json` 儲存本機使用進度，會由 App 自動寫入。
 
@@ -284,7 +313,7 @@ JustCode/
 ├── frontend/                   # React + TypeScript + Vite 應用
 │   ├── public/                 # 靜態資源
 │   ├── src/
-│   │   ├── components/         # 編輯器、console、題目敘述、版面元件
+│   │   ├── components/         # 編輯器、console、hidden-test、題目敘述、版面元件
 │   │   ├── pages/              # 題目列表與題目詳細頁
 │   │   ├── plugins/            # Markdown code-group 外掛
 │   │   ├── services/           # Axios API 客戶端
@@ -313,6 +342,7 @@ JustCode/
 | `POST` | `/api/run` | 執行可見測資或一筆自訂輸入。 |
 | `POST` | `/api/submit` | 提交並執行可見與隱藏測資。 |
 | `POST` | `/api/import-problem` | 匯入公開 LeetCode 題目 URL。 |
+| `POST` | `/api/problems/:id/hidden-testcases` | 從貼上的 JSON 或專案相對路徑檔案追加或取代本機隱藏測資。 |
 | `GET` | `/api/progress` | 讀取所有進度檔。 |
 | `GET` | `/api/progress/:id` | 讀取單一題目的進度。 |
 | `PUT` | `/api/progress/:id` | 儲存單一題目的進度。 |
@@ -405,6 +435,23 @@ https://leetcode.com/problems/<problem-slug>/
 匯入器依賴網路連線、LeetCode 公開 GraphQL 回應與目前題目 HTML 格式。如果 LeetCode 改變回應結構，可能需要修改 `backend/src/services/leetcodeService.ts`。
 
 如果匯入成功但執行該題失敗，請檢查 `problem.json` 的 `params` 或 `returnType` 是否屬於 runner 尚未支援的型別。目前 runner 尚未實作 linked list 或 tree 這類 LeetCode 自訂結構。
+
+### 隱藏測資匯入被拒絕
+
+請確認 JSON 是非空陣列，且每一項都符合以下形狀：
+
+```json
+[
+  {
+    "input": {
+      "paramName": "value"
+    },
+    "output": "expected value"
+  }
+]
+```
+
+`input` 的 key 必須和 `problem.json` 裡的 `params` 名稱完全一致。如果使用 `Project Path`，路徑必須相對於 JustCode 專案，且指向專案內既有檔案。
 
 ### 自訂輸入被拒絕
 
