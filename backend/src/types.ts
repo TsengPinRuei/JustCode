@@ -84,6 +84,24 @@ export interface SubmitRequest {
     language: Language;
 }
 
+export type HiddenTestcaseImportMode = 'append' | 'replace';
+// content is pasted/uploaded JSON text; projectPath is resolved by the backend inside the project root.
+export type HiddenTestcaseSourceType = 'content' | 'projectPath';
+
+export interface HiddenTestcaseImportRequest {
+    sourceType: HiddenTestcaseSourceType;
+    content?: string;
+    projectPath?: string;
+    mode: HiddenTestcaseImportMode;
+}
+
+export interface HiddenTestcaseImportResponse {
+    success: true;
+    added: number;
+    totalHidden: number; // Count after append/replace has been written to testcases_hidden.json.
+    mode: HiddenTestcaseImportMode;
+}
+
 /** Problem completion status: none (not started), attempted (code saved), solved (AC) */
 export type ProblemStatus = 'none' | 'attempted' | 'solved';
 

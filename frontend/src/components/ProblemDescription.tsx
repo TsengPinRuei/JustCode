@@ -1,13 +1,15 @@
 /**
  * Problem Description \u2014 Renders problem description and editorial tabs.
  * Uses ReactMarkdown with custom renderers for tabbed code groups
- * and copy-to-clipboard buttons on code blocks.
+ * and copy-to-clipboard buttons on code blocks. Also builds the downloadable
+ * problem brief used when generating local hidden testcase JSON.
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkCodeGroup from '../plugins/remarkCodeGroup';
 import { Problem, ProblemProgress } from '../types';
+import HiddenTestcaseModal from './HiddenTestcaseModal';
 import SolveStatsPanel from './SolveStatsPanel';
 
 interface ProblemDescriptionProps {
@@ -158,16 +160,137 @@ const markdownComponents: Record<string, React.FC<any>> = {
     },
 };
 
+const formatExampleBlock = (problem: Problem): string => {
+    // The downloaded brief needs fenced text blocks so generated examples are readable but not executable code.
+    return problem.metadata.examples.map((example, index) => {
+        const explanation = example.explanation ? `\nExplanation:\n${example.explanation}\n` : '';
+        return [
+            `### Example ${index + 1}`,
+            'Input:',
+            '```text',
+            example.input,
+            '```',
+            'Output:',
+            '```text',
+            example.output,
+            '```',
+            explanation.trimEnd(),
+        ].filter(Boolean).join('\n');
+    }).join('\n\n');
+};
+
+const buildHiddenTestcaseSample = (problem: Problem) => {
+    // Prefer a visible testcase as the schema example because it already matches runner parameter names.
+    const firstVisibleTestcase = problem.visibleTestcases[0];
+    if (firstVisibleTestcase) {
+        return [
+            {
+                input: firstVisibleTestcase.input,
+                output: firstVisibleTestcase.output,
+            },
+        ];
+    }
+
+    const input = Object.fromEntries(
+        (problem.metadata.params ?? []).map((param) => [param.name, `value matching ${param.type}`])
+    );
+    return [
+        {
+            input,
+            output: 'expected output',
+        },
+    ];
+};
+
+const buildDescriptionDownload = (problem: Problem): string => {
+    // This file is a prompt/brief for generating hidden tests; keep its JSON contract aligned with backend validation.
+    const params = problem.metadata.params && problem.metadata.params.length > 0
+        ? problem.metadata.params.map((param) => `- \`${param.name}\`: \`${param.type}\``).join('\n')
+        : '- No parameter metadata available.';
+    const constraints = problem.metadata.constraints.length > 0
+        ? problem.metadata.constraints.map((constraint) => `- ${constraint}`).join('\n')
+        : '- No constraints provided.';
+    const sampleJson = JSON.stringify(buildHiddenTestcaseSample(problem), null, 2);
+
+    return [
+        `# ${problem.metadata.title}`,
+        '',
+        '## Task',
+        'Generate hidden testcases for this JustCode problem. Return only valid JSON using the exact format below.',
+        '',
+        '## Description',
+        problem.metadata.description,
+        '',
+        '## Function',
+        `- Name: \`${problem.metadata.functionName ?? 'unknown'}\``,
+        `- Return Type: \`${problem.metadata.returnType ?? 'unknown'}\``,
+        '',
+        '## Params',
+        params,
+        '',
+        '## Examples',
+        formatExampleBlock(problem) || 'No examples provided.',
+        '',
+        '## Constraints',
+        constraints,
+        '',
+        '## Required Hidden Testcase JSON Format',
+        'Return a JSON array. Each item must include `input` and `output`. The `input` keys must exactly match the Params above.',
+        '',
+        '```json',
+        sampleJson,
+        '```',
+        '',
+        'Do not include Markdown, explanation, comments, trailing commas, or any text outside the JSON array.',
+    ].join('\n');
+};
+
+const downloadTextFile = (filename: string, content: string) => {
+    // Object URLs are short-lived; revoke after the synthetic click to avoid leaking browser memory.
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
 /* ---- Main component ---- */
 
 const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progress, currentElapsedMs }) => {
     const [activeTab, setActiveTab] = useState<'description' | 'editorial'>('description');
+    const [showHiddenTestModal, setShowHiddenTestModal] = useState(false);
+
+    const handleDownloadDescription = () => {
+        // Sanitize the problem ID before using it as a local download filename.
+        const safeId = problem.metadata.id.replace(/[^a-z0-9-_]+/gi, '-');
+        downloadTextFile(`${safeId}-description.md`, buildDescriptionDownload(problem));
+    };
 
     return (
         <>
             <div className="problem-header">
                 <div className="problem-title-row">
                     <h1 className="problem-title-text">{problem.metadata.title}</h1>
+                    <div className="problem-header-actions">
+                        <button
+                            type="button"
+                            className="problem-header-action-btn"
+                            onClick={handleDownloadDescription}
+                        >
+                            Download Description
+                        </button>
+                        <button
+                            type="button"
+                            className="problem-header-action-btn primary"
+                            onClick={() => setShowHiddenTestModal(true)}
+                        >
+                            Add Hidden Tests
+                        </button>
+                    </div>
                 </div>
                 <div className="problem-meta">
                     <span className={`difficulty-badge difficulty-${problem.metadata.difficulty.toLowerCase()}`}>
@@ -249,6 +372,13 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progre
                     </div>
                 )}
             </div>
+
+            {showHiddenTestModal && (
+                <HiddenTestcaseModal
+                    problem={problem}
+                    onClose={() => setShowHiddenTestModal(false)}
+                />
+            )}
         </>
     );
 };

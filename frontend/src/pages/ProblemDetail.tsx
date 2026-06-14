@@ -226,14 +226,15 @@ const ProblemDetail: FC = () => {
                 const currentProgress = progressRef.current;
                 const codeMap = { ...(currentProgress?.code || {}) };
                 codeMap[selectedLanguage] = code;
-                const solvedAt = new Date().toISOString();
+                const completedAt = Date.now();
+                const solvedAt = new Date(completedAt).toISOString();
                 const solveRecords = currentProgress?.solveRecords || [];
                 // Store one immutable AC snapshot for the stats panel; code remains saved separately by language.
                 const solveRecord = {
                     id: `${solvedAt}-${solveRecords.length + 1}`,
                     solvedAt,
-                    durationMs: Math.max(1000, Date.now() - attemptStartedAtRef.current),
-                    submitDurationMs: Math.max(1, Date.now() - submitStartedAt),
+                    durationMs: Math.max(1000, completedAt - attemptStartedAtRef.current),
+                    submitDurationMs: Math.max(1, completedAt - submitStartedAt),
                     language: selectedLanguage,
                     passedTestcases: result.passedTestcases,
                     totalTestcases: result.totalTestcases,
@@ -245,7 +246,7 @@ const ProblemDetail: FC = () => {
                     solveRecords: [...solveRecords, solveRecord],
                 });
                 // A successful submit starts a fresh timing window for the next attempt on this problem.
-                attemptStartedAtRef.current = Date.now();
+                attemptStartedAtRef.current = completedAt;
                 setCurrentElapsedMs(0);
             }
         } catch (error) {

@@ -1,12 +1,19 @@
 /**
  * API Routes \u2014 All REST endpoints for problems, code execution, progress, and import.
- * Routes: GET/DELETE problems, POST run/submit, POST import, GET/PUT progress.
+ * Routes: GET/DELETE problems, POST run/submit, POST import, hidden testcase import, GET/PUT progress.
  */
 import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
 import { CodeExecutorFactory } from '../services/codeExecutorFactory';
 import { LeetCodeService } from '../services/leetcodeService';
-import { RunRequest, SubmitRequest, Testcase, ProblemProgress, ProblemMetadata } from '../types';
+import {
+    HiddenTestcaseImportRequest,
+    ProblemMetadata,
+    ProblemProgress,
+    RunRequest,
+    SubmitRequest,
+    Testcase,
+} from '../types';
 import { PROTECTED_PROBLEMS } from '../constants';
 
 const router = express.Router();
@@ -168,6 +175,20 @@ router.post('/import-problem', async (req: Request, res: Response) => {
         console.error('Error importing problem:', error);
         const message = error instanceof Error ? error.message : 'Failed to import problem';
         res.status(500).json({ error: message });
+    }
+});
+
+// POST /api/problems/:id/hidden-testcases - Append or replace local hidden testcase JSON.
+router.post('/problems/:id/hidden-testcases', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const request: HiddenTestcaseImportRequest = req.body;
+        const result = await problemService.importHiddenTestcases(id, request);
+        res.json(result);
+    } catch (error: unknown) {
+        console.error('Error importing hidden testcases:', error);
+        const message = error instanceof Error ? error.message : 'Failed to import hidden testcases';
+        res.status(400).json({ error: message });
     }
 });
 

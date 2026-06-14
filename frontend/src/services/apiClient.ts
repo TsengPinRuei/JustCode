@@ -3,7 +3,15 @@
  * Provides methods for problems, code execution, progress, and import.
  */
 import axios from 'axios';
-import { ProblemMetadata, Problem, ExecutionResult, Language, ProblemProgress } from '../types';
+import {
+    ExecutionResult,
+    HiddenTestcaseImportRequest,
+    HiddenTestcaseImportResponse,
+    Language,
+    Problem,
+    ProblemMetadata,
+    ProblemProgress,
+} from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -55,6 +63,15 @@ export const problemsApi = {
 
     async importProblem(url: string): Promise<{ success: boolean; problemId: string; title: string }> {
         const response = await apiClient.post('/import-problem', { url });
+        return response.data;
+    },
+
+    async importHiddenTestcases(
+        id: string,
+        request: HiddenTestcaseImportRequest
+    ): Promise<HiddenTestcaseImportResponse> {
+        // The backend owns validation because projectPath mode touches server-side files.
+        const response = await apiClient.post(`/problems/${id}/hidden-testcases`, request);
         return response.data;
     },
 
