@@ -1,141 +1,138 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e  # 任一清理步驟失敗就停止，避免誤以為已完整移除。
+set -euo pipefail  # 任一清理步驟失敗就停止，避免誤以為已完整移除。
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+ASSUME_YES=0
+
+die() {
+    echo "錯誤：$*" >&2
+    exit 1
+}
+
+usage() {
+    echo "用法：./uninstall.sh [--yes]"
+    echo ""
+    echo "移除 JustCode 安裝產物與建置/暫存檔，保留原始碼、設定檔與 package-lock.json。"
+    echo ""
+    echo "選項："
+    echo "  -y, --yes   略過互動確認，適合 CI 或非互動環境"
+    echo "  -h, --help  顯示說明"
+}
+
+while (($#)); do
+    case "$1" in
+        -y|--yes)
+            ASSUME_YES=1
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            die "未知參數：$1"
+            ;;
+    esac
+    shift
+done
+
+cd "$SCRIPT_DIR" || die "無法切換到專案目錄：$SCRIPT_DIR"
+
+if [ ! -f "package.json" ] || [ ! -d "frontend" ] || [ ! -d "backend" ]; then
+    die "請從 JustCode 專案內的 uninstall.sh 執行，或確認專案檔案完整。"
+fi
+
+safe_remove() {
+    local rel_path="$1"
+    local target="$SCRIPT_DIR/$rel_path"
+
+    case "$rel_path" in
+        ""|"."|".."|/*|../*|*/../*)
+            die "拒絕移除不安全路徑：$rel_path"
+            ;;
+    esac
+
+    if [ "$target" = "$SCRIPT_DIR" ] || [ "$target" = "$SCRIPT_DIR/" ]; then
+        die "拒絕移除專案根目錄。"
+    fi
+
+    if [ -e "$target" ] || [ -L "$target" ]; then
+        if [ -d "$target" ] && [ ! -L "$target" ]; then
+            rm -rf -- "$target"
+        else
+            rm -f -- "$target"
+        fi
+        echo "已刪除 $rel_path"
+    else
+        echo "$rel_path 不存在，略過"
+    fi
+}
 
 echo "=== JustCode 移除指令 ==="
 echo ""
-echo "警告：此操作將刪除所有 node_modules 和 package-lock.json 文件"
-echo "源代碼和配置文件將被保留"
+echo "警告：此操作將刪除 node_modules、build 產物與暫存檔"
+echo "原始碼、配置文件與 package-lock.json 將被保留"
+echo "專案目錄：$SCRIPT_DIR"
 echo ""
 
 # 這個腳本會刪除依賴與建置產物；先確認避免誤觸。
-read -p "確定要繼續嗎？(y/N): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "操作已取消"
-    exit 0
+if (( ASSUME_YES == 0 )); then
+    if [ ! -t 0 ]; then
+        die "非互動式環境請加上 --yes 明確確認，例如：./uninstall.sh --yes"
+    fi
+
+    CONFIRM=""
+    if ! read -r -p "確定要繼續嗎？(y/N): " CONFIRM; then
+        die "無法讀取確認輸入。"
+    fi
+
+    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+        echo "操作已取消"
+        exit 0
+    fi
 fi
 
 echo ""
 echo "開始移除..."
 
-# 若根目錄依賴仍存在，優先使用 package.json 中維護的 clean 指令。
-if command -v npx &> /dev/null && [ -d "node_modules" ]; then
-    echo ""
-    echo "使用 npm clean 指令..."
-    npm run clean
-else
-    echo ""
-    echo "手動清理依賴..."
-    
-    # 手動模式逐層清理 workspaces，保留原始碼與設定檔。
-    # 刪除根目錄 node_modules
-    echo ""
-    echo "步驟 1: 清理 root 依賴..."
-    if [ -d "node_modules" ]; then
-        rm -rf node_modules
-        echo "已刪除 root node_modules"
-    else
-        echo "root node_modules 不存在"
-    fi
+echo ""
+echo "步驟 1: 清理依賴..."
+safe_remove "node_modules"
+safe_remove "backend/node_modules"
+safe_remove "frontend/node_modules"
 
-    if [ -f "package-lock.json" ]; then
-        rm -f package-lock.json
-        echo "已刪除 root package-lock.json"
-    else
-        echo "root package-lock.json 不存在"
-    fi
+echo ""
+echo "步驟 2: 清理 build 產物..."
+safe_remove "backend/dist"
+safe_remove "frontend/dist"
+safe_remove "frontend/.vite"
+safe_remove "backend/tsconfig.tsbuildinfo"
+safe_remove "frontend/tsconfig.tsbuildinfo"
 
-    # 刪除 backend node_modules
-    echo ""
-    echo "步驟 2: 清理 backend 依賴..."
-    if [ -d "backend/node_modules" ]; then
-        rm -rf backend/node_modules
-        echo "已刪除 backend node_modules"
-    else
-        echo "backend node_modules 不存在"
-    fi
-
-    if [ -f "backend/package-lock.json" ]; then
-        rm -f backend/package-lock.json
-        echo "已刪除 backend package-lock.json"
-    else
-        echo "backend package-lock.json 不存在"
-    fi
-
-    # 刪除 frontend node_modules
-    echo ""
-    echo "步驟 3: 清理 frontend 依賴..."
-    if [ -d "frontend/node_modules" ]; then
-        rm -rf frontend/node_modules
-        echo "已刪除 frontend node_modules"
-    else
-        echo "frontend node_modules 不存在"
-    fi
-
-    if [ -f "frontend/package-lock.json" ]; then
-        rm -f frontend/package-lock.json
-        echo "已刪除 frontend package-lock.json"
-    else
-        echo "frontend package-lock.json 不存在"
-    fi
-
-    # 清理建置產物
-    echo ""
-    echo "步驟 4: 清理 build 產物..."
-
-    if [ -d "backend/dist" ]; then
-        rm -rf backend/dist
-        echo "已刪除 backend/dist"
-    fi
-
-    if [ -d "frontend/dist" ]; then
-        rm -rf frontend/dist
-        echo "已刪除 frontend/dist"
-    fi
-
-    if [ -d "frontend/.vite" ]; then
-        rm -rf frontend/.vite
-        echo "已刪除 frontend/.vite"
-    fi
-
-    # 清理臨時文件
-    echo ""
-    echo "步驟 5: 清理臨時文件..."
-
-    if [ -d "temp" ]; then
-        rm -rf temp
-        echo "已刪除 temp 目錄"
-    fi
-
-    # 清理 TypeScript 建置資訊
-    if [ -f "backend/tsconfig.tsbuildinfo" ]; then
-        rm -f backend/tsconfig.tsbuildinfo
-        echo "已刪除 backend TypeScript build info"
-    fi
-
-    if [ -f "frontend/tsconfig.tsbuildinfo" ]; then
-        rm -f frontend/tsconfig.tsbuildinfo
-        echo "已刪除 frontend TypeScript build info"
-    fi
-fi
+echo ""
+echo "步驟 3: 清理暫存檔..."
+safe_remove "temp"
+safe_remove "backend/temp"
 
 # 清理 Finder 產生的 macOS metadata，避免重新壓縮/提交時帶入。
-DSSTORE_COUNT=$(find . -name ".DS_Store" 2>/dev/null | wc -l | tr -d ' ')
-if [ "$DSSTORE_COUNT" -gt 0 ]; then
-    find . -name ".DS_Store" -delete 2>/dev/null
+DSSTORE_COUNT=0
+while IFS= read -r -d '' dsstore_path; do
+    rm -f -- "$dsstore_path"
+    DSSTORE_COUNT=$((DSSTORE_COUNT + 1))
+done < <(find "$SCRIPT_DIR" -path "$SCRIPT_DIR/.git" -prune -o -type f -name ".DS_Store" -print0)
+
+if (( DSSTORE_COUNT > 0 )); then
     echo "已刪除 $DSSTORE_COUNT 個 .DS_Store 文件"
 fi
 
 echo ""
 echo "移除完成！"
 echo ""
-echo "您的源代碼和配置文件已保留"
+echo "您的原始碼、配置文件與 package-lock.json 已保留"
 echo "如需重新安裝，請執行："
-echo "  npm install"
+echo "  ./install.sh"
 echo ""
 echo "=== 跨平台提示 ==="
 echo "此腳本適用於 macOS/Linux。"
-echo "在 Windows 上，請執行："
-echo "  npm run clean"
+echo "在 Windows 上，請使用檔案總管或 PowerShell 移除上述產物，並保留 package-lock.json。"
 echo ""
