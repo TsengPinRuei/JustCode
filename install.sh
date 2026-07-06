@@ -1,24 +1,56 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e  # 任一安裝步驟失敗就停止，避免留下半套依賴狀態。
+set -euo pipefail  # 任一安裝步驟失敗就停止，避免留下半套依賴狀態。
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+
+die() {
+    echo "錯誤：$*" >&2
+    exit 1
+}
+
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+cd "$SCRIPT_DIR" || die "無法切換到專案目錄：$SCRIPT_DIR"
+
+if [ ! -f "package.json" ] || [ ! -d "frontend" ] || [ ! -d "backend" ]; then
+    die "請從 JustCode 專案內的 install.sh 執行，或確認專案檔案完整。"
+fi
 
 echo "=== JustCode 安裝指令 ==="
 echo ""
 
 # JustCode 依賴 Node.js 18+ 提供的新版 workspace/package 行為。
 echo "檢查環境..."
-if ! command -v node &> /dev/null; then
-    echo "未找到 Node.js"
-    echo "請先安裝 Node.js 18.x 或更高版本"
-    exit 1
+if (( EUID == 0 )); then
+    die "請不要以 root/sudo 執行；npm install 可能產生 root 擁有的 node_modules。請改用一般使用者執行。"
 fi
 
-NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "警告：建議使用 Node.js 18.x 或更高版本（當前：$(node -v)）"
+if ! command_exists node; then
+    die "未找到 Node.js。請先安裝 Node.js 18.x 或更高版本。"
 fi
 
-echo "Node.js 版本：$(node -v)"
+if ! command_exists npm; then
+    die "未找到 npm。請確認 Node.js 安裝包含 npm，或修正 PATH 後再執行。"
+fi
+
+NODE_VERSION="$(node -v)"
+NPM_VERSION="$(npm -v)"
+NODE_MAJOR="${NODE_VERSION#v}"
+NODE_MAJOR="${NODE_MAJOR%%.*}"
+if ! [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]]; then
+    die "無法解析 Node.js 版本：$NODE_VERSION"
+fi
+
+if (( NODE_MAJOR < 18 )); then
+    die "JustCode 需要 Node.js 18.x 或更高版本（當前：$NODE_VERSION）。"
+fi
+
+echo "專案目錄：$SCRIPT_DIR"
+echo "Node.js 版本：$NODE_VERSION"
+echo "npm 版本：$NPM_VERSION"
 echo ""
 
 # 根目錄 npm install 會依 package.json workspaces 一次安裝 frontend/backend 依賴。
