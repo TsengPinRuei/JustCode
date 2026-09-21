@@ -5,7 +5,7 @@
  */
 import { spawn } from 'child_process';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import {
     DOCKER_SANDBOX_CPUS,
     DOCKER_SANDBOX_MEMORY,
@@ -45,7 +45,6 @@ interface ProcessRunOptions {
     stdin?: string;
     env?: NodeJS.ProcessEnv;
     detached?: boolean;
-    onTimeout?: () => void;
 }
 
 interface ProcessRunResult {
@@ -74,7 +73,7 @@ export class SandboxRunner {
         if (mode === 'docker' || mode === 'local' || mode === 'auto') {
             return mode;
         }
-        return 'auto';
+        throw new Error(`Invalid JUSTCODE_SANDBOX_MODE: ${mode}`);
     }
 
     private async isDockerImageReady(image: string): Promise<boolean> {
@@ -123,13 +122,15 @@ export class SandboxRunner {
     }
 
     private async executeDocker(options: SandboxCommandOptions): Promise<SandboxCommandResult> {
-        const containerName = `justcode-${uuidv4()}`;
+        const containerName = `justcode-${randomUUID()}`;
         const workspaceMode = options.writableWorkspace ? 'rw' : 'ro';
         // Container 沒有網路、移除 capabilities、root FS 唯讀，並限制 CPU/memory/PIDs。
         // 只掛載 /workspace，且僅在需要 class/cache 檔案的編譯步驟可寫。
         const dockerArgs = [
             'run',
             '--rm',
+            '--interactive',
+            '--pull=never',
             '--name',
             containerName,
             '--network',
@@ -172,15 +173,17 @@ export class SandboxRunner {
             args: dockerArgs,
             timeoutMs: options.timeoutMs,
             stdin: options.stdin,
-            onTimeout: () => {
-                // child_process timeout 會終止 docker CLI，但具名 container 可能仍需清理。
-                void this.runProcess({
-                    command: 'docker',
-                    args: ['kill', containerName],
-                    timeoutMs: 3000,
-                });
-            },
         });
+
+        // Killing the CLI alone leaves the container running; await removal before
+        // the executor deletes its bind-mounted workspace, including output-limit failures.
+        if (result.exitCode !== 0 || result.timedOut || result.outputExceeded) {
+            await this.runProcess({
+                command: 'docker',
+                args: ['rm', '--force', containerName],
+                timeoutMs: 3000,
+            });
+        }
 
         return {
             ...result,
@@ -192,6 +195,7 @@ export class SandboxRunner {
         // 白名單化 environment variables，避免提交程式碼透過繼承讀到 host credentials。
         return {
             PATH: process.env.PATH || '',
+            ...(process.platform === 'win32' ? { SystemRoot: process.env.SystemRoot } : {}),
             HOME: workspaceDir,
             TMPDIR: workspaceDir,
             TEMP: workspaceDir,
@@ -220,108 +224,90 @@ export class SandboxRunner {
 
     private runProcess(options: ProcessRunOptions): Promise<ProcessRunResult> {
         return new Promise((resolve) => {
-            // spawn(args) 可避免 shell 插值；使用者程式碼會影響 workspace 內容，因此這點很重要。
             const child = spawn(options.command, options.args, {
                 cwd: options.cwd,
                 env: options.env,
                 detached: options.detached,
                 stdio: ['pipe', 'pipe', 'pipe'],
             });
-
-            let stdoutChunks: string[] = [];
-            let stderrChunks: string[] = [];
-            let stdoutLength = 0;
-            let stderrLength = 0;
+            const stdoutChunks: Buffer[] = [];
+            const stderrChunks: Buffer[] = [];
+            let outputBytes = 0;
             let settled = false;
             let timedOut = false;
             let outputExceeded = false;
-
-            const getStdout = () => stdoutChunks.join('');
-            const getStderr = () => stderrChunks.join('');
-
-            const setStdout = (value: string) => {
-                stdoutChunks = [value];
-                stdoutLength = value.length;
-            };
-
-            const setStderr = (value: string) => {
-                stderrChunks = [value];
-                stderrLength = value.length;
-            };
-
-            const finish = (exitCode: number) => {
-                // 強制 kill 後可能觸發多個事件；只 resolve 一次。
-                if (settled) return;
-                settled = true;
-                clearTimeout(timeout);
-                resolve({
-                    stdout: getStdout(),
-                    stderr: getStderr(),
-                    exitCode,
-                    timedOut,
-                    outputExceeded,
-                });
-            };
+            let processError = '';
 
             const killChild = () => {
                 try {
-                    // Detached Unix child 會有自己的 process group，失控的孫行程也會一起被終止。
+                    // A separate Unix process group also owns descendants which outlive the parent.
                     if (options.detached && child.pid && process.platform !== 'win32') {
                         process.kill(-child.pid, 'SIGKILL');
                     } else {
                         child.kill('SIGKILL');
                     }
                 } catch {
-                    // process 可能已在 timeout/output 處理與終止之間結束。
+                    // The process may already have exited between receiving an event and killing it.
                 }
             };
-
-            const appendOutput = (target: 'stdout' | 'stderr', chunk: Buffer) => {
-                // 合併輸出超過專案上限後，停止收集並終止 process。
-                if (settled || outputExceeded) return;
-                const text = chunk.toString('utf-8');
-                if (target === 'stdout') {
-                    stdoutChunks.push(text);
-                    stdoutLength += text.length;
-                } else {
-                    stderrChunks.push(text);
-                    stderrLength += text.length;
-                }
-
-                if (stdoutLength + stderrLength > MAX_OUTPUT_LENGTH) {
-                    outputExceeded = true;
-                    setStdout(getStdout().slice(0, MAX_OUTPUT_LENGTH));
-                    setStderr(`${getStderr().slice(0, MAX_OUTPUT_LENGTH)}\nOutput limit exceeded`);
-                    killChild();
-                }
-            };
-
-            const timeout = setTimeout(() => {
-                // 語言 executor 會將這個 sentinel exitCode 映射為 TLE。
-                timedOut = true;
-                if (stderrLength === 0) {
-                    setStderr('Time Limit Exceeded');
-                }
-                options.onTimeout?.();
+            const stop = () => {
                 killChild();
+                // An escaped descendant may keep inherited pipes open. Do not let it prevent
+                // close/cleanup after the deadline; local mode is not a security boundary.
+                child.stdin.destroy();
+                child.stdout.destroy();
+                child.stderr.destroy();
+            };
+            const finish = (exitCode: number) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeout);
+                // Decode once so multi-byte UTF-8 characters split across chunks stay intact.
+                resolve({
+                    stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+                    stderr: processError || (outputExceeded ? 'Output limit exceeded' : '') ||
+                        Buffer.concat(stderrChunks).toString('utf8'),
+                    exitCode,
+                    timedOut,
+                    outputExceeded,
+                });
+            };
+            const appendOutput = (chunks: Buffer[], chunk: Buffer) => {
+                if (settled || outputExceeded || timedOut) return;
+                const remaining = MAX_OUTPUT_LENGTH - outputBytes;
+                const kept = chunk.subarray(0, remaining);
+                chunks.push(kept);
+                outputBytes += kept.length;
+                if (chunk.length > remaining) {
+                    outputExceeded = true;
+                    stop();
+                }
+            };
+            const timeout = setTimeout(() => {
+                timedOut = true;
+                stop();
             }, options.timeoutMs);
 
-            child.stdout?.on('data', (chunk: Buffer) => appendOutput('stdout', chunk));
-            child.stderr?.on('data', (chunk: Buffer) => appendOutput('stderr', chunk));
-
+            child.stdout.on('data', (chunk: Buffer) => appendOutput(stdoutChunks, chunk));
+            child.stderr.on('data', (chunk: Buffer) => appendOutput(stderrChunks, chunk));
+            // A solution can exit without reading its input. EPIPE must not crash the API process.
+            child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+                if (error.code !== 'EPIPE' && error.code !== 'ERR_STREAM_DESTROYED') {
+                    processError = error.message;
+                    stop();
+                }
+            });
             child.on('error', (error) => {
-                setStderr(error.message);
+                processError = error.message;
                 finish(1);
             });
-
-            child.on('close', (code) => {
-                finish(timedOut ? -1 : outputExceeded ? 1 : code ?? 0);
+            child.on('exit', () => {
+                if (options.detached) killChild();
             });
-
-            if (options.stdin !== undefined) {
-                child.stdin?.write(options.stdin);
-            }
-            child.stdin?.end();
+            child.on('close', (code) => {
+                finish(timedOut ? -1 : outputExceeded || processError ? 1 : code ?? 1);
+            });
+            child.stdin.end(options.stdin);
         });
     }
 }

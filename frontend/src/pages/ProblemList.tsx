@@ -2,9 +2,9 @@
  * 題目列表頁：以表格顯示所有題目、狀態圖示、難度標籤、標籤與刪除動作。
  * 也包含 LeetCode 匯入 modal；內建題目（sort-array、add-two-integers）不可刪除。
  */
-import { useEffect, useState, type FC } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { problemsApi } from '../services/apiClient';
+import { getApiErrorMessage, problemsApi } from '../services/apiClient';
 import { ProblemMetadata, ProblemProgress } from '../types';
 
 /** 刪除 UI 會隱藏內建題目；後端仍會強制套用相同規則。 */
@@ -19,25 +19,49 @@ const ProblemList: FC = () => {
     const [importing, setImporting] = useState(false);
     const [importError, setImportError] = useState<string | null>(null);
     const [importSuccess, setImportSuccess] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [loadRevision, setLoadRevision] = useState(0);
+    const [deleting, setDeleting] = useState<Set<string>>(() => new Set());
+    const importBusyRef = useRef(false);
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const mountedRef = useRef(false);
     const navigate = useNavigate();
 
     useEffect(() => {
-        loadProblems();
-    }, []);
+        mountedRef.current = true;
+        const controller = new AbortController();
+        setLoading(true);
+        setError(null);
+        const load = async () => {
+            try {
+                const [data, progressData] = await Promise.all([
+                    problemsApi.getProblems(controller.signal),
+                    problemsApi.getAllProgress(controller.signal),
+                ]);
+                if (controller.signal.aborted) return;
+                setProblems(data);
+                setProgress(progressData);
+            } catch (loadError) {
+                if (!controller.signal.aborted) {
+                    setError(getApiErrorMessage(loadError, 'Failed to load problems.'));
+                }
+            } finally {
+                if (!controller.signal.aborted) setLoading(false);
+            }
+        };
+        void load();
+        return () => {
+            mountedRef.current = false;
+            controller.abort();
+            if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
+        };
+    }, [loadRevision]);
 
-    const loadProblems = async () => {
-        try {
-            const [data, progressData] = await Promise.all([
-                problemsApi.getProblems(),
-                problemsApi.getAllProgress(),
-            ]);
-            setProblems(data);
-            setProgress(progressData);
-        } catch (error) {
-            console.error('Error loading problems:', error);
-        } finally {
-            setLoading(false);
-        }
+    const closeImportModal = () => {
+        if (importBusyRef.current) return;
+        if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+        setShowImportModal(false);
     };
 
     const handleProblemClick = (problemId: string) => {
@@ -45,7 +69,9 @@ const ProblemList: FC = () => {
     };
 
     const handleImport = async () => {
-        if (!importUrl.trim()) return;
+        if (!importUrl.trim() || importBusyRef.current) return;
+        importBusyRef.current = true;
+        if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
 
         setImporting(true);
         setImportError(null);
@@ -53,26 +79,24 @@ const ProblemList: FC = () => {
 
         try {
             const result = await problemsApi.importProblem(importUrl.trim());
+            if (!mountedRef.current) return;
             setImportSuccess(`Successfully imported: ${result.title}`);
             setImportUrl('');
             // 匯入後重新整理，因為後端會寫入新的題目目錄。
             const data = await problemsApi.getProblems();
+            if (!mountedRef.current) return;
             setProblems(data);
             // 成功狀態短暫保留，讓使用者知道匯入已完成。
-            setTimeout(() => {
+            closeTimerRef.current = setTimeout(() => {
+                closeTimerRef.current = null;
                 setShowImportModal(false);
                 setImportSuccess(null);
             }, 2000);
         } catch (error: unknown) {
-            const message =
-                (typeof error === 'object' && error !== null && 'response' in error
-                    ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
-                    : undefined) ||
-                (error instanceof Error ? error.message : undefined) ||
-                'Failed to import problem';
-            setImportError(message);
+            if (mountedRef.current) setImportError(getApiErrorMessage(error, 'Failed to import problem'));
         } finally {
-            setImporting(false);
+            importBusyRef.current = false;
+            if (mountedRef.current) setImporting(false);
         }
     };
 
@@ -81,19 +105,28 @@ const ProblemList: FC = () => {
             handleImport();
         }
         if (e.key === 'Escape') {
-            setShowImportModal(false);
+            closeImportModal();
         }
     };
 
     const handleDelete = async (e: React.MouseEvent, problemId: string, title: string) => {
         e.stopPropagation();
+        if (deleting.has(problemId)) return;
         const confirmed = window.confirm(`Are you sure you want to delete "${title}"?`);
         if (!confirmed) return;
+        setDeleting(previous => new Set(previous).add(problemId));
+        setError(null);
         try {
             await problemsApi.deleteProblem(problemId);
-            setProblems(prev => prev.filter(p => p.id !== problemId));
+            if (mountedRef.current) setProblems(prev => prev.filter(p => p.id !== problemId));
         } catch (error) {
-            console.error('Error deleting problem:', error);
+            if (mountedRef.current) setError(getApiErrorMessage(error, 'Failed to delete problem.'));
+        } finally {
+            if (mountedRef.current) setDeleting(previous => {
+                const next = new Set(previous);
+                next.delete(problemId);
+                return next;
+            });
         }
     };
 
@@ -113,6 +146,7 @@ const ProblemList: FC = () => {
                 <button
                     className="import-btn"
                     onClick={() => {
+                        if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
                         setShowImportModal(true);
                         setImportError(null);
                         setImportSuccess(null);
@@ -123,6 +157,12 @@ const ProblemList: FC = () => {
                 </button>
             </div>
 
+            {error && (
+                <div className="error-message" role="alert">
+                    {error}
+                    <button type="button" onClick={() => setLoadRevision(value => value + 1)}>Reload</button>
+                </div>
+            )}
             <div className="problem-table">
                 <table>
                     <thead>
@@ -163,6 +203,7 @@ const ProblemList: FC = () => {
                                         <button
                                             className="delete-btn"
                                             title="Delete problem"
+                                            disabled={deleting.has(problem.id)}
                                             onClick={(e) => handleDelete(e, problem.id, problem.title)}
                                         >
                                             <img src="/trash-icon.png" alt="Delete" className="delete-icon" />
@@ -177,13 +218,14 @@ const ProblemList: FC = () => {
 
             {/* 匯入對話框只會根據 LeetCode 可見 metadata/範例建立本機題目。 */}
             {showImportModal && (
-                <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
+                <div className="modal-overlay" onClick={closeImportModal}>
                     <div className="import-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="import-modal-header">
                             <h2>Import from LeetCode</h2>
                             <button
                                 className="modal-close-btn"
-                                onClick={() => setShowImportModal(false)}
+                                disabled={importing}
+                                onClick={closeImportModal}
                             >
                                 ×
                             </button>

@@ -28,7 +28,7 @@ JustCode 是一個受 LeetCode 啟發的單機刷題練習工具。它會在你�
 - 如果要用本機沙盒執行 Java，需要 Java Development Kit 11 或更新版本。
 - 如果要用本機沙盒執行 Python3，需要 Python 3.9 或更新版本。內建 Python 範本使用 `list[int]` type hint。
 - Docker 是選用項目，但執行你不完全信任的程式碼時強烈建議使用。
-- `npm install` 與 LeetCode 匯入需要網路連線。
+- `npm install` 與 LeetCode 匯入需要網路連線。Monaco 與 worker 由本機提供；選用的 Google 字型在離線時使用系統字型替代。
 - 支援 macOS、Linux 或 Windows。`install.sh` 與 `uninstall.sh` 只適用於 macOS/Linux；npm 指令可跨平台使用。
 
 檢查環境：
@@ -82,7 +82,7 @@ macOS/Linux 也可以執行：
 | `docker` | 必須有 Docker 與設定的 image。不可用時會直接失敗，不會退回本機執行。執行不受信任程式碼時請使用這個模式。 |
 | `local` | 使用本機 `javac`、`java`、`python3` 執行，不透過 shell，並使用最小化環境變數。這很方便，但不是完整安全邊界。 |
 
-執行限制目前定義在 `backend/src/constants.ts`：Java 編譯最多 10 秒，每筆測資最多 1 秒，stdout/stderr 合計最多保留 10 MB。這些限制目前沒有對應的環境變數可以調整。
+執行限制目前定義在 `backend/src/constants.ts`：Java 編譯最多 10 秒，每筆測資最多 1 秒，整次提交最多 60 秒。每個程序的 stdout/stderr 合計最多 10 MiB，整次提交保留的除錯輸出也有累計上限。同時最多執行兩筆請求，額外請求回傳 HTTP 429。這些限制目前沒有對應的環境變數可以調整。
 
 使用 Docker 模式：
 
@@ -160,7 +160,7 @@ Hidden testcase JSON 必須是非空陣列。每一項都必須是含有 `input`
 ]
 ```
 
-使用 `Project Path` 時，後端只會讀取 JustCode 專案目錄內既有的檔案。絕對路徑、不存在的檔案、資料夾，以及會逃出專案目錄的路徑都會被拒絕。
+使用 `Project Path` 時，後端只會讀取 JustCode 專案目錄內、最大 64 MiB 的既有檔案；HTTP JSON request body 上限是 10 MiB。絕對路徑、不存在的檔案、資料夾，以及會逃出專案目錄的路徑都會被拒絕。
 
 ### 自訂輸入
 
@@ -191,7 +191,7 @@ Hidden testcase JSON 必須是非空陣列。每一項都必須是含有 `input`
 https://leetcode.com/problems/two-sum/
 ```
 
-匯入的題目會存到 `problems/<problem-slug>/`。
+匯入的題目會存到 `problems/<problem-slug>/`。重複匯入已存在的題目會回傳 HTTP 409，保留原有隱藏測資與進度。
 
 重要限制：
 
@@ -220,7 +220,7 @@ problems/<problem-id>/
 
 必要檔案是 `problem.json`、`testcases_visible.json`，以及 `problem.json` 中每個支援語言對應的範本檔。`testcases_hidden.json` 對執行來說是選用檔，但匯入題目時會建立空檔，方便之後加入私有測資。`editorial.md` 是選用檔。`progress.json` 會在使用者編輯或提交程式碼後由 App 自動建立或更新。
 
-`problem.json` 定義標題、難度、標籤、題目敘述、範例、限制條件、支援語言、函式名稱、參數、回傳型別與顯示用函式簽名。`params` 裡的參數名稱必須和測資 `input` object 的 key 一致。
+`problem.json` 定義標題、難度、標籤、題目敘述、範例、限制條件、支援語言、函式名稱、參數、回傳型別與顯示用函式簽名。`params` 裡的參數名稱必須和測資 `input` object 的 key 一致。題目 ID 與資料夾名稱僅接受小寫字母、數字、底線和連字號，第一字元必須是字母或數字，最多 200 字元。
 
 測資檔是 JSON array：
 
@@ -249,20 +249,22 @@ problems/<problem-id>/
 | `npm run dev` | 同時啟動後端與前端開發伺服器。 |
 | `npm run dev:backend` | 只啟動後端，使用 `PORT` 或 `3000`。 |
 | `npm run dev:frontend` | 只啟動 Vite 前端，使用 `5173`。 |
-| `npm run build` | 建置前端與後端。這是目前主要的驗證指令。 |
+| `npm test` | 執行隔離的 API、儲存、匯入、前端狀態、執行器與題解回歸測試；需要本機 Java 與 Python。 |
+| `npm run typecheck` | 檢查前後端與 Vite 設定型別，不輸出建置檔。 |
+| `npm run build` | 建置前端與後端。 |
 | `npm run build:frontend` | 只建置前端。 |
 | `npm run build:backend` | 只建置後端 TypeScript 輸出。 |
 | `npm run start:backend` | 啟動已建置的後端。請先執行 `npm run build:backend`。 |
 | `npm run preview --workspace=frontend` | 用 Vite preview 在本機預覽已建置的前端。請先執行 `npm run build:frontend`。 |
-| `npm run clean` | 移除相依套件、建置輸出、暫存執行檔與 lock 檔。 |
-| `npm run clean:modules` | 只移除 `node_modules` 與 lock 檔。 |
+| `npm run clean` | 移除相依套件、建置輸出與暫存執行檔，保留 lock 檔。 |
+| `npm run clean:modules` | 移除 `node_modules`，保留 lock 檔。 |
 | `npm run clean:build` | 只移除建置輸出與 TypeScript build info。 |
 | `./install.sh` | macOS/Linux 安裝輔助腳本。 |
 | `./uninstall.sh` | macOS/Linux 清理相依套件與建置輸出的輔助腳本。 |
 
-目前 repository 沒有 `npm test` 或 lint script。請用 `npm run build` 做型別檢查與建置驗證。
+請執行 `npm test`、`npm run typecheck` 與 `npm run build` 驗證修改。目前未設定獨立 lint script。
 
-請留意 `npm run clean` 與 `npm run clean:modules` 都會移除 `package-lock.json`。之後需要再執行 `npm install` 重新產生。
+清理指令會保留 `package-lock.json`，讓重新安裝時可沿用已記錄的相依套件版本。
 
 ## 建置與部署注意事項
 
@@ -278,9 +280,9 @@ npm run build
 npm run start:backend
 ```
 
-請使用 workspace script，不要從 repository 根目錄直接執行 `node backend/dist/server.js`。後端預期工作目錄是 `backend/`，這樣才能找到 `../problems`。
+後端以模組所在位置解析題目儲存目錄，因此 workspace script 與從 repository 根目錄執行 `node backend/dist/server.js` 都可使用。
 
-目前沒有內建「一個指令同時啟動前後端」的 production server。若要部署，請用靜態檔伺服器或 reverse proxy 提供 `frontend/dist`，並把 `/api` 轉發到後端。開發模式下的 `/api` 代理由 Vite 提供。
+目前沒有內建「一個指令同時啟動前後端」的 production server。若要在本機使用，請用靜態檔伺服器或 reverse proxy 提供 `frontend/dist`，並把 `/api` 轉發到後端。開發模式下的 `/api` 代理由 Vite 提供。
 
 可以這樣在本機預覽已建置的前端：
 
@@ -290,12 +292,12 @@ npm run preview --workspace=frontend
 
 ## 限制與注意事項
 
-- JustCode 是給單一本機使用者使用的工具，沒有實作登入、帳號、共享進度或資料庫。
+- JustCode 是給單一本機使用者使用的工具，沒有實作登入、帳號、共享進度或資料庫。後端只綁定 127.0.0.1，且只接受 localhost／loopback 的 Host 與瀏覽器 Origin。
 - 本機沙盒模式只是相容性 fallback，不是完整安全邊界。執行你不完全信任的程式碼時請使用 Docker 模式。
 - Docker 模式會停用執行容器的網路，並套用 CPU、記憶體、程序數、唯讀檔案系統與逾時限制，但這個專案仍應視為本機練習工具，不是 production 等級的 judge。
 - 目前只實作 Java 與 Python3 執行。
 - 產生的 runner 支援常見 JSON 形狀輸入：數字、字串、布林值、array、巢狀 array，以及受支援的 Java list 型別。`ListNode` 或 `TreeNode` 這類 LeetCode 自訂資料結構尚未實作。
-- 輸出比對使用精確 JSON 序列化。若題目有無序答案、浮點誤差容忍或多個合法答案，需要調整測資或 runner 邏輯。
+- 輸出比對使用 JSON 結構相等：忽略物件 key 順序，但保留陣列順序與基本型別差異。若題目有無序答案、浮點誤差容忍或多個合法答案，需要調整測資或 runner 邏輯。
 - 進度會以 `progress.json` 儲存在各題資料夾；刪除題目資料夾會一併刪除該題已儲存的程式碼與解題紀錄。
 
 ## 專案結構
@@ -422,7 +424,7 @@ docker pull python:3.11-slim
 
 ### Run 或 Submit 逾時
 
-每筆測資在後端最多執行 1 秒，前端 API client 最多等待 30 秒回應。如果解法邏輯正確但太慢，請優化解法，或在本機練習時縮小測資。這些逾時值目前是程式碼常數，不是環境變數。
+每筆測資最多執行 1 秒，整次提交上限 60 秒，前端對 Run／Submit 最多等待 75 秒回應。如果解法邏輯正確但太慢，請優化解法，或在本機練習時縮小測資。這些逾時值目前是程式碼常數，不是環境變數。
 
 ### LeetCode 匯入失敗
 

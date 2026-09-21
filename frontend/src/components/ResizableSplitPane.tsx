@@ -40,18 +40,19 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
     // mousemove 可能比 React render 更頻繁；每個 frame 只保留最新指標位置。
     const pendingPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
     const dragFrameRef = useRef<number | null>(null);
+    const activePointerRef = useRef<number | null>(null);
 
     const clampPercent = useCallback((value: number): number => {
         return Math.min(100, Math.max(0, value));
     }, []);
 
-    const clampSizeByConstraints = useCallback((rawSize: number): number => {
+    const clampSizeByConstraints = useCallback((rawSize: number, measuredSize?: number): number => {
         const container = containerRef.current;
         if (!container) return clampPercent(rawSize);
 
         // 像素最小值會依目前 container 尺寸轉成百分比。
-        const rect = container.getBoundingClientRect();
-        const containerSize = direction === 'horizontal' ? rect.width : rect.height;
+        const rect = measuredSize === undefined ? container.getBoundingClientRect() : null;
+        const containerSize = measuredSize ?? ((direction === 'horizontal' ? rect!.width : rect!.height) - 8);
         if (containerSize <= 0) return clampPercent(rawSize);
 
         let minBound = clampPercent(minSizePercent);
@@ -68,9 +69,10 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
             maxBound = Math.min(maxBound, 100 - clampPercent((minSecondarySizePx / containerSize) * 100));
         }
 
-        // 若兩側最小像素限制無法同時滿足，優先保持 secondary pane 可見。
+        // A narrow viewport cannot satisfy both pixel minima; keep both panes
+        // visible instead of collapsing one to zero.
         if (minBound > maxBound) {
-            return clampPercent(maxBound);
+            return clampPercent((minBound + maxBound) / 2);
         }
 
         return clampPercent(Math.min(maxBound, Math.max(minBound, rawSize)));
@@ -83,25 +85,42 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
         minSecondarySizePx,
     ]);
 
-    const handleMouseDown = () => {
+    const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.button !== 0 || activePointerRef.current !== null) return;
+        activePointerRef.current = event.pointerId;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
         setIsDragging(true);
     };
 
+    const handleDividerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        const decrease = direction === 'horizontal' ? 'ArrowLeft' : 'ArrowUp';
+        const increase = direction === 'horizontal' ? 'ArrowRight' : 'ArrowDown';
+        if (event.key !== decrease && event.key !== increase) return;
+        event.preventDefault();
+        setSize(previous => clampSizeByConstraints(previous + (event.key === increase ? 2 : -2)));
+    };
+
     useEffect(() => {
+        if (!isDragging) return;
+        const previousCursor = document.body.style.cursor;
+        const previousUserSelect = document.body.style.userSelect;
         const updateSizeFromPointer = (pointer: { clientX: number; clientY: number }) => {
             const container = containerRef.current;
             if (!container) return;
 
             const containerRect = container.getBoundingClientRect();
+            const containerSize = (direction === 'horizontal' ? containerRect.width : containerRect.height) - 8;
+            if (containerSize <= 0) return;
             let newSize: number;
 
             if (direction === 'horizontal') {
-                newSize = ((pointer.clientX - containerRect.left) / containerRect.width) * 100;
+                newSize = ((pointer.clientX - containerRect.left) / containerSize) * 100;
             } else {
-                newSize = ((pointer.clientY - containerRect.top) / containerRect.height) * 100;
+                newSize = ((pointer.clientY - containerRect.top) / containerSize) * 100;
             }
 
-            const nextSize = clampSizeByConstraints(newSize);
+            const nextSize = clampSizeByConstraints(newSize, containerSize);
             setSize((prev) => (Object.is(prev, nextSize) ? prev : nextSize));
         };
 
@@ -122,8 +141,8 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
             }
         };
 
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!isDragging) return;
+        const handlePointerMove = (e: PointerEvent) => {
+            if (e.pointerId !== activePointerRef.current) return;
 
             pendingPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
             if (dragFrameRef.current !== null) return;
@@ -139,26 +158,31 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
             });
         };
 
-        const handleMouseUp = () => {
+        const handlePointerUp = (event: PointerEvent | Event) => {
+            if ('pointerId' in event && event.pointerId !== activePointerRef.current) return;
             flushPendingPointer();
             setIsDragging(false);
         };
 
-        if (isDragging) {
-            // 監聽 document，讓指標離開分隔線後仍可繼續拖曳。
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-            document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
-            document.body.style.userSelect = 'none';
-        }
+        // Capture keeps touch/mouse drags active outside the divider; blur and
+        // pointercancel also end them when no ordinary pointerup arrives.
+        document.addEventListener('pointermove', handlePointerMove);
+        document.addEventListener('pointerup', handlePointerUp);
+        document.addEventListener('pointercancel', handlePointerUp);
+        window.addEventListener('blur', handlePointerUp);
+        document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
+        document.body.style.userSelect = 'none';
 
         return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+            window.removeEventListener('blur', handlePointerUp);
             cancelPendingFrame();
+            activePointerRef.current = null;
             pendingPointerRef.current = null;
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
+            document.body.style.cursor = previousCursor;
+            document.body.style.userSelect = previousUserSelect;
         };
     }, [isDragging, direction, clampSizeByConstraints]);
 
@@ -166,23 +190,30 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
     useEffect(() => {
         const syncSize = () => setSize((prev) => clampSizeByConstraints(prev));
         syncSize();
-        window.addEventListener('resize', syncSize);
-        return () => window.removeEventListener('resize', syncSize);
+        const observer = new ResizeObserver(syncSize);
+        if (containerRef.current) observer.observe(containerRef.current);
+        return () => observer.disconnect();
     }, [clampSizeByConstraints]);
 
     if (direction === 'vertical') {
         return (
             <div className="resizable-split-pane vertical" ref={containerRef}>
-                <div className="split-pane-top" style={{ height: `${size}%` }}>
+                <div className="split-pane-top" style={{ flex: `${size} 1 0` }}>
                     {top}
                 </div>
                 <div
                     className={`split-pane-divider horizontal ${isDragging ? 'dragging' : ''}`}
-                    onMouseDown={handleMouseDown}
+                    onPointerDown={handlePointerDown}
+                    onKeyDown={handleDividerKeyDown}
+                    role="separator"
+                    tabIndex={0}
+                    aria-label="Resize panels"
+                    aria-valuenow={Math.round(size)}
+                    aria-orientation="horizontal"
                 >
                     <div className="divider-line"></div>
                 </div>
-                <div className="split-pane-bottom" style={{ height: `${100 - size}%` }}>
+                <div className="split-pane-bottom" style={{ flex: `${100 - size} 1 0` }}>
                     {bottom}
                 </div>
             </div>
@@ -191,16 +222,22 @@ const ResizableSplitPane: React.FC<ResizableSplitPaneProps> = ({
 
     return (
         <div className="resizable-split-pane horizontal" ref={containerRef}>
-            <div className="split-pane-left" style={{ width: `${size}%` }}>
+            <div className="split-pane-left" style={{ flex: `${size} 1 0` }}>
                 {left}
             </div>
             <div
                 className={`split-pane-divider vertical ${isDragging ? 'dragging' : ''}`}
-                onMouseDown={handleMouseDown}
+                onPointerDown={handlePointerDown}
+                onKeyDown={handleDividerKeyDown}
+                role="separator"
+                tabIndex={0}
+                aria-label="Resize panels"
+                aria-valuenow={Math.round(size)}
+                aria-orientation="vertical"
             >
                 <div className="divider-line"></div>
             </div>
-            <div className="split-pane-right" style={{ width: `${100 - size}%` }}>
+            <div className="split-pane-right" style={{ flex: `${100 - size} 1 0` }}>
                 {right}
             </div>
         </div>

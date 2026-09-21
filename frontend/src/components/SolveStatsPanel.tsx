@@ -1,6 +1,6 @@
 /**
  * 解題統計面板：顯示目前嘗試計時與已保存的 AC 歷史。
- * 解題紀錄先以 submit runtime 排名，再以總解題時間作為排序決勝條件。
+ * 解題紀錄先以 Submit 請求耗時（含網路與排隊）排名，再以總解題時間作為排序決勝條件。
  */
 import { useEffect, useMemo, useState, type FC } from 'react';
 import type { ProblemProgress, SolveRecord } from '../types';
@@ -47,7 +47,7 @@ const formatSolvedAt = (value: string): string => {
 };
 
 const rankRecords = (records: SolveRecord[]) => {
-    // 兩次提交測得相同 runtime 時，排序決勝條件讓排名保持可重現。
+    // 兩次提交測得相同請求耗時時，排序決勝條件讓排名保持可重現。
     return [...records]
         .sort((a, b) =>
             getSubmitDuration(a) - getSubmitDuration(b) ||
@@ -102,6 +102,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
     }, [records]);
 
     useEffect(() => {
+        if (!expanded) return;
         const updateElapsed = () => {
             setCurrentElapsedMs(Date.now() - attemptStartedAt);
         };
@@ -109,7 +110,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
         updateElapsed();
         const timer = window.setInterval(updateElapsed, 1000);
         return () => window.clearInterval(timer);
-    }, [attemptStartedAt]);
+    }, [attemptStartedAt, expanded]);
 
     return (
         <section className={`solve-stats-panel ${expanded ? 'expanded' : 'collapsed'}`} aria-label="Solve statistics">

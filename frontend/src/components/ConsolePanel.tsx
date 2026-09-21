@@ -65,7 +65,7 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
                 </div>
             </div>
             <div className="console-content">
-                {activeTab === 'testcase' ? (
+                <div hidden={activeTab !== 'testcase'}>
                     <TestcaseTab
                         problem={problem}
                         inputMode={inputMode}
@@ -73,7 +73,8 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
                         onInputModeChange={setInputMode}
                         onCustomInputChange={setCustomInput}
                     />
-                ) : (
+                </div>
+                {activeTab === 'result' && (
                     <ResultPanel executing={executing} result={executionResult} />
                 )}
             </div>

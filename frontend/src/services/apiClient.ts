@@ -1,7 +1,3 @@
-/**
- * API Client：所有後端 API 呼叫使用的 Axios HTTP client。
- * 提供題目、程式執行、進度與匯入相關方法。
- */
 import axios from 'axios';
 import {
     ExecutionResult,
@@ -12,26 +8,34 @@ import {
     ProblemMetadata,
     ProblemProgress,
 } from '../types';
+import { createProgressPersistence } from './progressPersistence';
 
-const API_BASE_URL = '/api';
-
-// 開發時 Vite 會將 /api 代理到後端；正式環境可由同一 host 提供相同路徑。
+// Vite proxies /api during development; production uses the same origin.
 const apiClient = axios.create({
-    baseURL: API_BASE_URL,
+    baseURL: '/api',
     timeout: 30000,
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
 });
 
+const progressPersistence = createProgressPersistence(async (id, progress) => {
+    await apiClient.put(`/progress/${encodeURIComponent(id)}`, progress);
+});
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+    if (axios.isAxiosError(error) && typeof error.response?.data?.error === 'string') {
+        return error.response.data.error;
+    }
+    return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export const problemsApi = {
-    async getProblems(): Promise<ProblemMetadata[]> {
-        const response = await apiClient.get('/problems');
+    async getProblems(signal?: AbortSignal): Promise<ProblemMetadata[]> {
+        const response = await apiClient.get('/problems', { signal });
         return response.data;
     },
 
-    async getProblem(id: string): Promise<Problem> {
-        const response = await apiClient.get(`/problems/${id}`);
+    async getProblem(id: string, signal?: AbortSignal): Promise<Problem> {
+        const response = await apiClient.get(`/problems/${encodeURIComponent(id)}`, { signal });
         return response.data;
     },
 
@@ -40,24 +44,22 @@ export const problemsApi = {
         code: string,
         language: Language,
         inputMode: 'visible' | 'custom',
-        customInput?: string
+        customInput?: string,
+        signal?: AbortSignal
     ): Promise<ExecutionResult> {
+        // The backend bounds the entire execution to 60s, plus HTTP overhead.
         const response = await apiClient.post('/run', {
-            problemId,
-            code,
-            language,
-            inputMode,
-            customInput,
-        });
+            problemId, code, language, inputMode, customInput,
+        }, { signal, timeout: 75000 });
         return response.data;
     },
 
-    async submitCode(problemId: string, code: string, language: Language): Promise<ExecutionResult> {
+    async submitCode(
+        problemId: string, code: string, language: Language, signal?: AbortSignal
+    ): Promise<ExecutionResult> {
         const response = await apiClient.post('/submit', {
-            problemId,
-            code,
-            language,
-        });
+            problemId, code, language,
+        }, { signal, timeout: 75000 });
         return response.data;
     },
 
@@ -70,26 +72,30 @@ export const problemsApi = {
         id: string,
         request: HiddenTestcaseImportRequest
     ): Promise<HiddenTestcaseImportResponse> {
-        // projectPath 模式會讀取伺服器端檔案，因此驗證責任在後端。
-        const response = await apiClient.post(`/problems/${id}/hidden-testcases`, request);
+        const response = await apiClient.post(`/problems/${encodeURIComponent(id)}/hidden-testcases`, request);
         return response.data;
     },
 
-    async getProgress(id: string): Promise<ProblemProgress | null> {
-        const response = await apiClient.get(`/progress/${id}`);
-        return response.data;
+    async getProgress(id: string, signal?: AbortSignal): Promise<ProblemProgress | null> {
+        return progressPersistence.read(id, async () => {
+            const response = await apiClient.get(`/progress/${encodeURIComponent(id)}`, { signal });
+            return response.data;
+        });
     },
 
-    async getAllProgress(): Promise<Record<string, ProblemProgress>> {
-        const response = await apiClient.get('/progress');
-        return response.data;
+    async getAllProgress(signal?: AbortSignal): Promise<Record<string, ProblemProgress>> {
+        return progressPersistence.readAll(async () => {
+            const response = await apiClient.get('/progress', { signal });
+            return response.data;
+        });
     },
 
-    async saveProgress(id: string, progress: ProblemProgress): Promise<void> {
-        await apiClient.put(`/progress/${id}`, progress);
-    },
+    saveProgress: progressPersistence.save,
+    hasUnsavedProgress: progressPersistence.hasUnsavedDrafts,
 
     async deleteProblem(id: string): Promise<void> {
-        await apiClient.delete(`/problems/${id}`);
+        await progressPersistence.remove(id, async () => {
+            await apiClient.delete(`/problems/${encodeURIComponent(id)}`);
+        });
     },
 };
