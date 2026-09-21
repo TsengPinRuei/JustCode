@@ -1,211 +1,228 @@
 # JustCode
 
-JustCode is a single-machine coding practice app inspired by LeetCode. It runs a React frontend and an Express backend on your own computer, stores problems as files under `problems/`, and executes Java or Python3 solutions locally or in Docker.
+[English](README.md) | [繁體中文](READMEzhTW.md)
 
-The project is meant for personal learning and local practice. It is not a hosted multi-user online judge, and it does not need an account, database, API key, or cloud service for normal local use.
+JustCode is a coding practice app that runs on your own computer. Choose a problem, write a Java or Python3 solution in your browser, and check it against local testcases. A **testcase** is an input together with the answer your code should return.
+
+The React frontend is the page you use; the Express backend reads problem files and runs your code. Problems and progress live in `problems/`. Normal local use needs no account, database, API key, or cloud service.
 
 ![JustCode](https://img.shields.io/badge/JustCode-v1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Key Features
+Start with [Quick Start](#quick-start), then follow [Your First Solution](#your-first-solution). The interface currently uses English labels; both guides use the exact button names.
 
-- Browse local coding problems with difficulty, tags, and solved/attempted status.
-- Solve problems in Java or Python3 using a Monaco-based code editor with reset and font-size controls.
-- Run visible testcases, run one custom JSON input, or submit against visible plus hidden testcases.
-- Save progress automatically per problem, including selected language, code for each language, accepted submission records, and solve timing.
-- Import public LeetCode problem data by URL, including statement text, examples, constraints, Java/Python3 templates, and example testcases.
-- Download a problem brief and import hidden testcases from pasted JSON, a selected local JSON file, or a project-relative JSON file path.
-- Delete imported problems from the UI. Built-in problems are protected from deletion.
-- Read Markdown editorials with GitHub-flavored Markdown, tabbed adjacent code blocks, and copy buttons.
-- See AC, WA, CE, RE, and TLE feedback, per-testcase details, timing, compile-error markers in the editor, and filtered debug output for failing cases.
-- Review solve statistics such as current attempt time, best total time, latest submit runtime, and ranked accepted submissions.
-- Run code through a sandbox runner with temporary workspaces, timeout handling, bounded output, and optional Docker isolation.
-- Resize the problem, editor, and console panes while working.
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Built-in Problems](#built-in-problems)
+- [Practice Guide](#practice-guide)
+- [Importing Problems and Hidden Tests](#importing-problems-and-hidden-tests)
+- [Local Files, Backup, and Custom Problems](#local-files-backup-and-custom-problems)
+- [Configuration and Execution Limits](#configuration-and-execution-limits)
+- [Commands and Verification](#commands-and-verification)
+- [Previewing a Build](#previewing-a-build)
+- [Implementation and Portfolio Notes](#implementation-and-portfolio-notes)
+- [Limitations](#limitations)
+- [Project Structure](#project-structure)
+- [API Overview](#api-overview)
+- [Troubleshooting](#troubleshooting)
+- [License Metadata](#license-metadata)
 
-## Requirements
+## Features
 
-- Node.js 18 or newer, with npm.
-- Java Development Kit 11 or newer if you want to run Java in local sandbox mode.
-- Python 3.9 or newer if you want to run Python3 in local sandbox mode. The bundled Python templates use `list[int]` type hints.
-- Docker is optional, but strongly recommended when running code you do not fully trust.
-- Internet access is required for `npm install` and for LeetCode imports. Monaco and its worker are bundled locally; the optional Google font uses system fallbacks when offline.
-- macOS, Linux, or Windows. The `install.sh` and `uninstall.sh` scripts are for macOS/Linux; the npm commands work cross-platform.
+- Browse problems with difficulty, tags, and attempted/solved indicators.
+- Write Java or Python3 in the Monaco editor, switch languages without losing the other draft, restore a template, and adjust the font size.
+- Run visible tests, try custom JSON input, or submit against visible and hidden tests.
+- See accepted answers, wrong answers, syntax/compilation errors, runtime errors, timeouts, editor error markers, and details for visible tests.
+- Automatically save code and accepted-submission timing records per problem, with save-error messages and a retry action.
+- Import public LeetCode statements, examples, constraints, Java/Python3 templates, and example testcases.
+- Download a Markdown problem brief; add hidden tests from pasted JSON, a browser-selected file, or a project-relative file path.
+- Read Markdown editorials with tables, language tabs for adjacent code blocks, and copy buttons. Resize the problem, editor, and console panes.
+- Compare your accepted submissions in a local statistics panel. Delete non-built-in problems after confirmation.
+- Execute in separate temporary workspaces with time and output limits, using local runtimes or optional Docker containers.
 
-Check your environment:
+## Quick Start
+
+### What to install
+
+| Tool | When you need it |
+| --- | --- |
+| Node.js and npm | Always, to run the app. This guide was verified with Node.js 22. The locked Vite dependency accepts Node.js `18.x`, `20.x`, or `>=22`; `install.sh` only checks the lower bound of 18. |
+| JDK 11 or newer | To run Java locally. A JDK includes both `javac` (compiler) and `java` (runtime). |
+| Python 3.9 or newer | To run Python3 locally. The executable must be named `python3`; the sorting template uses `list[int]` annotations. |
+| Docker | Optional alternative to installing Java/Python locally. Start Docker and download the images in [Configuration](#configuration-and-execution-limits) before using it. |
+| Git | Only if you download the project with `git clone`; downloading and extracting the repository ZIP also works. |
+
+For a first try, Node.js/npm plus **one** local language runtime is enough. Full executor tests need both Java and Python. The commands are intended for macOS, Linux, and Windows; the shell helper scripts require macOS/Linux. Verification for this documentation was performed on macOS, not on every platform.
+
+Open Terminal on macOS/Linux or PowerShell on Windows. Check Node.js and whichever language you installed:
 
 ```bash
 node --version
 npm --version
-javac --version
-java --version
-python3 --version
-docker --version
 ```
 
-## Installation
+For Java, check both commands:
 
-From the repository root:
+```bash
+javac --version
+java --version
+```
+
+For Python:
+
+```bash
+python3 --version
+```
+
+### Download, install, and start
+
+If you do not have the project yet:
+
+```bash
+git clone https://github.com/TsengPinRuei/JustCode.git
+cd JustCode
+```
+
+If you already downloaded it, open a terminal in the **project root**: the folder containing `package.json`, `frontend/`, `backend/`, and `problems/`. Run commands there unless stated otherwise.
 
 ```bash
 npm install
+npm run dev
 ```
 
-This uses npm workspaces to install the root, frontend, and backend dependencies.
+`npm install` installs both frontend and backend dependencies through npm workspaces. It is normally needed only for the first setup or after dependency changes. On macOS/Linux, `./install.sh` is an alternative to `npm install`; it checks Node.js/npm and installs dependencies, but does not install Java, Python, or Docker. Run it as your normal user, without `sudo`.
 
-On macOS/Linux, you can also run:
+Leave the terminal running and open [http://localhost:5173](http://localhost:5173) in your browser. The API runs at [http://localhost:3000](http://localhost:3000); [its health endpoint](http://localhost:3000/health) should return JSON with `"status":"ok"`. Port 3000 is the backend, not the app page. If Vite selects another available port, use the URL printed in the terminal.
 
-```bash
-./install.sh
+Internet access is needed to install dependencies and import from LeetCode. Once installed, the bundled problems and editor work locally; Monaco and its worker are bundled, and the optional Google font has a system-font fallback.
+
+To stop, allow pending saves to finish, then press `Ctrl+C` in the server terminal. Next time, run `npm run dev` again from the project root.
+
+### Your First Solution
+
+1. Open **-27. Add Two Integers** in the problem list.
+2. Choose **Java** or **Python3** above the editor.
+3. Replace the editor contents with the corresponding complete example below. The starter templates are intentionally unfinished.
+
+Java:
+
+```java
+class Solution {
+    public int sum(int num1, int num2) {
+        return num1 + num2;
+    }
+}
 ```
 
-The script checks for Node.js and then runs `npm install`.
+Python3:
 
-## Configuration
+```python
+class Solution:
+    def sum(self, num1: int, num2: int) -> int:
+        return num1 + num2
+```
 
-JustCode does not require a `.env` file for normal local use. Configuration is read from environment variables.
+4. In **Testcase**, select **Case 1**, then click **Run**. The result should be **Accepted**, with **2 / 2** visible tests passed.
+5. Click **Submit**. With the bundled, unchanged tests, the result should be **Accepted**, with **52 / 52** tests passed.
+6. Expand **Stats** to see the new accepted record. Return to the problem list using **Problems**; the problem should have a solved check mark.
 
-| Variable | Default | Purpose |
+Keep the `Solution` class, method name, parameters, and return type from the template. **Return** the answer with `return`; printing it with `print` or `System.out.println` is only debug output. You do not need to write a `main` function or read standard input: JustCode generates the calling code.
+
+## Built-in Problems
+
+These are the files shipped in this checkout; counts change if you edit or import more tests.
+
+| Problem | Difficulty | Languages | Visible / hidden tests | Included editorial |
+| --- | --- | --- | --- | --- |
+| [-27. Add Two Integers](problems/add-two-integers/problem.json) | Easy | Java, Python3 | 2 / 50 | [Addition and a bitwise alternative](problems/add-two-integers/editorial.md) |
+| [-09. Sort an Array](problems/sort-array/problem.json) | Medium | Java, Python3 | 3 / 70 | [Quick, merge, heap, counting, and radix sort](problems/sort-array/editorial.md) |
+
+Both problems include templates and visible/hidden test files. They are protected from UI/API deletion. Start with addition to check your installation, then use sorting to practice algorithms and compare approaches. The sorting statement asks you to implement sorting yourself; the judge checks outputs and execution limits, not whether you used a built-in sorting function or achieved a particular complexity.
+
+## Practice Guide
+
+### Run, custom input, and Submit
+
+| Action | What executes | What success means |
 | --- | --- | --- |
-| `PORT` | `3000` | Backend API port. The Vite dev proxy expects `3000` unless you also update `frontend/vite.config.ts`. |
-| `JUSTCODE_SANDBOX_MODE` | `auto` | Code execution mode: `auto`, `docker`, or `local`. |
-| `JUSTCODE_JAVA_SANDBOX_IMAGE` | `eclipse-temurin:17-jdk` | Docker image for Java execution. |
-| `JUSTCODE_PYTHON_SANDBOX_IMAGE` | `python:3.11-slim` | Docker image for Python execution. |
-| `JUSTCODE_DOCKER_MEMORY` | `256m` | Docker memory limit per execution container. |
-| `JUSTCODE_DOCKER_CPUS` | `1` | Docker CPU limit per execution container. |
-| `JUSTCODE_DOCKER_PIDS_LIMIT` | `64` | Docker process limit per execution container. |
+| **Run** while a **Case** tab is selected | All visible testcases, not just the displayed case | Your return values matched those visible answers. It does not mark the problem solved. |
+| **Testcase → Custom Input → Run** | One input you enter | The program ran and returned a value. There is no expected answer to compare, even when the summary says **Accepted**. |
+| **Submit** | All visible tests plus the current local hidden tests | Passing creates a solved status and an accepted record. It ignores the Custom Input box. |
 
-Sandbox modes:
+For Add Two Integers, enter this in **Custom Input**:
 
-| Mode | Behavior |
-| --- | --- |
-| `auto` | Uses Docker only when the required image already exists locally and the Docker daemon is available. Otherwise it falls back to restricted local execution. |
-| `docker` | Requires Docker and the configured image. If Docker is unavailable, execution fails instead of falling back. Use this for untrusted code. |
-| `local` | Runs local `javac`, `java`, and `python3` without a shell and with a minimal environment. This is convenient, but it is not a full security boundary. |
-
-Execution limits are currently defined in `backend/src/constants.ts`: Java compilation has a 10 second timeout, each testcase has a 1 second timeout, and an entire submission has a 60 second budget. Combined stdout/stderr is capped at 10 MiB per process, and retained debug output is capped across the submission. At most two executions run concurrently; additional requests return HTTP 429. These limits are not exposed as environment variables.
-
-For Docker mode:
-
-```bash
-docker pull eclipse-temurin:17-jdk
-docker pull python:3.11-slim
-JUSTCODE_SANDBOX_MODE=docker npm run dev
+```json
+{"num1": 12, "num2": 5}
 ```
 
-On Windows PowerShell, set environment variables like this:
+For Sort an Array:
 
-```powershell
-$env:JUSTCODE_SANDBOX_MODE = "docker"
-npm run dev
+```json
+{"nums": [5, 2, 3, 1]}
 ```
 
-## Usage
+Use valid JSON: double-quoted keys/strings, no comments, and no trailing commas. Enter only the input object, not an `input`/`output` wrapper. The keys must exactly match the problem's parameter names. Opening **Custom Input** initially copies the first visible input as a starting point.
 
-Start both development servers:
+### Reading results
 
-```bash
-npm run dev
-```
+| Status | Meaning | What to check |
+| --- | --- | --- |
+| **AC — Accepted** | All compared tests passed, or custom input executed successfully | Use Submit to record a solve. An imported problem may still have no hidden tests. |
+| **WA — Wrong Answer** | A returned value differs from its expected answer | Compare Input, Expected, and Actual; check edge cases and array order. |
+| **CE — Compilation Error** | Java compilation or Python syntax checking failed | Read the message and editor markers; check indentation, names, types, and syntax. |
+| **RE — Runtime Error** | Execution failed, or a runtime/sandbox could not start correctly | Read the error; check exceptions, supported types, and installed runtimes. |
+| **TLE — Time Limit Exceeded** | Compilation, a testcase, or the whole request ran out of time | Check loops and algorithm cost; see the execution limits below. |
 
-This starts:
+**Result** shows visible testcase values and timing. For hidden tests, Submit reports totals and at most the first failing hidden result's index, status, and timing; it omits hidden inputs, answers, exception text, and debug output. The **Console Output** area shows debug output only for failing visible cases. Successful runs do not display it.
 
-- Backend API: `http://localhost:3000`
-- Frontend app: `http://localhost:5173`
+### Editor, progress, and statistics
 
-Open:
+- The language selector preserves a separate code draft for Java and Python3. **Reset** immediately replaces and saves the current language's code with its template; it keeps the other language and existing solve records. Copy anything you want to keep before resetting.
+- **A− / A+** change the font size from 12 to 24. Drag the dividers to resize the problem/editor area or editor/console area. **Description** shows the statement; **Editorial** shows the explanation and copyable code.
+- Code edits are saved after about one second without further edits. Language changes and accepted records request an immediate save; page navigation also attempts to flush pending changes. If **Changes have not been saved** appears, keep the tab open, copy your code, restore the backend connection, and use **Retry save**. Failed drafts are held in browser memory, not a durable offline store.
+- An untouched problem has no status icon; editing marks it attempted (**◐**); an accepted Submit marks it solved (**✓**). Later edits or failed submissions do not clear a solved status.
+- **Stats → Current** measures wall-clock time since opening the problem or the latest accepted submission, including idle time. Refreshing/reopening starts a new attempt timer. **Best Total** is the shortest saved time to an accepted submission.
+- **Latest Submit** is the latest accepted submission's browser request duration, including compilation, process startup, tests, and request overhead. **Latest Rank** orders this problem's local accepted records by that duration, then total attempt time and timestamp. It is not a global leaderboard or a controlled algorithm benchmark.
+- Records contain timing, language, timestamp, and passed/total counts. Only the latest draft per language is stored; there is no complete source-code history for every submission.
 
-```text
-http://localhost:5173
-```
+## Importing Problems and Hidden Tests
 
-The backend also has a health check:
+### Import from LeetCode
 
-```text
-http://localhost:3000/health
-```
+1. On **Problems**, click **Import from LeetCode**.
+2. Paste a URL such as `https://leetcode.com/problems/two-sum/` and click **Import**.
+3. After success, open the new problem in the list. Its files are under `problems/two-sum/`.
 
-### Solving a Problem
+The importer reads public problem data through LeetCode's GraphQL endpoint and parses its statement/examples. It saves Java/Python3 snippets and public example tests. It does **not** fetch LeetCode's private judge tests or editorials; it creates an empty `testcases_hidden.json`. Until you add tests, an accepted Submit only validates the imported examples. Add `editorial.md` yourself if desired; otherwise the Editorial tab says `Editorial coming soon...`.
 
-1. Open the problem list.
-2. Select a problem.
-3. Choose Java or Python3 if the problem supports both.
-4. Edit the starter code.
-5. Use `Reset` if you want to restore the starter template for the selected language.
-6. Use `Run` to run visible testcases or the current custom input.
-7. Use `Submit` to run visible and hidden testcases.
+Importing an existing ID returns HTTP 409 without overwriting its templates, progress, or hidden tests. Design-class problems are rejected; problems requiring custom structures such as `ListNode` or `TreeNode` may import but cannot use those structures with the current runners. Changes to LeetCode's response format or unavailable public data can also prevent import.
 
-Only `Submit` can mark a problem as solved because `Run` does not use hidden testcases. Each accepted submit creates a solve record in `progress.json`; the stats panel uses those records to show timing and ranking for that problem.
+To remove a non-built-in problem, click its trash icon in the list and confirm. This deletes the **entire problem folder**, including saved code and history; back it up first if needed.
 
-### Hidden Testcases
+### Add hidden tests
 
-On a problem detail page:
+1. Open a problem and click **Download Description** to save `<problem-id>-description.md`. The brief contains the statement, examples, constraints, function metadata, and a sample hidden-test JSON format. It does not generate tests for you.
+2. Prepare and check the expected answers for your additional cases.
+3. Click **Add Hidden Tests**, then choose **Append** to keep existing tests and add more, or **Replace** to overwrite the hidden-test collection.
+4. Choose **Paste JSON** and paste the content or use **Choose File** to select a local JSON/text file; alternatively choose **Project Path** and enter a path inside the repository, such as `tmp/generated-hidden-tests.json`.
+5. Click **Import Hidden Tests**, check the reported counts, close the dialog with **×**, and use **Submit** to exercise the updated tests.
 
-1. Use `Download Description` to save a Markdown brief for the current problem. The brief includes the statement, function name, parameter names, examples, constraints, and the required hidden testcase JSON shape.
-2. Use `Add Hidden Tests` to import hidden testcase JSON.
-3. Choose `Append` to add to the existing `testcases_hidden.json`, or `Replace` to overwrite it.
-4. Choose one source:
-   - `Paste JSON`: paste JSON directly, or choose a local `.json`/text file in the browser.
-   - `Project Path`: enter a path relative to the JustCode project, such as `tmp/generated-hidden-tests.json`.
-
-Hidden testcase JSON must be a non-empty array. Each item must be an object with `input` and `output`; `input` must be an object whose keys exactly match the problem `params` names.
+For **Sort an Array**, a valid hidden-test file is:
 
 ```json
 [
-  {
-    "input": {
-      "nums": [3, 1, 2]
-    },
-    "output": [1, 2, 3]
-  }
+  {"input": {"nums": [3, 1, 2]}, "output": [1, 2, 3]},
+  {"input": {"nums": [0, -1, 0]}, "output": [-1, 0, 0]}
 ]
 ```
 
-For `Project Path`, the backend only reads existing files of at most 64 MiB inside the JustCode project directory. HTTP JSON request bodies are limited to 10 MiB. Absolute paths, missing files, directories, and paths that escape the project are rejected.
+Use a **non-empty array**, with `input` and `output` in each item. Input keys must exactly match `problem.json`'s `params`; values and expected outputs must suit that problem. Structural validation does not prove the expected answer is correct. Replace changes only hidden tests and does not clear existing solved status or records; submit again to check an older solution against the new tests.
 
-### Custom Input
+Browser-selected files are sent in a JSON request limited to **10 MiB**, including the request wrapper/escaping. **Project Path** reads an existing regular file of at most **64 MiB** inside the project. It is relative to the project root, not your Downloads folder; create the example `tmp/` folder and file yourself if using that path. Absolute paths, directories, missing files, and paths escaping the project are rejected.
 
-Custom input must be a JSON object with the same parameter names as the problem metadata. For example:
+## Local Files, Backup, and Custom Problems
 
-```json
-{
-  "nums": [5, 2, 3, 1]
-}
-```
-
-For the built-in Add Two Integers problem:
-
-```json
-{
-  "num1": 12,
-  "num2": 5
-}
-```
-
-Custom input has no expected output, so JustCode reports whether the code executed successfully and shows the returned value.
-
-### Importing From LeetCode
-
-On the problem list page, click `Import from LeetCode` and paste a URL like:
-
-```text
-https://leetcode.com/problems/two-sum/
-```
-
-Imported problems are saved under `problems/<problem-slug>/`. Importing an existing problem returns HTTP 409 and preserves its hidden tests and saved progress.
-
-Important limits:
-
-- Import uses LeetCode's public GraphQL response and the current problem HTML shape.
-- Only Java and Python3 snippets are imported.
-- Only public example testcases are imported as visible testcases.
-- LeetCode hidden judge testcases are not available. JustCode creates an empty `testcases_hidden.json` file so you can add hidden cases later through `Add Hidden Tests` or by editing the file directly.
-- Editorials are not imported from LeetCode. The problem detail page shows `Editorial coming soon...` unless you add an `editorial.md` file.
-- The runners support common primitive, array, and list types. Problems that need custom structures such as linked lists, trees, or graphs may import but still need runner support before they can execute correctly.
-- Imported problems are ignored by the current `.gitignore` unless you explicitly change the ignore rules or force-add the files.
-
-### Local Problem Files
-
-Each problem directory is a folder under `problems/`. A complete local problem can use this layout:
+### What each file contains
 
 ```text
 problems/<problem-id>/
@@ -218,253 +235,262 @@ problems/<problem-id>/
 └── progress.json
 ```
 
-Required files are `problem.json`, `testcases_visible.json`, and one template file for each supported language listed in `problem.json`. `testcases_hidden.json` is optional for execution, but imported problems create an empty one so you can add private cases later. `editorial.md` is optional. `progress.json` is created or updated automatically after the user edits or submits code.
-
-`problem.json` defines title, difficulty, tags, statement text, examples, constraints, supported languages, function name, parameters, return type, and displayed function signatures. The `params` names must match the keys in testcase input objects. Problem IDs and directory names must use lowercase letters, digits, underscores, or hyphens, start with a letter or digit, and be at most 200 characters.
-
-Testcase files are JSON arrays:
-
-```json
-[
-  {
-    "input": {
-      "nums": [5, 2, 3, 1]
-    },
-    "output": [1, 2, 3, 5]
-  }
-]
-```
-
-Visible and hidden testcase files use the same JSON shape. Hidden tests live in `testcases_hidden.json`; `Submit` uses them, but the problem detail API does not return their contents to the frontend.
-
-`progress.json` stores local user progress. The app writes it automatically.
-
-## Common Commands
-
-Run these from the repository root unless noted.
-
-| Command | What it does |
+| File | Purpose and requirements |
 | --- | --- |
-| `npm install` | Installs all workspace dependencies. |
-| `npm run dev` | Starts backend and frontend development servers together. |
-| `npm run dev:backend` | Starts only the backend on `PORT` or `3000`. |
-| `npm run dev:frontend` | Starts only the Vite frontend on `5173`. |
-| `npm test` | Runs isolated API, storage, import, frontend-state, executor, and editorial regression tests. Local Java and Python are required. |
-| `npm run typecheck` | Checks backend, frontend, and Vite configuration types without emitting build files. |
-| `npm run build` | Builds frontend and backend. |
-| `npm run build:frontend` | Builds only the frontend. |
-| `npm run build:backend` | Builds only the backend TypeScript output. |
-| `npm run start:backend` | Starts the built backend from the backend workspace. Run `npm run build:backend` first. |
-| `npm run preview --workspace=frontend` | Serves the built frontend locally with Vite preview. Run `npm run build:frontend` first. |
-| `npm run clean` | Removes dependencies, build output, and temporary execution files; preserves lock files. |
-| `npm run clean:modules` | Removes `node_modules`; preserves lock files. |
-| `npm run clean:build` | Removes build output and TypeScript build info only. |
-| `./install.sh` | macOS/Linux helper for installation. |
-| `./uninstall.sh` | macOS/Linux helper for cleaning dependencies and build output. |
+| `problem.json` | Required metadata: identity, statement, examples, constraints, languages, and function information. Its `id` must equal the folder name. |
+| `template.java` / `template.py` | Starter code for `java` / `python3`. Provide one per supported language for a usable starting point. A missing template opens an empty editor; templates are not completed solutions. |
+| `testcases_visible.json` | Required, non-empty JSON array of `{ "input": {...}, "output": ... }`. Used by Run and Submit. |
+| `testcases_hidden.json` | Optional; the same shape, and may be `[]`. Used only by Submit. Import creates an empty file. |
+| `editorial.md` | Optional Markdown explanation. Adjacent fenced code blocks with different language labels can display as language tabs. |
+| `progress.json` | App-managed status, code by language, selected language, accepted `solveRecords`, and `lastUpdated`. Created/updated when saving progress; do not use it as a template or testcase file. |
 
-Run `npm test`, `npm run typecheck`, and `npm run build` to verify changes. No standalone lint script is configured.
+Display examples in `problem.json` are separate from executable tests. Changing an example paragraph does not change what the judge runs; edit the testcase files too.
 
-Cleanup commands retain `package-lock.json` so reinstalling can use the recorded dependency versions.
+### Backup, restore, or start over
 
-## Build and Deployment Notes
+1. Wait for saves to finish, close the app tabs, and stop the servers with `Ctrl+C`.
+2. Copy the entire **`problems/` folder** to a separate backup location using Finder/File Explorer. This preserves imported problems, templates, editorials, visible/hidden tests, code, and records. `node_modules/`, `dist/`, and `temp/` are not your progress.
+3. To restore, keep the app stopped, preserve any newer data separately, then copy the desired problem folders back into `problems/`. Restart with `npm run dev`.
+4. To restart one problem from scratch, first back it up, then remove **only that problem's `progress.json`** while the app is stopped. Reopening it uses its templates with no saved status or records. This differs from the editor's Reset button.
 
-Build everything:
+`npm run clean` and `./uninstall.sh` remove dependencies/builds/temporary files but preserve `problems/` and `package-lock.json`. They do not erase practice history.
 
-```bash
-npm run build
-```
+The current `.gitignore` ignores additional problem folders but allows the two built-in folders. **The built-in `progress.json` files are tracked by Git**, so practice can change tracked files; a checkout can contain the progress saved by its author. Imported problems are not automatically included in Git backups. Before publishing this project or making a commit, inspect `git status` and intentionally choose which problem data and personal code to include.
 
-Start the built backend:
+### Add your own problem without LeetCode
 
-```bash
-npm run start:backend
-```
+A first exercise can reuse the addition problem:
 
-The backend resolves problem storage relative to its own module, so both the workspace script and `node backend/dist/server.js` from the repository root work.
+1. Stop the app and copy `problems/add-two-integers/` to `problems/my-addition/`.
+2. In the copy's `problem.json`, change `id` to `my-addition` and `title` to your own title. Remove the copied `progress.json` so it starts fresh.
+3. Keep the `sum` function and its testcases for this first exercise. Update the description/editorial if you change the task.
+4. Restart the app and refresh the list. Open your new problem, fill in its template, then Run and Submit.
 
-There is no bundled single-command production server for both frontend and backend. For local use, serve `frontend/dist` with a static file server or reverse proxy, and route `/api` requests to the backend. The development setup uses Vite's proxy for `/api`.
+When designing a different function, update these fields together:
 
-You can preview the built frontend locally:
+| Metadata | Must agree with |
+| --- | --- |
+| `id` | Folder name: 1–200 lowercase letters, digits, `_`, or `-`; first character must be a letter or digit. |
+| `difficulty`, `tags`, `description`, `examples`, `constraints` | Difficulty is `Easy`, `Medium`, or `Hard`; use string arrays for tags/constraints and strings for example input/output. |
+| `supportedLanguages`, `functionSignatures` | Languages are `java` and/or `python3`, with a displayed signature for each listed language. |
+| `functionName`, `params`, `returnType` | The actual method in `Solution`; parameter names/order/types and returned value must match the runners and tests. Include these fields for new problems. |
 
-```bash
-npm run preview --workspace=frontend
-```
+Use the linked built-in `problem.json` files as complete examples. Test input keys must match `params` exactly. JSON/Markdown files can be edited in a text editor; refresh the browser after external changes. New folders use the same Git ignore rules as imported problems, and non-built-in folders can be deleted through the UI.
 
-## Limitations and Notes
+## Configuration and Execution Limits
 
-- JustCode is designed for one local user. It does not implement authentication, accounts, shared progress, or a database. The backend binds to 127.0.0.1 and accepts only localhost/loopback Host and browser Origin values.
-- Local sandbox mode is a compatibility fallback, not a full security boundary. Use Docker mode for code you do not fully trust.
-- Docker mode disables networking inside execution containers and applies CPU, memory, PID, read-only filesystem, and timeout limits, but this project should still be treated as a local practice tool rather than a production-grade judge.
-- Only Java and Python3 execution are implemented.
-- The generated runners support common JSON-shaped inputs: numbers, strings, booleans, arrays, nested arrays, and supported Java list forms. Custom LeetCode data structures such as `ListNode` or `TreeNode` are not implemented.
-- Output comparison uses structural JSON equality: object key order is ignored, while array order and primitive types remain significant. For unordered outputs, floating-point tolerance, or multiple valid answers, you need to adjust the testcase data or runner logic.
-- Progress is stored in each problem directory as `progress.json`; deleting a problem directory deletes that problem's saved code and solve history.
+No `.env` file is needed or automatically loaded. Set environment variables in the terminal **before starting the backend**, and restart it after changing them.
 
-## Project Structure
-
-```text
-JustCode/
-├── backend/                    # Express + TypeScript API
-│   ├── src/
-│   │   ├── constants.ts        # Timeouts, sandbox env vars, protected problem IDs
-│   │   ├── routes/             # REST API routes
-│   │   ├── services/           # Problem storage, LeetCode import, code execution
-│   │   ├── server.ts           # Express server entry
-│   │   └── types.ts            # Backend API/data types
-│   └── package.json
-├── frontend/                   # React + TypeScript + Vite app
-│   ├── public/                 # Static assets
-│   ├── src/
-│   │   ├── components/         # Editor, console, hidden-test, description, layout components
-│   │   ├── pages/              # Problem list and problem detail pages
-│   │   ├── plugins/            # Markdown code-group plugin
-│   │   ├── services/           # Axios API client
-│   │   ├── types/              # Frontend API/data types
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   └── package.json
-├── problems/                   # File-backed problem store
-│   ├── add-two-integers/       # Built-in protected problem
-│   └── sort-array/             # Built-in protected problem
-├── install.sh                  # macOS/Linux install helper
-├── uninstall.sh                # macOS/Linux cleanup helper
-├── package.json                # npm workspace scripts
-└── package-lock.json
-```
-
-## API Overview
-
-The frontend calls relative `/api` paths. In development, Vite proxies these to the backend on port `3000`.
-
-| Method | Path | Purpose |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `GET` | `/health` | Backend health check. |
-| `GET` | `/api/problems` | List problem metadata. |
-| `GET` | `/api/problems/:id` | Load one problem without hidden testcase contents. |
-| `POST` | `/api/run` | Run visible testcases or one custom input. |
-| `POST` | `/api/submit` | Submit against visible and hidden testcases. |
-| `POST` | `/api/import-problem` | Import a public LeetCode problem URL. |
-| `POST` | `/api/problems/:id/hidden-testcases` | Append or replace local hidden testcases from pasted JSON or a project-relative file path. |
-| `GET` | `/api/progress` | Read all saved progress files. |
-| `GET` | `/api/progress/:id` | Read one problem's progress. |
-| `PUT` | `/api/progress/:id` | Save one problem's progress. |
-| `DELETE` | `/api/problems/:id` | Delete a non-protected problem. |
+| `PORT` | `3000` | Backend port. If changed, update `/api`'s target in `frontend/vite.config.ts` too. |
+| `JUSTCODE_SANDBOX_MODE` | `auto` | Execution mode: `auto`, `docker`, or `local`. |
+| `JUSTCODE_JAVA_SANDBOX_IMAGE` | `eclipse-temurin:17-jdk` | Java execution image. |
+| `JUSTCODE_PYTHON_SANDBOX_IMAGE` | `python:3.11-slim` | Python execution image. |
+| `JUSTCODE_DOCKER_MEMORY` | `256m` | Memory limit per execution container. |
+| `JUSTCODE_DOCKER_CPUS` | `1` | CPU limit per execution container. |
+| `JUSTCODE_DOCKER_PIDS_LIMIT` | `64` | Process limit per execution container. |
 
-## Troubleshooting
+| Mode | Behavior |
+| --- | --- |
+| `auto` | Uses Docker when the daemon and required local image are available; otherwise falls back to local execution. It does not download images automatically. |
+| `docker` | Requires Docker and the configured image; fails if unavailable instead of falling back. Use this mode for code you do not fully trust. |
+| `local` | Uses local `javac`, `java`, and `python3`, without a shell and with a reduced environment. It is not an isolation/security boundary: code still runs with your user's file access. |
 
-### The frontend cannot connect to the backend
+Docker mode disables container networking and applies a read-only root filesystem, capability removal, and resource limits. Only the execution workspace is mounted; it is writable when compilation needs it. These controls are for a local practice tool, not a claim of production-grade isolation.
 
-Check that the backend is running:
-
-```text
-http://localhost:3000/health
-```
-
-If you changed `PORT`, also update the Vite proxy target in `frontend/vite.config.ts`, or the frontend will still send `/api` requests to port `3000` during development.
-
-### Port 3000 or 5173 is already in use
-
-Stop the existing process, then run `npm run dev` again.
-
-macOS/Linux:
+Start Docker Desktop or the Docker daemon, then fetch the images for the languages you will use:
 
 ```bash
-lsof -ti:3000 | xargs kill
-lsof -ti:5173 | xargs kill
+docker pull eclipse-temurin:17-jdk
+docker pull python:3.11-slim
+```
+
+Start in Docker mode on macOS/Linux:
+
+```bash
+JUSTCODE_SANDBOX_MODE=docker npm run dev
 ```
 
 Windows PowerShell:
 
 ```powershell
-Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process
-Get-Process -Id (Get-NetTCPConnection -LocalPort 5173).OwningProcess | Stop-Process
+$env:JUSTCODE_SANDBOX_MODE = "docker"
+npm run dev
 ```
 
-### `javac: command not found` or Java compilation always fails
+Replace `docker` with `local` or `auto` to choose another mode. The PowerShell value remains set in that terminal until changed or the terminal is closed. Docker is only for submitted code; Node.js is still needed to run the app.
 
-Install a JDK, not just a JRE, and confirm:
+| Limit | Current value |
+| --- | --- |
+| Java compilation / Python syntax check | 10 seconds |
+| Each testcase | 1 second |
+| Entire Run/Submit execution | 60 seconds, including preparation/compilation |
+| Frontend wait for Run/Submit | 75 seconds |
+| Combined stdout/stderr per process | 10 MiB; retained debug output also has a 10 MiB submission budget |
+| Concurrent Run/Submit requests | 2; additional requests receive HTTP 429 instead of being queued |
+| JSON request body / local data file | 10 MiB / 64 MiB |
+
+Timing/output limits live in [constants.ts](backend/src/constants.ts), concurrency in [problemRoutes.ts](backend/src/routes/problemRoutes.ts), request limits in [app.ts](backend/src/app.ts), file limits in [storage.ts](backend/src/services/storage.ts), and frontend timeouts in [apiClient.ts](frontend/src/services/apiClient.ts). These limits have no environment-variable overrides.
+
+## Commands and Verification
+
+Run from the project root. A **workspace** here means one of the frontend/backend packages managed together by npm.
+
+| Command | Purpose |
+| --- | --- |
+| `npm install` | Install workspace dependencies. |
+| `npm run dev` | Start both development servers. |
+| `npm run dev:backend` / `npm run dev:frontend` | Start one development server. |
+| `npm test` | Run the existing regression suite. Install both local Java and Python to exercise all language cases. |
+| `npm run typecheck` | Check backend, frontend, and Vite configuration types without producing build files. |
+| `npm run build` | Build both packages into `frontend/dist/` and `backend/dist/`. |
+| `npm run build:frontend` / `npm run build:backend` | Build one package. |
+| `npm run start:backend` | Start the built backend; build it first. |
+| `npm run preview --workspace=frontend` | Preview the built frontend; build it first and keep the backend running. |
+| `npm run clean` | Remove dependencies, builds, and execution temporary files. |
+| `npm run clean:modules` | Remove workspace `node_modules/` folders. |
+| `npm run clean:build` | Remove build output, Vite cache, and TypeScript build-info files. |
+| `./install.sh` / `./uninstall.sh` | macOS/Linux setup and cleanup helpers. Uninstall asks for confirmation; `--yes` explicitly skips it. |
+
+After changing the project, run:
 
 ```bash
-javac --version
-java --version
+npm test
+npm run typecheck
+npm run build
 ```
 
-You can also use Docker mode after pulling the Java image:
+No separate lint script is configured. Tests cover request validation/local access, storage and concurrent writes, import parsing, progress-save ordering, result parsing and hidden-data masking, executor errors/timeouts, sandbox process cleanup, editorial solutions, and cleanup scripts. See [tests/](tests/).
+
+Some executor tests **skip** when `javac` or `python3` is missing; check the skipped count before claiming full verification. For a predictable local executor run, set `JUSTCODE_SANDBOX_MODE=local` before `npm test`. Import tests use mocked LeetCode responses, and the Docker argument/cleanup test mocks process execution; passing the suite does not establish live LeetCode availability or a working Docker installation.
+
+## Previewing a Build
+
+Development with `npm run dev` is the easiest way to practice. To use the built files locally, stop the development servers first, then:
 
 ```bash
-docker pull eclipse-temurin:17-jdk
-JUSTCODE_SANDBOX_MODE=docker npm run dev
+npm run build
+npm run start:backend
 ```
 
-### `python3: command not found`
-
-Install Python 3.9 or newer and confirm:
+Leave that terminal running. In a **second terminal**, also at the project root:
 
 ```bash
-python3 --version
+npm run preview --workspace=frontend
 ```
 
-Or use Docker mode after pulling the Python image:
+Open the URL Vite prints, normally [http://localhost:4173](http://localhost:4173). With the current Vite configuration, preview uses the `/api` proxy to `127.0.0.1:3000`, so the backend must remain running. The built backend also works with `node backend/dist/server.js` from the root; it resolves problem storage relative to its module.
 
-```bash
-docker pull python:3.11-slim
-JUSTCODE_SANDBOX_MODE=docker npm run dev
-```
+Vite preview is for local build checks. The backend does not serve frontend assets, and there is no combined production-start command. A different static server must route `/api` to the backend and serve `index.html` for client routes such as `/problems/add-two-integers`. Static hosting alone cannot execute Java/Python or save files. The backend binds to `127.0.0.1` and rejects external Host/Origin values; this project is designed for local use.
 
-### Docker mode fails
+## Limitations
 
-Make sure Docker Desktop or the Docker daemon is running, then pull the images used by the app:
+- One local user: no login, cloud sync, shared progress, database, or global leaderboard. Use one backend and avoid editing the same problem in multiple tabs; there is no cross-tab or multi-process conflict-resolution protocol.
+- **Explore** and **Discuss** in the navigation bar are disabled placeholders, not implemented features.
+- Only Java and Python3 runners are implemented. They call a method on `Solution` and judge its return value. Custom node structures, design-class APIs, and `void`/in-place-only judging are not implemented.
+- Java input conversion supports a defined set of primitives, arrays, and lists; Python receives JSON-shaped values. Arbitrary imported type names are not guaranteed to work. See [Java's type mapping](backend/src/services/javaExecutor.ts) before adding new types.
+- JSON comparison ignores object key order but preserves array order and value types. There is no special judge for unordered answers, floating-point tolerances, or multiple valid outputs.
+- Hidden tests are local files hidden from the normal frontend responses, not secrets from the computer's owner. No official LeetCode hidden tests or account submission sync are provided.
+- Data validation checks structure and parameter names; it does not verify algorithmic complexity, every input's stated constraints, or the correctness of manually supplied expected answers.
+- Local execution is not a security sandbox. Docker mode adds the controls described above; the app remains a personal practice tool.
 
-```bash
-docker pull eclipse-temurin:17-jdk
-docker pull python:3.11-slim
-```
-
-`JUSTCODE_SANDBOX_MODE=docker` fails closed if Docker or the image is unavailable. `auto` falls back to local execution when Docker is not ready.
-
-### Run or Submit times out
-
-Each testcase has a 1 second execution timeout and each submission has a 60 second overall budget. The frontend waits up to 75 seconds for Run/Submit responses. If a solution is correct but too slow, optimize the solution or reduce the testcase size for local practice. The current timeout values are code constants, not environment variables.
-
-### LeetCode import fails
-
-Check that the URL matches this shape:
+## Project Structure
 
 ```text
-https://leetcode.com/problems/<problem-slug>/
+JustCode/
+├── backend/
+│   ├── src/
+│   │   ├── app.ts                # Express middleware, local access, health check
+│   │   ├── server.ts             # Loopback-only server entry
+│   │   ├── constants.ts          # Execution limits and Docker settings
+│   │   ├── requestValidation.ts  # Request and progress validation
+│   │   ├── routes/               # Problem, judge, import, and progress endpoints
+│   │   ├── services/             # Storage, import, runners, sandbox, JSON support
+│   │   └── types.ts              # Shared backend data contracts
+│   ├── tsconfig.json
+│   └── package.json
+├── frontend/
+│   ├── public/                   # Static assets
+│   ├── src/
+│   │   ├── components/           # Editor, results, stats, tests, Markdown, panes
+│   │   ├── pages/                # Problem list and problem workspace
+│   │   ├── plugins/              # Markdown code-group transformation
+│   │   ├── services/             # API client, save ordering, local Monaco setup
+│   │   ├── types/                # Frontend data contracts
+│   │   ├── App.tsx               # Routes and unsaved-change handling
+│   │   ├── main.tsx              # Browser entry
+│   │   └── index.css             # Application styles
+│   ├── index.html
+│   ├── vite.config.ts            # Development/preview API proxy
+│   └── package.json
+├── problems/
+│   ├── add-two-integers/
+│   └── sort-array/
+├── tests/                        # Regression tests
+├── install.sh
+├── uninstall.sh
+├── .gitignore                    # Includes problem-data ignore rules
+├── package.json                  # Workspace scripts
+├── package-lock.json             # Resolved dependency versions
+├── README.md
+└── READMEzhTW.md
 ```
 
-The importer depends on network access, LeetCode's public GraphQL response, and the current statement HTML format. If LeetCode changes its response shape, the importer may need code changes in `backend/src/services/leetcodeService.ts`.
+Generated folders include `node_modules/`, both `dist/` folders, and execution workspaces under `temp/` relative to the backend's working directory (normally `backend/temp/` with workspace commands). Execution workspaces are cleaned after a run; these are not the problem store.
 
-If import succeeds but running the imported problem fails, check `problem.json` for unsupported `params` or `returnType` values. The current runners do not implement custom LeetCode structures such as linked lists or trees.
+## API Overview
 
-### Hidden testcase import is rejected
+You can use the app entirely through the browser; this table is for developers. The frontend sends relative `/api` requests through Vite's proxy. Requests and responses use JSON.
 
-Check that the JSON is a non-empty array and that every item has this shape:
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Backend health check. |
+| `GET` | `/api/problems` | List valid problem metadata. |
+| `GET` | `/api/problems/:id` | Read metadata, templates, visible tests, and optional editorial; no hidden-test contents. |
+| `POST` | `/api/run` | Run all visible tests or one custom input. |
+| `POST` | `/api/submit` | Judge visible and hidden tests. |
+| `POST` | `/api/import-problem` | Import a public LeetCode URL. |
+| `POST` | `/api/problems/:id/hidden-testcases` | Append/replace hidden tests from JSON content or a project-relative file. |
+| `GET` | `/api/progress` | Read saved progress across problems. |
+| `GET` | `/api/progress/:id` | Read one problem's progress; `null` for a missing file or the bundled empty-progress placeholder. |
+| `PUT` | `/api/progress/:id` | Save validated progress and assign its update timestamp. |
+| `DELETE` | `/api/problems/:id` | Delete a non-built-in problem and its data. |
 
-```json
-[
-  {
-    "input": {
-      "paramName": "value"
-    },
-    "output": "expected value"
-  }
-]
-```
+For direct API clients, `/api/submit` returns the judgment only; the browser creates an accepted record and saves it separately through the progress endpoint. Reading corrupt saved progress produces an error rather than silently replacing it with empty progress. Request shapes are in [backend types](backend/src/types.ts) and [request validation](backend/src/requestValidation.ts).
 
-The `input` keys must exactly match the `params` names in `problem.json`. If you use `Project Path`, the path must be relative to the JustCode project and point to an existing file inside this project.
+## Troubleshooting
 
-### Custom input is rejected
+| Symptom | What to do |
+| --- | --- |
+| `npm` is missing, or npm cannot find `package.json` | Install Node.js/npm, reopen the terminal, and enter the project root. On Windows, use npm commands instead of `.sh` scripts. |
+| The app cannot load problems | Check [backend health](http://localhost:3000/health) and the server terminal. If `PORT` changed, update the proxy in `frontend/vite.config.ts` and restart Vite. Use localhost, not a LAN/public address. |
+| Port 3000 or 5173 is occupied | Stop the earlier JustCode terminal with `Ctrl+C`. Use Vite's printed URL if it chose another frontend port. Inspect the owner of an unfamiliar port before stopping a process. |
+| Java cannot run | Check both `javac --version` and `java --version`; install a JDK, not only a JRE. Preserve `class Solution` and the expected method signature. |
+| Python cannot run | Check `python3 --version`. The runner calls `python3`, even on Windows; having only `python` or `py` is insufficient. Alternatively use Docker mode. |
+| Docker execution fails | Start Docker, check `docker info`, and pull the configured images. `docker` mode fails when unavailable; `auto` can fall back to local execution. |
+| Run/Submit times out or reports busy | Check for infinite loops and the listed limits. For HTTP 429, wait for existing work to finish before retrying. Docker/process startup can contribute to observed time. |
+| LeetCode import fails | Use `https://leetcode.com/problems/<problem-slug>/`, check connectivity and the error message. Duplicate IDs are not overwritten; design-class or changed remote data formats may be unsupported. |
+| An imported problem fails to execute | Check its metadata and template for unsupported structures, return types, or missing imports. Import success is not a guarantee of runner compatibility. |
+| Custom input or hidden tests are rejected | Use the correct JSON shape and exact parameter names. Hidden imports need a non-empty array; Project Path must point to an existing regular file inside the repository. Check the 10/64 MiB limits. |
+| A problem is absent from the list | Check the folder name, matching metadata `id`, valid metadata, and non-empty visible tests. The backend skips invalid folders and logs a warning. |
+| The editor is empty or starter code fails | A template may be missing, or its body may be deliberately unfinished. Use the first-solution example; add the language's template when authoring problems. |
+| Progress cannot load or save | Copy the current editor text, inspect the error/server logs, and use Retry/Retry save. Back up a corrupt `progress.json` before repairing it or removing it to start over; the backend intentionally refuses to overwrite corrupt progress. |
+| Run works but Submit fails to read tests | Back up and inspect `testcases_hidden.json`. A missing hidden file means no hidden tests; malformed JSON is an error, not an empty test set. Repair it or intentionally replace it through Add Hidden Tests. |
+| AC code shows no debug output | Successful runs hide debug output by design. Inspect the returned value; debug output is shown only for failing visible cases. |
 
-Custom input must be valid JSON and must match the problem parameter names. Use the first visible testcase as a template.
+---
 
-### A problem does not appear in the list
+## Implementation and Portfolio Notes
 
-The backend skips invalid problem directories. Check that the directory contains a valid `problem.json` and `testcases_visible.json`.
+| Area | Implemented behavior | Source |
+| --- | --- | --- |
+| Full-stack practice UI | React/TypeScript, Monaco editor, per-language drafts, resizable panels, Markdown editorials, and statistics | [ProblemDetail](frontend/src/pages/ProblemDetail.tsx), [components](frontend/src/components/), [frontend dependencies](frontend/package.json) |
+| Java/Python judging | Generate runners from function metadata, compile/check syntax, execute tests, compare JSON values, and return diagnostics | [Executor factory](backend/src/services/codeExecutorFactory.ts), [Java](backend/src/services/javaExecutor.ts), [Python](backend/src/services/pythonExecutor.ts), [shared result logic](backend/src/services/executionUtils.ts) |
+| Execution controls | Local/Docker selection, deadlines, bounded output, process cleanup, and concurrent-request limits | [Sandbox runner](backend/src/services/sandboxRunner.ts), [routes](backend/src/routes/problemRoutes.ts) |
+| File-based persistence | Validate data, serialize changes per problem within the backend process, write synchronized temporary JSON files, then rename them into place | [Storage](backend/src/services/storage.ts), [problem service](backend/src/services/problemService.ts) |
+| Problem import | Validate URLs/metadata/testcases, convert public LeetCode data, and publish a completed staging folder without overwriting existing problems | [Importer](backend/src/services/leetcodeService.ts), [validation](backend/src/services/problemValidation.ts), [problem service](backend/src/services/problemService.ts) |
+| Progress reliability | Order saves per problem, retain failed drafts in memory, retry saves, and flush during navigation | [Progress persistence](frontend/src/services/progressPersistence.ts), [workspace](frontend/src/pages/ProblemDetail.tsx) |
+| Regression verification | API, data integrity, concurrency, language execution, sandbox handling, frontend state, and executable editorial cases | [Tests](tests/), [scripts](package.json) |
 
-Also start the backend through the workspace command so it can find the problem store:
-
-```bash
-npm run dev:backend
-```
+> Built a local coding-practice application with React, TypeScript, Express, and Monaco, supporting Java/Python3 execution, LeetCode example import, custom/hidden tests, and automatic progress saving. Implemented file-based persistence, execution limits with optional Docker isolation, and regression tests for judging, data integrity, and progress handling.
