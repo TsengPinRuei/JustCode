@@ -2,8 +2,10 @@
  * 程式碼編輯器元件：包裝 Monaco Editor，支援語言切換、字級控制、
  * 即時錯誤標示，以及不干擾游標的外部更新。
  */
-import { useRef, useState, useEffect, useMemo, type FC } from 'react';
+import { useState, useEffect, useMemo, type FC } from 'react';
 import Editor from '@monaco-editor/react';
+import type * as MonacoApi from 'monaco-editor/editor';
+import '../services/monacoSetup';
 import type { editor } from 'monaco-editor';
 import { Language, CompilationError } from '../types';
 
@@ -31,28 +33,13 @@ const CodeEditor: FC<CodeEditorProps> = ({
     supportedLanguages,
     onLanguageChange
 }) => {
-    const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+    const [instance, setInstance] = useState<{ editor: editor.IStandaloneCodeEditor; monaco: typeof MonacoApi } | null>(null);
     const [fontSize, setFontSize] = useState(14);
-    // setValue 套用外部 reset/語言切換時，暫時抑制 onChange。
-    const preventOnChangeRef = useRef(false);
-    // 追蹤前一次 `code` prop，用來偵測外部變更。
-    const prevCodeRef = useRef(code);
-    // 使用者編輯已經更新 Monaco，不應再透過 setValue 重播。
-    const isUserEditRef = useRef(false);
-
     const MIN_FONT_SIZE = 12;
     const MAX_FONT_SIZE = 24;
 
-    const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
-        editorRef.current = editor;
-    };
-
     const handleEditorChange = (value: string | undefined) => {
-        if (preventOnChangeRef.current) return;
-        if (value !== undefined) {
-            isUserEditRef.current = true;
-            onChange(value);
-        }
+        if (value !== undefined) onChange(value);
     };
 
     const increaseFontSize = () => {
@@ -63,54 +50,32 @@ const CodeEditor: FC<CodeEditorProps> = ({
         setFontSize(prev => Math.max(prev - 2, MIN_FONT_SIZE));
     };
 
-    // 透過 editor ref 同步外部程式碼變更（reset、語言切換）。
-    // 使用 setValue 重播使用者輸入會移動游標，因此會略過該路徑。
     useEffect(() => {
-        if (editorRef.current && code !== prevCodeRef.current) {
-            if (isUserEditRef.current) {
-                // 變更來自使用者輸入；Monaco 已經有最新文字。
-                isUserEditRef.current = false;
-            } else {
-                // reset/語言切換等外部變更：更新 Monaco，但不觸發 onChange。
-                const currentValue = editorRef.current.getValue();
-                if (code !== currentValue) {
-                    preventOnChangeRef.current = true;
-                    editorRef.current.setValue(code);
-                    preventOnChangeRef.current = false;
-                }
-            }
-        }
-        prevCodeRef.current = code;
-    }, [code]);
+        if (!instance) return;
+        const { editor: mountedEditor, monaco } = instance;
+        const model = mountedEditor.getModel();
+        if (!model) return;
 
-    // 編譯錯誤變更時更新 Monaco markers。
-    // 後端回報的是 1-based 位置，Monaco 可直接使用。
-    useEffect(() => {
-        if (editorRef.current) {
-            const monaco = (window as any).monaco;
-            if (!monaco) return;
-
-            const model = editorRef.current.getModel();
-            if (!model) return;
-
-            if (compilationErrors && compilationErrors.length > 0) {
-                const markers = compilationErrors.map(error => ({
-                    severity: error.severity === 'error'
-                        ? monaco.MarkerSeverity.Error
-                        : monaco.MarkerSeverity.Warning,
-                    message: error.message,
-                    startLineNumber: error.line,
-                    startColumn: error.column,
-                    endLineNumber: error.line,
-                    endColumn: model.getLineMaxColumn(error.line),
-                }));
-                monaco.editor.setModelMarkers(model, 'compilation', markers);
-            } else {
-                // 編譯/執行成功後清除舊診斷。
-                monaco.editor.setModelMarkers(model, 'compilation', []);
-            }
-        }
-    }, [compilationErrors]);
+        // Compiler locations may refer to generated wrapper lines outside the
+        // user's buffer. Clamp them before asking Monaco for a line's bounds.
+        const markers = (compilationErrors ?? []).map(error => {
+            const line = Math.max(1, Math.min(model.getLineCount(), error.line));
+            const maxColumn = model.getLineMaxColumn(line);
+            const column = Math.max(1, Math.min(maxColumn, error.column));
+            return {
+                severity: error.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+                message: error.message,
+                startLineNumber: line,
+                startColumn: column,
+                endLineNumber: line,
+                endColumn: maxColumn,
+            };
+        });
+        monaco.editor.setModelMarkers(model, 'compilation', markers);
+        return () => {
+            if (!model.isDisposed()) monaco.editor.setModelMarkers(model, 'compilation', []);
+        };
+    }, [instance, compilationErrors, selectedLanguage]);
 
     const editorLanguage = selectedLanguage === 'java' ? 'java' : 'python';
     const editorOptions = useMemo<editor.IStandaloneEditorConstructionOptions>(() => ({
@@ -175,9 +140,9 @@ const CodeEditor: FC<CodeEditorProps> = ({
                 <Editor
                     height="100%"
                     language={editorLanguage}
-                    defaultValue={code}
+                    value={code}
                     onChange={handleEditorChange}
-                    onMount={handleEditorDidMount}
+                    onMount={(mountedEditor, monaco) => setInstance({ editor: mountedEditor, monaco })}
                     theme="vs-dark"
                     options={editorOptions}
                 />

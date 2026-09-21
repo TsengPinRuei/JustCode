@@ -28,7 +28,7 @@ The project is meant for personal learning and local practice. It is not a hoste
 - Java Development Kit 11 or newer if you want to run Java in local sandbox mode.
 - Python 3.9 or newer if you want to run Python3 in local sandbox mode. The bundled Python templates use `list[int]` type hints.
 - Docker is optional, but strongly recommended when running code you do not fully trust.
-- Internet access is required for `npm install` and for LeetCode imports.
+- Internet access is required for `npm install` and for LeetCode imports. Monaco and its worker are bundled locally; the optional Google font uses system fallbacks when offline.
 - macOS, Linux, or Windows. The `install.sh` and `uninstall.sh` scripts are for macOS/Linux; the npm commands work cross-platform.
 
 Check your environment:
@@ -82,7 +82,7 @@ Sandbox modes:
 | `docker` | Requires Docker and the configured image. If Docker is unavailable, execution fails instead of falling back. Use this for untrusted code. |
 | `local` | Runs local `javac`, `java`, and `python3` without a shell and with a minimal environment. This is convenient, but it is not a full security boundary. |
 
-Execution limits are currently defined in `backend/src/constants.ts`: Java compilation has a 10 second timeout, each testcase has a 1 second timeout, and combined stdout/stderr is capped at 10 MB. These limits are not exposed as environment variables.
+Execution limits are currently defined in `backend/src/constants.ts`: Java compilation has a 10 second timeout, each testcase has a 1 second timeout, and an entire submission has a 60 second budget. Combined stdout/stderr is capped at 10 MiB per process, and retained debug output is capped across the submission. At most two executions run concurrently; additional requests return HTTP 429. These limits are not exposed as environment variables.
 
 For Docker mode:
 
@@ -160,7 +160,7 @@ Hidden testcase JSON must be a non-empty array. Each item must be an object with
 ]
 ```
 
-For `Project Path`, the backend only reads existing files inside the JustCode project directory. Absolute paths, missing files, directories, and paths that escape the project are rejected.
+For `Project Path`, the backend only reads existing files of at most 64 MiB inside the JustCode project directory. HTTP JSON request bodies are limited to 10 MiB. Absolute paths, missing files, directories, and paths that escape the project are rejected.
 
 ### Custom Input
 
@@ -191,7 +191,7 @@ On the problem list page, click `Import from LeetCode` and paste a URL like:
 https://leetcode.com/problems/two-sum/
 ```
 
-Imported problems are saved under `problems/<problem-slug>/`.
+Imported problems are saved under `problems/<problem-slug>/`. Importing an existing problem returns HTTP 409 and preserves its hidden tests and saved progress.
 
 Important limits:
 
@@ -220,7 +220,7 @@ problems/<problem-id>/
 
 Required files are `problem.json`, `testcases_visible.json`, and one template file for each supported language listed in `problem.json`. `testcases_hidden.json` is optional for execution, but imported problems create an empty one so you can add private cases later. `editorial.md` is optional. `progress.json` is created or updated automatically after the user edits or submits code.
 
-`problem.json` defines title, difficulty, tags, statement text, examples, constraints, supported languages, function name, parameters, return type, and displayed function signatures. The `params` names must match the keys in testcase input objects.
+`problem.json` defines title, difficulty, tags, statement text, examples, constraints, supported languages, function name, parameters, return type, and displayed function signatures. The `params` names must match the keys in testcase input objects. Problem IDs and directory names must use lowercase letters, digits, underscores, or hyphens, start with a letter or digit, and be at most 200 characters.
 
 Testcase files are JSON arrays:
 
@@ -249,20 +249,22 @@ Run these from the repository root unless noted.
 | `npm run dev` | Starts backend and frontend development servers together. |
 | `npm run dev:backend` | Starts only the backend on `PORT` or `3000`. |
 | `npm run dev:frontend` | Starts only the Vite frontend on `5173`. |
-| `npm run build` | Builds frontend and backend. Use this as the current main verification command. |
+| `npm test` | Runs isolated API, storage, import, frontend-state, executor, and editorial regression tests. Local Java and Python are required. |
+| `npm run typecheck` | Checks backend, frontend, and Vite configuration types without emitting build files. |
+| `npm run build` | Builds frontend and backend. |
 | `npm run build:frontend` | Builds only the frontend. |
 | `npm run build:backend` | Builds only the backend TypeScript output. |
 | `npm run start:backend` | Starts the built backend from the backend workspace. Run `npm run build:backend` first. |
 | `npm run preview --workspace=frontend` | Serves the built frontend locally with Vite preview. Run `npm run build:frontend` first. |
-| `npm run clean` | Removes dependencies, build output, temporary execution files, and lock files. |
-| `npm run clean:modules` | Removes `node_modules` and lock files only. |
+| `npm run clean` | Removes dependencies, build output, and temporary execution files; preserves lock files. |
+| `npm run clean:modules` | Removes `node_modules`; preserves lock files. |
 | `npm run clean:build` | Removes build output and TypeScript build info only. |
 | `./install.sh` | macOS/Linux helper for installation. |
 | `./uninstall.sh` | macOS/Linux helper for cleaning dependencies and build output. |
 
-There is currently no `npm test` or lint script in this repository. Use `npm run build` to type-check and build both apps.
+Run `npm test`, `npm run typecheck`, and `npm run build` to verify changes. No standalone lint script is configured.
 
-Be careful with `npm run clean` and `npm run clean:modules`: both remove `package-lock.json`. Run `npm install` again to recreate it.
+Cleanup commands retain `package-lock.json` so reinstalling can use the recorded dependency versions.
 
 ## Build and Deployment Notes
 
@@ -278,9 +280,9 @@ Start the built backend:
 npm run start:backend
 ```
 
-Use the workspace script instead of running `node backend/dist/server.js` directly from the repository root. The backend expects its working directory to be `backend/` so it can find `../problems`.
+The backend resolves problem storage relative to its own module, so both the workspace script and `node backend/dist/server.js` from the repository root work.
 
-There is no bundled single-command production server for both frontend and backend. For deployment, serve `frontend/dist` with a static file server or reverse proxy, and route `/api` requests to the backend. The development setup uses Vite's proxy for `/api`.
+There is no bundled single-command production server for both frontend and backend. For local use, serve `frontend/dist` with a static file server or reverse proxy, and route `/api` requests to the backend. The development setup uses Vite's proxy for `/api`.
 
 You can preview the built frontend locally:
 
@@ -290,12 +292,12 @@ npm run preview --workspace=frontend
 
 ## Limitations and Notes
 
-- JustCode is designed for one local user. It does not implement authentication, accounts, shared progress, or a database.
+- JustCode is designed for one local user. It does not implement authentication, accounts, shared progress, or a database. The backend binds to 127.0.0.1 and accepts only localhost/loopback Host and browser Origin values.
 - Local sandbox mode is a compatibility fallback, not a full security boundary. Use Docker mode for code you do not fully trust.
 - Docker mode disables networking inside execution containers and applies CPU, memory, PID, read-only filesystem, and timeout limits, but this project should still be treated as a local practice tool rather than a production-grade judge.
 - Only Java and Python3 execution are implemented.
 - The generated runners support common JSON-shaped inputs: numbers, strings, booleans, arrays, nested arrays, and supported Java list forms. Custom LeetCode data structures such as `ListNode` or `TreeNode` are not implemented.
-- Output comparison uses exact JSON serialization. For unordered outputs, floating-point tolerance, or multiple valid answers, you need to adjust the testcase data or runner logic.
+- Output comparison uses structural JSON equality: object key order is ignored, while array order and primitive types remain significant. For unordered outputs, floating-point tolerance, or multiple valid answers, you need to adjust the testcase data or runner logic.
 - Progress is stored in each problem directory as `progress.json`; deleting a problem directory deletes that problem's saved code and solve history.
 
 ## Project Structure
@@ -422,7 +424,7 @@ docker pull python:3.11-slim
 
 ### Run or Submit times out
 
-Each testcase has a 1 second backend execution timeout, and the frontend API client waits up to 30 seconds for a response. If a solution is correct but too slow, optimize the solution or reduce the testcase size for local practice. The current timeout values are code constants, not environment variables.
+Each testcase has a 1 second execution timeout and each submission has a 60 second overall budget. The frontend waits up to 75 seconds for Run/Submit responses. If a solution is correct but too slow, optimize the solution or reduce the testcase size for local practice. The current timeout values are code constants, not environment variables.
 
 ### LeetCode import fails
 

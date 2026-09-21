@@ -8,8 +8,10 @@ export const RESULT_SEPARATOR = '===RESULT_JSON_START===';
 // 單一測試案例與編譯限制可避免失控提交阻塞伺服器。
 export const TESTCASE_TIMEOUT_MS = 1000; // 每個測試案例 1 秒
 export const COMPILE_TIMEOUT_MS = 10000; // 編譯 10 秒
+// Bound an entire submission, including compilation and a large testcase collection.
+export const EXECUTION_TIMEOUT_MS = 60000;
 
-// maxBuffer 需要足以容納大量除錯輸出，但仍必須有上限。
+// Combined stdout/stderr byte limit per process; debug output shares this budget per submission.
 export const MAX_OUTPUT_LENGTH = 10 * 1024 * 1024; // 10 MB，用來處理大型輸出
 
 // Sandbox 模式：

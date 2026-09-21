@@ -4,8 +4,8 @@
  * 並在 code block 上提供複製按鈕。也會建立可下載的題目 brief，
  * 供產生本機 hidden testcase JSON 時使用。
  */
-import React, { useState, useCallback, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkCodeGroup from '../plugins/remarkCodeGroup';
 import { Problem, ProblemProgress } from '../types';
@@ -65,6 +65,7 @@ const copyTextToClipboard = async (text: string) => {
     textarea.style.position = 'fixed';
     textarea.style.top = '0';
     textarea.style.left = '-9999px';
+    const previousFocus = document.activeElement;
     document.body.appendChild(textarea);
     textarea.focus();
     textarea.select();
@@ -73,22 +74,40 @@ const copyTextToClipboard = async (text: string) => {
         const copied = document.execCommand('copy');
         if (!copied) throw new Error('Copy command failed');
     } finally {
-        document.body.removeChild(textarea);
+        textarea.remove();
+        if (previousFocus instanceof HTMLElement) previousFocus.focus({ preventScroll: true });
     }
 };
 
 function CopyButton({ getText }: { getText: () => string }) {
     const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const mountedRef = useRef(false);
+    const requestRef = useRef(0);
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            if (timerRef.current !== null) clearTimeout(timerRef.current);
+        };
+    }, []);
+
     const handleCopy = useCallback(async () => {
+        const request = ++requestRef.current;
+        if (timerRef.current !== null) clearTimeout(timerRef.current);
+        let state: 'copied' | 'failed' = 'copied';
         try {
             await copyTextToClipboard(getText());
-            setCopyState('copied');
-            setTimeout(() => setCopyState('idle'), 2000);
         } catch {
-            setCopyState('failed');
-            setTimeout(() => setCopyState('idle'), 2000);
+            state = 'failed';
         }
+        if (!mountedRef.current || request !== requestRef.current) return;
+        setCopyState(state);
+        timerRef.current = setTimeout(() => {
+            timerRef.current = null;
+            setCopyState('idle');
+        }, 2000);
     }, [getText]);
 
     const label = copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Failed' : 'Copy';
@@ -116,6 +135,9 @@ function CodeGroupBlock({ languages }: { languages: string }) {
         [languages]
     );
     const [active, setActive] = useState(0);
+    const activeIndex = Math.min(active, items.length - 1);
+    const activeItem = items[activeIndex];
+    if (!activeItem) return null;
 
     return (
         <div className="code-group">
@@ -123,7 +145,7 @@ function CodeGroupBlock({ languages }: { languages: string }) {
                 {items.map((item, idx) => (
                     <button
                         key={item.lang}
-                        className={`code-group-tab ${idx === active ? 'active' : ''}`}
+                        className={`code-group-tab ${idx === activeIndex ? 'active' : ''}`}
                         onClick={() => setActive(idx)}
                     >
                         {LANG_LABELS[item.lang] ?? item.lang}
@@ -131,9 +153,9 @@ function CodeGroupBlock({ languages }: { languages: string }) {
                 ))}
             </div>
             <div className="code-block-wrapper">
-                <CopyButton getText={() => items[active].value} />
+                <CopyButton getText={() => activeItem.value} />
                 <pre className="code-group-pre">
-                    <code>{items[active].value}</code>
+                    <code>{activeItem.value}</code>
                 </pre>
             </div>
         </div>
@@ -142,22 +164,19 @@ function CodeGroupBlock({ languages }: { languages: string }) {
 
 /* ---- ReactMarkdown 自訂 components map ---- */
 
-const markdownComponents: Record<string, React.FC<any>> = {
-    'code-group': (props: any) => {
-        // ReactMarkdown 在不同版本暴露 hProperties 的路徑不同，因此同時支援兩種路徑。
-        const langs = props.languages ?? props.node?.properties?.languages;
-        if (!langs) return null;
-        return <CodeGroupBlock languages={langs} />;
+const markdownComponents: Components & {
+    'code-group': React.FC<ExtraProps & { languages?: string }>;
+} = {
+    'code-group': ({ languages, node }) => {
+        const serialized = languages ?? node?.properties?.languages;
+        return typeof serialized === 'string' ? <CodeGroupBlock languages={serialized} /> : null;
     },
-    pre: (props: any) => {
-        const getText = () => extractText(props.children);
-        return (
-            <div className="code-block-wrapper">
-                <CopyButton getText={getText} />
-                <pre {...props} />
-            </div>
-        );
-    },
+    pre: ({ node: _node, children, ...props }) => (
+        <div className="code-block-wrapper">
+            <CopyButton getText={() => extractText(children)} />
+            <pre {...props}>{children}</pre>
+        </div>
+    ),
 };
 
 const formatExampleBlock = (problem: Problem): string => {
@@ -246,7 +265,7 @@ const buildDescriptionDownload = (problem: Problem): string => {
 };
 
 const downloadTextFile = (filename: string, content: string) => {
-    // Object URL 只需短暫存在；合成點擊後立即 revoke，避免瀏覽器記憶體外洩。
+    // Let the browser start the download before releasing its object URL.
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -255,7 +274,7 @@ const downloadTextFile = (filename: string, content: string) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 /* ---- 主元件 ---- */
@@ -330,17 +349,18 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progre
                         {problem.metadata.examples.map((example, index) => (
                             <div key={index} className="example-container">
                                 <p><strong>Example {index + 1}:</strong></p>
+                                {/* Inputs and outputs are literal data, not Markdown. */}
                                 <div className="example-io">
                                     <div className="example-section">
                                         <strong>Input:</strong>
                                         <div className="example-content">
-                                            <ReactMarkdown remarkPlugins={DESCRIPTION_REMARK_PLUGINS}>{example.input}</ReactMarkdown>
+                                            {example.input}
                                         </div>
                                     </div>
                                     <div className="example-section">
                                         <strong>Output:</strong>
                                         <div className="example-content">
-                                            <ReactMarkdown remarkPlugins={DESCRIPTION_REMARK_PLUGINS}>{example.output}</ReactMarkdown>
+                                            {example.output}
                                         </div>
                                     </div>
                                 </div>

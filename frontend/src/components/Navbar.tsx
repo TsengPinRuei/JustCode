@@ -21,14 +21,14 @@ const Navbar: FC = () => {
                         </Link>
                     </li>
                     <li className="navbar-disabled-item">
-                        <a href="#" className="navbar-link-disabled">
+                        <span className="navbar-link-disabled" aria-disabled="true">
                             Explore
-                        </a>
+                        </span>
                     </li>
                     <li className="navbar-disabled-item">
-                        <a href="#" className="navbar-link-disabled">
+                        <span className="navbar-link-disabled" aria-disabled="true">
                             Discuss
-                        </a>
+                        </span>
                     </li>
                 </ul>
             </div>

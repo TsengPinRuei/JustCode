@@ -4,7 +4,8 @@
  */
 import { JavaExecutor } from './javaExecutor';
 import { PythonExecutor } from './pythonExecutor';
-import { Language, Testcase, TestcaseResult, CompilationError, ProblemMetadata } from '../types';
+import { ExecutionSummary } from './executionUtils';
+import { Language, Testcase, ProblemMetadata } from '../types';
 
 /** 所有語言專屬 code executor 都需實作的共用合約。 */
 export interface CodeExecutor {
@@ -14,15 +15,7 @@ export interface CodeExecutor {
         showHiddenInputs: boolean,
         metadata?: ProblemMetadata,
         visibleTestcaseCount?: number
-    ): Promise<{
-        status: 'AC' | 'WA' | 'CE' | 'RE' | 'TLE';
-        message?: string;
-        testcaseResults: TestcaseResult[];
-        totalTestcases: number;
-        passedTestcases: number;
-        compilationErrors?: CompilationError[];
-        debugOutput?: string;
-    }>;
+    ): Promise<ExecutionSummary>;
 }
 
 /** 依 ProblemMetadata.supportedLanguages 宣告的語言回傳 executor 的 factory。 */

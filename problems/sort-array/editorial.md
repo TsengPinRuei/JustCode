@@ -35,7 +35,7 @@ Before we explore the algorithms, let's define some important terms:
 - Example: If you have `[(5, "first"), (3, "x"), (5, "second")]` sorted by number, a stable sort keeps "first" before "second" among the 5s.
 - Why it matters: Important when sorting complex objects with multiple fields.
 
-**In-Place Sorting**: An algorithm that sorts without requiring extra memory proportional to input size (only uses O(1) or O(log n) extra space).
+**In-Place Sorting**: An algorithm that rearranges the original array. Strictly in-place algorithms use O(1) extra space; recursive versions may additionally use stack space.
 - Example: Quick Sort rearranges elements within the original array.
 - Why it matters: Critical when memory is limited.
 
@@ -90,6 +90,8 @@ The key insight: After partitioning, the pivot is in its final sorted position!
 
 ### How It Works
 
+The following two-way, endpoint-pivot example illustrates partitioning. The implementations below use three-way partitioning to handle duplicate values.
+
 Let's sort `[3, 1, 4, 2]`:
 
 **Initial Array**: `[3, 1, 4, 2]`
@@ -122,47 +124,36 @@ After partition: [3, 4]
 
 ### Implementation
 
+Both implementations use three-way partitioning and process the smaller side first. Equal values are skipped together, and stack space stays O(log n).
+
 ```java
 class Solution {
     public int[] sortArray(int[] nums) {
-        if (nums == null || nums.length == 0) {
-            return nums;
-        }
-        quickSort(nums, 0, nums.length - 1);
+        if (nums != null) quickSort(nums, 0, nums.length - 1);
         return nums;
     }
-    
+
     private void quickSort(int[] nums, int left, int right) {
-        if (left >= right) {
-            return;
-        }
-        
-        int pivotIndex = partition(nums, left, right);
-        quickSort(nums, left, pivotIndex - 1);
-        quickSort(nums, pivotIndex + 1, right);
-    }
-    
-    private int partition(int[] nums, int left, int right) {
-        // 三數取中最佳化：在第一個、中間、最後一個元素中選擇中間值
-        // 這有助於避免已排序陣列造成 O(n²) 效能
-        int mid = left + (right - left) / 2;
-        if (nums[mid] < nums[left]) swap(nums, left, mid);
-        if (nums[right] < nums[left]) swap(nums, left, right);
-        if (nums[mid] < nums[right]) swap(nums, mid, right);
-        
-        int pivot = nums[right];
-        int i = left - 1;
-        
-        for (int j = left; j < right; j++) {
-            if (nums[j] <= pivot) {
-                i++;
-                swap(nums, i, j);
+        while (left < right) {
+            int pivot = nums[left + (right - left) / 2];
+            int lt = left, i = left, gt = right;
+            // 一次略過等於 pivot 的區段，避免重複值造成平方時間。
+            while (i <= gt) {
+                if (nums[i] < pivot) swap(nums, lt++, i++);
+                else if (nums[i] > pivot) swap(nums, i, gt--);
+                else i++;
+            }
+            // 只遞迴較小區段，讓呼叫堆疊最多 O(log n)。
+            if (lt - left < right - gt) {
+                quickSort(nums, left, lt - 1);
+                left = gt + 1;
+            } else {
+                quickSort(nums, gt + 1, right);
+                right = lt - 1;
             }
         }
-        swap(nums, i + 1, right);
-        return i + 1;
     }
-    
+
     private void swap(int[] nums, int i, int j) {
         int temp = nums[i];
         nums[i] = nums[j];
@@ -176,27 +167,24 @@ import random
 
 class Solution:
     def sortArray(self, nums: list[int]) -> list[int]:
-        if len(nums) <= 1:
-            return nums
-        # 使用明確 stack 的迭代 quick sort（避免遞迴深度限制）
         stack = [(0, len(nums) - 1)]
         while stack:
             left, right = stack.pop()
-            if left >= right:
-                continue
-            lt, gt = self._three_way_partition(nums, left, right)
-            stack.append((left, lt - 1))
-            stack.append((gt + 1, right))
+            while left < right:
+                lt, gt = self._three_way_partition(nums, left, right)
+                # 先處理較小區段，限制待處理 stack 的長度。
+                if lt - left < right - gt:
+                    stack.append((gt + 1, right))
+                    right = lt - 1
+                else:
+                    stack.append((left, lt - 1))
+                    left = gt + 1
         return nums
 
     def _three_way_partition(self, nums: list[int], left: int, right: int) -> tuple[int, int]:
-        # 隨機選擇 pivot，避免已排序陣列的最差情況
-        pivot_idx = random.randint(left, right)
-        pivot = nums[pivot_idx]
-        # Dutch National Flag：分割成 [< pivot | == pivot | > pivot]
-        lt = left   # nums[left..lt-1]  < pivot
-        i = left    # nums[lt..i-1]    == pivot
-        gt = right  # nums[gt+1..right] > pivot
+        pivot = nums[random.randint(left, right)]
+        lt, i, gt = left, left, right
+        # [left, lt) < pivot；[lt, i) == pivot；(gt, right] > pivot。
         while i <= gt:
             if nums[i] < pivot:
                 nums[lt], nums[i] = nums[i], nums[lt]
@@ -214,14 +202,14 @@ class Solution:
 
 - **Time Complexity:**
   - Average: O(n log n) - each level of recursion processes n elements, and there are log n levels
-  - Worst: O(n²) when array is already sorted and using endpoint as pivot (without optimization)
-  - Best: O(n log n) when pivot divides array evenly
+  - Worst: O(n²) with repeatedly unbalanced partitions; three-way partitioning prevents the all-equal case from causing this
+  - Best: O(n) when all values are equal and one three-way partition completes the sort
 
-- **Space Complexity:** O(log n) for recursion stack (the function call depth)
+- **Space Complexity:** O(log n), because only the smaller partition grows the recursion or pending-work stack
 
 ### Optimization Tips
 
-1. **Median-of-three**: Choose median of left, middle, and right elements as pivot to avoid worst-case performance on sorted arrays
+1. **Median-of-three**: Choose the median of left, middle, and right elements to reduce common bad partitions; this does not guarantee O(n log n)
 2. **Small array optimization**: Use insertion sort for small subarrays (typically < 10 elements) since it has better constants
 3. **Three-way partitioning**: Handle arrays with many duplicate elements by creating three partitions: < pivot, = pivot, > pivot
 
@@ -390,20 +378,15 @@ class Solution {
     }
     
     private void heapify(int[] nums, int n, int i) {
-        int largest = i;
-        int left = 2 * i + 1;
-        int right = 2 * i + 2;
-        
-        if (left < n && nums[left] > nums[largest]) {
-            largest = left;
-        }
-        if (right < n && nums[right] > nums[largest]) {
-            largest = right;
-        }
-        
-        if (largest != i) {
+        while (true) {
+            int largest = i;
+            int left = 2 * i + 1;
+            int right = left + 1;
+            if (left < n && nums[left] > nums[largest]) largest = left;
+            if (right < n && nums[right] > nums[largest]) largest = right;
+            if (largest == i) return;
             swap(nums, i, largest);
-            heapify(nums, n, largest);
+            i = largest;
         }
     }
     
@@ -435,18 +418,18 @@ class Solution:
         return nums
 
     def _heapify(self, nums: list[int], n: int, i: int) -> None:
-        largest = i
-        left = 2 * i + 1
-        right = 2 * i + 2
-
-        if left < n and nums[left] > nums[largest]:
-            largest = left
-        if right < n and nums[right] > nums[largest]:
-            largest = right
-
-        if largest != i:
+        while True:
+            largest = i
+            left = 2 * i + 1
+            right = left + 1
+            if left < n and nums[left] > nums[largest]:
+                largest = left
+            if right < n and nums[right] > nums[largest]:
+                largest = right
+            if largest == i:
+                return
             nums[i], nums[largest] = nums[largest], nums[i]
-            self._heapify(nums, n, largest)
+            i = largest
 ```
 
 ### Complexity Analysis
@@ -721,7 +704,7 @@ class Solution:
 ### Characteristics
 
 - Efficient when d (number of digits) is small
-- Stable sorting (preserves order of equal elements)
+- Each digit pass is stable; reversing the negative group would reverse equal-key records, so this implementation is intended for plain integers.
 - Only works for integers (or can be adapted for strings)
 - Requires extra space
 
@@ -901,13 +884,6 @@ mid = left + (right - left) // 2  # Python 也可使用相同模式
 [5, 5, 5, 1, 1, 1, 3, 3]
 ```
 
-### Execution Time (n = 10000)
+### Measuring Performance
 
-| Algorithm      | Random | Sorted | Reverse | Duplicates |
-| -------------- | ------ | ------ | ------- | ---------- |
-| Quick Sort     | 5ms    | 50ms*  | 45ms*   | 8ms        |
-| Merge Sort     | 8ms    | 8ms    | 8ms     | 8ms        |
-| Heap Sort      | 12ms   | 12ms   | 12ms    | 12ms       |
-| Counting Sort  | 3ms    | 3ms    | 3ms     | 3ms        |
-
-*Unoptimized Quick Sort degrades on sorted arrays (use median-of-three to fix!)
+No reproducible benchmark results are bundled with this project. Compare algorithms with the same runtime, machine, input sizes, and repeated warm-up/measurement runs. Include sorted, reverse-sorted, and duplicate-heavy inputs; pivot heuristics do not eliminate every Quick Sort worst case.

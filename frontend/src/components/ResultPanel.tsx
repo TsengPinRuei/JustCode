@@ -1,6 +1,6 @@
 /**
  * 結果面板：顯示程式執行結果，包含狀態（AC/WA/CE/RE/TLE）、
-     * 通過數、逐筆測試案例詳細資訊，以及篩選後的除錯 console output。
+ * 通過數、逐筆測試案例詳細資訊，以及篩選後的除錯 console output。
  */
 import { useMemo, type FC } from 'react';
 import { ExecutionResult } from '../types';
@@ -107,12 +107,6 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
                     </div>
                 )}
             </div>
-
-            {result.status === 'CE' && (
-                <div className="error-message">
-                    {result.message}
-                </div>
-            )}
 
             {/* 只顯示失敗案例的除錯輸出，避免成功案例的雜訊蓋掉重點。 */}
             {filteredDebugOutput && (

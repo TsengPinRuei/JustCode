@@ -22,7 +22,7 @@ fi
 echo "=== JustCode 安裝指令 ==="
 echo ""
 
-# JustCode 依賴 Node.js 18+ 提供的新版 workspace/package 行為。
+# 後端的原生 fetch 需要 Node.js 18+。
 echo "檢查環境..."
 if (( EUID == 0 )); then
     die "請不要以 root/sudo 執行；npm install 可能產生 root 擁有的 node_modules。請改用一般使用者執行。"

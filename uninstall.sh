@@ -42,6 +42,11 @@ if [ ! -f "package.json" ] || [ ! -d "frontend" ] || [ ! -d "backend" ]; then
     die "請從 JustCode 專案內的 uninstall.sh 執行，或確認專案檔案完整。"
 fi
 
+# 子目錄若是 symlink，刪除其 dist/node_modules 會走到專案外。先拒絕，避免部分清理。
+if [ -L "$SCRIPT_DIR/frontend" ] || [ -L "$SCRIPT_DIR/backend" ]; then
+    die "frontend/backend 不可為符號連結；請先確認實際清理範圍。"
+fi
+
 safe_remove() {
     local rel_path="$1"
     local target="$SCRIPT_DIR/$rel_path"
@@ -108,6 +113,7 @@ safe_remove "frontend/dist"
 safe_remove "frontend/.vite"
 safe_remove "backend/tsconfig.tsbuildinfo"
 safe_remove "frontend/tsconfig.tsbuildinfo"
+safe_remove "frontend/tsconfig.node.tsbuildinfo"
 
 echo ""
 echo "步驟 3: 清理暫存檔..."

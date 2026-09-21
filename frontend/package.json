@@ -15,7 +15,9 @@
         "react-markdown": "^10.1.0",
         "react-router-dom": "^6.21.1",
         "remark-gfm": "^4.0.1",
-        "unist-util-visit": "^5.1.0"
+        "unist-util-visit": "^5.1.0",
+        "monaco-editor": "^0.56.0",
+        "dompurify": "^3.4.15"
     },
     "devDependencies": {
         "@types/mdast": "^4.0.4",
@@ -23,6 +25,6 @@
         "@types/react-dom": "^18.2.18",
         "@vitejs/plugin-react": "^4.2.1",
         "typescript": "^5.3.3",
-        "vite": "^5.0.11"
+        "vite": "^6.4.3"
     }
 }
