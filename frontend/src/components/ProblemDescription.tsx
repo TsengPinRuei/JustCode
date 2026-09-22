@@ -1,9 +1,3 @@
-/**
- * 題目敘述：渲染題目敘述與 editorial 分頁。
- * 使用 ReactMarkdown 與自訂 renderer 處理分頁式 code group，
- * 並在 code block 上提供複製按鈕。也會建立可下載的題目 brief，
- * 供產生本機 hidden testcase JSON 時使用。
- */
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -18,8 +12,6 @@ interface ProblemDescriptionProps {
     attemptStartedAt: number;
 }
 
-/* ---- 分頁式 code-group renderer ---- */
-
 const LANG_LABELS: Record<string, string> = {
     java: 'Java',
     python: 'Python3',
@@ -33,11 +25,11 @@ const LANG_LABELS: Record<string, string> = {
 };
 
 const DESCRIPTION_REMARK_PLUGINS = [remarkGfm];
-// Editorial 可能包含相鄰的語言專屬 code block，需轉成分頁。
+// Group adjacent language-specific editorial code blocks into tabs.
 const EDITORIAL_REMARK_PLUGINS = [remarkGfm, remarkCodeGroup];
 
 const extractText = (node: React.ReactNode): string => {
-    // ReactMarkdown 可能傳入巢狀元素給 <pre>；先攤平，讓所有 code block 都能複製。
+    // ReactMarkdown may nest elements inside pre; flatten them to recover copyable text.
     if (node === null || node === undefined || typeof node === 'boolean') return '';
     if (typeof node === 'string' || typeof node === 'number') return String(node);
     if (Array.isArray(node)) return node.map(extractText).join('');
@@ -48,20 +40,19 @@ const extractText = (node: React.ReactNode): string => {
 };
 
 const copyTextToClipboard = async (text: string) => {
-    // 優先使用新版 async clipboard API；不可用的瀏覽器/情境則回退到備援方式。
+    // Try the async clipboard API, then fall back if it is unavailable or rejects the write.
     if (navigator.clipboard?.writeText) {
         try {
             await navigator.clipboard.writeText(text);
             return;
         } catch {
-            // 繼續走到下方 textarea 備援。
         }
     }
 
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.setAttribute('readonly', '');
-    // 將備援 textarea 放在畫面外，避免複製時造成版面位移或閃爍。
+    // Keep the fallback textarea off screen to avoid visible layout changes while copying.
     textarea.style.position = 'fixed';
     textarea.style.top = '0';
     textarea.style.left = '-9999px';
@@ -102,6 +93,7 @@ function CopyButton({ getText }: { getText: () => string }) {
         } catch {
             state = 'failed';
         }
+        // Ignore an older copy request or a result received after unmounting.
         if (!mountedRef.current || request !== requestRef.current) return;
         setCopyState(state);
         timerRef.current = setTimeout(() => {
@@ -129,7 +121,7 @@ function CopyButton({ getText }: { getText: () => string }) {
 }
 
 function CodeGroupBlock({ languages }: { languages: string }) {
-    // remarkCodeGroup 會把分組後的 code block 序列化到這個 prop，供自訂 renderer 使用。
+    // remarkCodeGroup passes grouped language labels and source text as serialized JSON.
     const items = useMemo(
         () => JSON.parse(languages) as { lang: string; value: string }[],
         [languages]
@@ -162,8 +154,6 @@ function CodeGroupBlock({ languages }: { languages: string }) {
     );
 }
 
-/* ---- ReactMarkdown 自訂 components map ---- */
-
 const markdownComponents: Components & {
     'code-group': React.FC<ExtraProps & { languages?: string }>;
 } = {
@@ -180,7 +170,7 @@ const markdownComponents: Components & {
 };
 
 const formatExampleBlock = (problem: Problem): string => {
-    // 下載 brief 使用 fenced text block，讓產生的範例可讀但不被視為可執行程式碼。
+    // Keep example values in text fences so Markdown punctuation is displayed literally.
     return problem.metadata.examples.map((example, index) => {
         const explanation = example.explanation ? `\nExplanation:\n${example.explanation}\n` : '';
         return [
@@ -199,7 +189,7 @@ const formatExampleBlock = (problem: Problem): string => {
 };
 
 const buildHiddenTestcaseSample = (problem: Problem) => {
-    // 優先使用可見 testcase 作為 schema 範例，因為它已符合 runner 參數名稱。
+    // Use a validated visible testcase as the sample so its input keys match the runner parameters.
     const firstVisibleTestcase = problem.visibleTestcases[0];
     if (firstVisibleTestcase) {
         return [
@@ -221,8 +211,8 @@ const buildHiddenTestcaseSample = (problem: Problem) => {
     ];
 };
 
+// Keep this downloaded test-generation brief consistent with the backend's JSON request shape.
 const buildDescriptionDownload = (problem: Problem): string => {
-    // 此檔案是產生隱藏測試用的 prompt/brief；JSON 合約需與後端驗證一致。
     const params = problem.metadata.params && problem.metadata.params.length > 0
         ? problem.metadata.params.map((param) => `- \`${param.name}\`: \`${param.type}\``).join('\n')
         : '- No parameter metadata available.';
@@ -265,7 +255,6 @@ const buildDescriptionDownload = (problem: Problem): string => {
 };
 
 const downloadTextFile = (filename: string, content: string) => {
-    // Let the browser start the download before releasing its object URL.
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -274,17 +263,16 @@ const downloadTextFile = (filename: string, content: string) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    // Let the browser start the download before releasing its object URL.
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
-
-/* ---- 主元件 ---- */
 
 const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progress, attemptStartedAt }) => {
     const [activeTab, setActiveTab] = useState<'description' | 'editorial'>('description');
     const [showHiddenTestModal, setShowHiddenTestModal] = useState(false);
 
     const handleDownloadDescription = () => {
-        // 將 problem ID 用作本機下載檔名前先做清理。
+        // Remove characters that should not become part of the downloaded filename.
         const safeId = problem.metadata.id.replace(/[^a-z0-9-_]+/gi, '-');
         downloadTextFile(`${safeId}-description.md`, buildDescriptionDownload(problem));
     };

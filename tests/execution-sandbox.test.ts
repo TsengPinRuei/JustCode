@@ -6,6 +6,7 @@ import { MAX_OUTPUT_LENGTH } from '../backend/src/constants';
 type LocalRunner = {
     executeLocal(options: SandboxCommandOptions): Promise<SandboxCommandResult>;
 };
+// Call local execution directly so installed Docker images cannot change these process tests.
 function execute(code: string, overrides: Partial<SandboxCommandOptions> = {}) {
     return (new SandboxRunner() as unknown as LocalRunner).executeLocal({
         command: process.execPath, args: ['-e', code], cwd: process.cwd(), timeoutMs: 1500, image: 'unused', ...overrides,

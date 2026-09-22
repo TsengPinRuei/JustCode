@@ -1,7 +1,3 @@
-/**
- * 根 App 元件：設定 React Router，並渲染 Navbar 與頁面路由。
- * 路由：/（redirect）、/problems（列表）、/problems/:id（詳細頁）。
- */
 import { useEffect } from 'react';
 import { problemsApi } from './services/apiClient';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';

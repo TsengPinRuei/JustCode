@@ -8,7 +8,8 @@ export function createApp(routes = problemRoutes): express.Express {
     const app = express();
     app.disable('x-powered-by');
 
-    // 此 API 可執行程式與修改本機檔案；同時檢查 Host 和 Origin，阻擋外站及 DNS rebinding。
+    // This unauthenticated API executes code and writes local files.
+    // Check both Host and Origin to reject external sites and DNS rebinding.
     app.use((req, res, next) => {
         if (!localHosts.has((req.hostname ?? '').toLowerCase())) {
             return res.status(403).json({ error: 'Only local requests are allowed' });

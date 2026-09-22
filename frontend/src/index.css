@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* 色彩配置：受 LeetCode 啟發的深色主題 */
+  /* Shared colors and shadows for the dark theme. */
   --bg-primary: #1a1a1a;
   --bg-secondary: #262626;
   --bg-tertiary: #2d2d2d;
@@ -47,7 +47,7 @@
 html,
 body {
   height: 100%;
-  /* 解題工作區在 panel 內捲動；body 捲動會破壞 split-pane 尺寸。 */
+  /* Keep scrolling inside panels so the split workspace stays within the viewport. */
   overflow: hidden;
 }
 
@@ -60,13 +60,13 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
-  /* 以桌面為主的 app 縮放比例，對齊整個 UI 使用的 Monaco/editor 密度。 */
+  /* Scale the whole interface, including Monaco, to the chosen desktop density. */
   zoom: 1.15;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 捲軸樣式 */
+/* Scrollbar styles. */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -85,7 +85,7 @@ body {
   background: var(--border-hover);
 }
 
-/* 導覽列 */
+/* Navigation. */
 .navbar {
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
@@ -144,15 +144,15 @@ body {
   color: var(--text-primary);
 }
 
-/* 題目列表 */
+/* Problem list. */
 .problem-list-container {
-  /* body 捲動已為 split-pane 工作區停用，因此此頁自行管理捲動。 */
   max-width: 90%;
   width: 100%;
   flex: 1;
   min-height: 0;
   margin: 0 auto;
   padding: 32px 16px;
+  /* The body cannot scroll, so this page owns its vertical scrolling. */
   overflow-y: auto;
 }
 
@@ -173,7 +173,7 @@ body {
 .problem-table table {
   width: 100%;
   border-collapse: collapse;
-  /* 固定版面可避免長標題/標籤撐開 action 與 status 欄位。 */
+  /* Keep long titles and tags from expanding the status and action columns. */
   table-layout: fixed;
 }
 
@@ -257,9 +257,8 @@ body {
   overflow-wrap: break-word;
 }
 
-/* 題目詳細頁布局 */
 .app {
-  /* Navbar 與題目工作區填滿 viewport；子 panel 各自管理捲動。 */
+  /* Fill the viewport and let each page or panel manage its scrolling. */
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -271,7 +270,7 @@ body {
   overflow: hidden;
 }
 
-/* 題目敘述 */
+/* Problem description. */
 .problem-header {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
@@ -337,7 +336,7 @@ body {
   flex-wrap: wrap;
 }
 
-/* 解題統計放在標題附近，因為它摘要此題的本機 AC 歷史。 */
+/* Local solve statistics. */
 .solve-stats-panel {
   margin: 14px 20px 0;
   padding: 0;
@@ -600,8 +599,7 @@ body {
   color: var(--text-primary);
 }
 
-/* ---- 程式碼群組（分頁式 code block）---- */
-
+/* Tabbed editorial code blocks. */
 .code-group {
   margin-bottom: 16px;
   border: 1px solid var(--border-default);
@@ -719,6 +717,7 @@ body {
   line-height: 1;
 }
 
+/* Reserve space for the overlaid Copy button so it does not cover code text. */
 .code-block-wrapper pre {
   padding-right: 96px;
 }
@@ -729,7 +728,7 @@ body {
   margin-bottom: 12px;
 }
 
-/* Markdown 表格樣式（題解使用） */
+/* Markdown tables in descriptions and editorials. */
 .problem-description table {
   width: 100%;
   border-collapse: collapse;
@@ -779,7 +778,7 @@ body {
 }
 
 
-/* 範例 Input/Output 的 Markdown 樣式 */
+/* Literal example input and output. */
 .example-io {
   display: flex;
   flex-direction: column;
@@ -814,7 +813,7 @@ body {
   margin-bottom: 6px;
 }
 
-/* 編輯器面板 */
+/* Code editor controls. */
 .editor-toolbar {
   display: flex;
   align-items: center;
@@ -874,7 +873,7 @@ body {
   overflow: hidden;
 }
 
-/* Console 面板 */
+/* Console panels. */
 .console-container {
   flex: 1;
   background-color: var(--bg-secondary);
@@ -882,7 +881,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* 讓巢狀 pre/code block 可在 flex pane 內縮小，而不是強制水平溢出。 */
+  /* Allow long preformatted values to shrink inside the flex pane. */
   min-width: 0;
 }
 
@@ -966,7 +965,7 @@ body {
   cursor: not-allowed;
 }
 
-/* Testcase 面板 */
+/* Testcase selection and input. */
 .testcase-selector {
   display: flex;
   gap: 8px;
@@ -1040,7 +1039,7 @@ body {
   border-color: var(--accent-blue);
 }
 
-/* 結果面板 */
+/* Execution results. */
 .result-panel {
   width: 100%;
   min-width: 0;
@@ -1188,10 +1187,10 @@ body {
 }
 
 .testcase-result-value {
-  /* 結果可能包含大型陣列；保持可讀性，同時避免撐大整個 panel。 */
   display: block;
   width: 100%;
   max-width: 100%;
+  /* Scroll large values within a bounded area instead of expanding the result panel. */
   max-height: 180px;
   margin: 0 0 8px;
   padding: 8px;
@@ -1219,7 +1218,7 @@ body {
   word-break: break-word;
 }
 
-/* 載入狀態 */
+/* Loading states. */
 .loading {
   display: flex;
   align-items: center;
@@ -1248,13 +1247,12 @@ body {
   }
 }
 
-/* 停用的 Navbar 連結 */
 .navbar-link-disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* 題目表格欄寬 */
+/* Problem table column widths. */
 .problem-table th.col-status {
   width: 88px;
 }
@@ -1317,34 +1315,29 @@ body {
   filter: brightness(0) saturate(100%) invert(38%) sepia(82%) saturate(1700%) hue-rotate(338deg) brightness(95%) contrast(95%);
 }
 
-/* 題解佔位內容 */
 .editorial-placeholder {
   color: var(--text-secondary);
   font-style: italic;
 }
 
-/* 範例容器 */
 .example-container {
   margin-bottom: 16px;
 }
 
-/* 自訂輸入標籤 */
 .custom-input-label {
   margin-bottom: 8px;
 }
 
-/* 結果空狀態 */
 .result-empty-state {
   color: var(--text-secondary);
   padding: 16px;
 }
 
-/* 結果訊息間距 */
 .result-message-spaced {
   margin-top: 8px;
 }
 
-/* 除錯輸出樣式 */
+/* Debug output. */
 .debug-output-section {
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
@@ -1414,7 +1407,6 @@ body {
   color: var(--text-primary)
 }
 
-/* 題目列表標題列 */
 .problem-list-header-row {
   display: flex;
   justify-content: space-between;
@@ -1426,7 +1418,6 @@ body {
   margin-bottom: 0;
 }
 
-/* 匯入按鈕：高對比深色樣式 */
 .import-btn {
   display: flex;
   align-items: center;
@@ -1458,7 +1449,7 @@ body {
   line-height: 1;
 }
 
-/* Modal 覆蓋層 */
+/* Modal overlay. */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1481,7 +1472,7 @@ body {
   }
 }
 
-/* 匯入 Modal */
+/* Import dialogs. */
 .import-modal {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -1500,7 +1491,7 @@ body {
 }
 
 .hidden-test-modal .import-modal-body {
-  /* 隱藏測試匯入可能包含大型 JSON payload，因此 modal 內容區在 viewport 內捲動。 */
+  /* Keep the dialog body scrollable when large testcase JSON exceeds the viewport. */
   overflow-y: auto;
 }
 
@@ -1627,6 +1618,8 @@ body {
   flex-direction: column;
 }
 
+/* Keep both source fields mounted so switching modes preserves their text. */
+/* Collapse the inactive field and delay hiding it until its closing transition finishes. */
 .hidden-test-source-pane {
   display: grid;
   grid-template-rows: 0fr;
@@ -1812,7 +1805,7 @@ body {
   animation: spin 0.8s linear infinite;
 }
 
-/* 匯入回饋 */
+/* Import feedback. */
 .import-feedback {
   display: flex;
   align-items: center;
@@ -1853,7 +1846,6 @@ body {
   font-size: 16px;
 }
 
-/* 響應式調整 */
 @media (max-width: 768px) {
   .navbar {
     padding: 0 12px;
@@ -1922,7 +1914,7 @@ body {
   .problem-table tbody,
   .problem-table tr,
   .problem-table td {
-    /* 不改 JSX 結構，將桌面表格收合成類卡片列。 */
+    /* Reflow the existing table markup into cards on narrow screens. */
     display: block;
     width: 100%;
   }
@@ -1938,7 +1930,7 @@ body {
   }
 
   .problem-table tbody tr {
-    /* Grid area 在窄螢幕上保留 status/title/difficulty/tag/action 順序。 */
+    /* Preserve the status, title, difficulty, tags, and actions order in the card layout. */
     display: grid;
     grid-template-columns: 24px minmax(0, 1fr);
     grid-template-areas:
@@ -2006,7 +1998,6 @@ body {
     margin-bottom: 0;
   }
 
-  /* 窄螢幕上排名列會移除 metadata 欄，再將它放到 timing bar 下方。 */
   .solve-stats-panel {
     margin: 12px;
   }
@@ -2015,6 +2006,7 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* Move record metadata below the timing bar on narrow screens. */
   .solve-rank-row {
     grid-template-columns: 32px minmax(64px, 1fr) minmax(58px, auto);
   }

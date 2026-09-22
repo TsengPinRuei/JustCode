@@ -73,7 +73,8 @@ export class PythonExecutor {
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
         const functionName = metadata?.functionName || 'sortArray';
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
-        // JSON literals remain data, so parameter names cannot collide with harness locals.
+        // Encode the name list as JSON, then encode that JSON as a Python string literal.
+        // json.loads restores the names without inserting them as runner variable names.
         const names = JSON.stringify(JSON.stringify(params.map(param => param.name)));
         return `import json
 import sys

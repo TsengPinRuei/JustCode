@@ -39,7 +39,6 @@
 
 .split-pane-divider {
     touch-action: none;
-    /* 分隔線有 8px 命中區域，但內部線條視覺上維持較窄。 */
     background: transparent;
     position: relative;
     flex-shrink: 0;
@@ -49,6 +48,8 @@
     transition: background-color 0.2s ease;
 }
 
+/* Keep the divider hit area at 8 px; the drag calculations subtract this size. */
+/* The inner line is 2 px so the handle remains easy to grab without looking wide. */
 .split-pane-divider.vertical {
     width: 8px;
     cursor: col-resize;

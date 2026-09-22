@@ -1,5 +1,6 @@
 // The generated workspace has no dependency manager. Keep one JSON codec for all
 // supported Java types so strings, nulls, arrays and lists share escaping rules.
+// String.raw preserves Java escape sequences when this fragment is inserted into Runner.java.
 export const JAVA_JSON_SUPPORT = String.raw`
     @SuppressWarnings("unchecked")
     static Map<String, Object> parseJson(String json) {
@@ -70,6 +71,7 @@ export const JAVA_JSON_SUPPORT = String.raw`
             int start = index;
             while (index < json.length() && "-+0123456789.eE".indexOf(json.charAt(index)) >= 0) index++;
             String number = json.substring(start, index);
+            // Keep integral values as Long so they are not rounded through Double before conversion.
             if (number.indexOf('.') >= 0 || number.indexOf('e') >= 0 || number.indexOf('E') >= 0) {
                 return Double.valueOf(number);
             }

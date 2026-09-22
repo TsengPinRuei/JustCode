@@ -86,7 +86,7 @@ class Solution {
 ```python
 class Solution:
     def sum(self, num1: int, num2: int) -> int:
-        # Python 整數是任意精度，因此需要 mask
+        # Limit carry propagation to 32 bits so the loop terminates for negative inputs.
         MASK = 0xFFFFFFFF
         MAX_INT = 0x7FFFFFFF
 
@@ -95,7 +95,7 @@ class Solution:
             num1 = (num1 ^ num2) & MASK
             num2 = carry
 
-        # 處理 Python 中的負數
+        # Interpret the 32-bit result as a signed two's-complement integer.
         return num1 if num1 <= MAX_INT else ~(num1 ^ MASK)
 ```
 
@@ -137,7 +137,8 @@ Result: 17 ✓
 **Wrong:**
 ```java
 public int sum(int num1, int num2) {
-    num1 + num2;  // 缺少 return 陳述式！
+    // This is not a valid Java statement and does not return the sum.
+    num1 + num2;
 }
 ```
 
@@ -152,7 +153,8 @@ public int sum(int num1, int num2) {
 
 **Wrong:**
 ```python
-def sum(num1: int, num2: int) -> int:  # 缺少 self！
+# Instance methods need self before the problem parameters.
+def sum(num1: int, num2: int) -> int:
     return num1 + num2
 ```
 

@@ -1,7 +1,3 @@
-/**
- * Navbar 元件：包含 logo 與選單連結的頂部導覽列。
- * \"Explore\" 與 \"Discuss\" 連結是未來功能的 placeholder（目前停用）。
- */
 import { type FC } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -20,6 +16,7 @@ const Navbar: FC = () => {
                             Problems
                         </Link>
                     </li>
+                    {/* Explore and Discuss are placeholders with no routes yet. */}
                     <li className="navbar-disabled-item">
                         <span className="navbar-link-disabled" aria-disabled="true">
                             Explore

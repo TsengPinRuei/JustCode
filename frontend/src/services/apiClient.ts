@@ -10,7 +10,8 @@ import {
 } from '../types';
 import { createProgressPersistence } from './progressPersistence';
 
-// Vite proxies /api during development; production uses the same origin.
+// Use relative API URLs through Vite's proxy locally.
+// Other hosting must serve or proxy /api on the frontend's origin.
 const apiClient = axios.create({
     baseURL: '/api',
     timeout: 30000,
@@ -47,7 +48,8 @@ export const problemsApi = {
         customInput?: string,
         signal?: AbortSignal
     ): Promise<ExecutionResult> {
-        // The backend bounds the entire execution to 60s, plus HTTP overhead.
+        // Allow headroom above the backend's 60-second compilation/testcase budget
+        // for setup, cleanup, storage reads, and HTTP overhead.
         const response = await apiClient.post('/run', {
             problemId, code, language, inputMode, customInput,
         }, { signal, timeout: 75000 });

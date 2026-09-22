@@ -137,13 +137,14 @@ class Solution {
         while (left < right) {
             int pivot = nums[left + (right - left) / 2];
             int lt = left, i = left, gt = right;
-            // 一次略過等於 pivot 的區段，避免重複值造成平方時間。
+            // Group equal values together so they are excluded from later partitions.
             while (i <= gt) {
                 if (nums[i] < pivot) swap(nums, lt++, i++);
+                // Recheck i after swapping from the unclassified right side.
                 else if (nums[i] > pivot) swap(nums, i, gt--);
                 else i++;
             }
-            // 只遞迴較小區段，讓呼叫堆疊最多 O(log n)。
+            // Recurse into the smaller partition and loop over the larger one to bound stack depth.
             if (lt - left < right - gt) {
                 quickSort(nums, left, lt - 1);
                 left = gt + 1;
@@ -172,7 +173,7 @@ class Solution:
             left, right = stack.pop()
             while left < right:
                 lt, gt = self._three_way_partition(nums, left, right)
-                # 先處理較小區段，限制待處理 stack 的長度。
+                # Process the smaller partition now and defer the larger one to bound the stack size.
                 if lt - left < right - gt:
                     stack.append((gt + 1, right))
                     right = lt - 1
@@ -184,13 +185,15 @@ class Solution:
     def _three_way_partition(self, nums: list[int], left: int, right: int) -> tuple[int, int]:
         pivot = nums[random.randint(left, right)]
         lt, i, gt = left, left, right
-        # [left, lt) < pivot；[lt, i) == pivot；(gt, right] > pivot。
+        # Maintain values below the pivot in [left, lt), equal values in [lt, i),
+        # and greater values in (gt, right]; [i, gt] is still unclassified.
         while i <= gt:
             if nums[i] < pivot:
                 nums[lt], nums[i] = nums[i], nums[lt]
                 lt += 1
                 i += 1
             elif nums[i] > pivot:
+                # Recheck i because the value swapped from gt has not been classified yet.
                 nums[gt], nums[i] = nums[i], nums[gt]
                 gt -= 1
             else:
@@ -254,16 +257,18 @@ class Solution {
     }
     
     private void merge(int[] nums, int left, int mid, int right, int[] temp) {
-        // 複製到暫存陣列
+        // Copy unread values so merging into nums cannot overwrite either sorted half.
         for (int i = left; i <= right; i++) {
             temp[i] = nums[i];
         }
         
-        int i = left;      // 左半部指標
-        int j = mid + 1;   // 右半部指標
-        int k = left;      // 合併陣列指標
+        // i and j read the left and right halves of temp; k writes the merged values into nums.
+        int i = left;
+        int j = mid + 1;
+        int k = left;
         
         while (i <= mid && j <= right) {
+            // Prefer the left half on ties to preserve the order of equal values.
             if (temp[i] <= temp[j]) {
                 nums[k++] = temp[i++];
             } else {
@@ -271,7 +276,6 @@ class Solution {
             }
         }
         
-        // 複製剩餘元素
         while (i <= mid) {
             nums[k++] = temp[i++];
         }
@@ -300,12 +304,14 @@ class Solution:
 
     def _merge(self, nums: list[int], left: int, mid: int, right: int) -> None:
         temp = nums[left:right + 1]
-        i = 0                  # 左半部指標
-        j = mid - left + 1     # 右半部指標
-        k = left               # 合併陣列指標
+        # i and j index the copied slice from zero; k indexes the original array.
+        i = 0
+        j = mid - left + 1
+        k = left
         length = right - left + 1
 
         while i <= mid - left and j < length:
+            # Prefer the left half on ties to preserve the order of equal values.
             if temp[i] <= temp[j]:
                 nums[k] = temp[i]
                 i += 1
@@ -363,12 +369,12 @@ class Solution {
         
         int n = nums.length;
         
-        // 建立 heap：從最後一個非葉節點開始
+        // Build from the last parent upward so each node's child subtrees are already heaps.
         for (int i = n / 2 - 1; i >= 0; i--) {
             heapify(nums, n, i);
         }
         
-        // 逐一從 heap 取出元素
+        // Move the maximum into the sorted suffix and exclude that suffix from the next heap repair.
         for (int i = n - 1; i > 0; i--) {
             swap(nums, 0, i);
             heapify(nums, i, 0);
@@ -378,6 +384,7 @@ class Solution {
     }
     
     private void heapify(int[] nums, int n, int i) {
+        // Repair the heap iteratively to keep auxiliary space constant.
         while (true) {
             int largest = i;
             int left = 2 * i + 1;
@@ -406,11 +413,11 @@ class Solution:
 
         n = len(nums)
 
-        # 建立 heap：從最後一個非葉節點開始
+        # Build from the last parent upward so each node's child subtrees are already heaps.
         for i in range(n // 2 - 1, -1, -1):
             self._heapify(nums, n, i)
 
-        # 逐一從 heap 取出元素
+        # Move the maximum into the sorted suffix and repair only the remaining heap.
         for i in range(n - 1, 0, -1):
             nums[0], nums[i] = nums[i], nums[0]
             self._heapify(nums, i, 0)
@@ -418,6 +425,7 @@ class Solution:
         return nums
 
     def _heapify(self, nums: list[int], n: int, i: int) -> None:
+        # Repair the heap iteratively to keep auxiliary space constant.
         while True:
             largest = i
             left = 2 * i + 1
@@ -469,7 +477,6 @@ class Solution {
             return nums;
         }
         
-        // 找出最小值與最大值以決定範圍
         int min = Integer.MAX_VALUE;
         int max = Integer.MIN_VALUE;
         for (int num : nums) {
@@ -477,14 +484,15 @@ class Solution {
             max = Math.max(max, num);
         }
         
-        // 計算出現次數
+        // The problem bounds limit the count array to at most 100001 entries.
+        // Offset values by min so negative numbers map to nonnegative indices.
         int range = max - min + 1;
         int[] count = new int[range];
         for (int num : nums) {
             count[num - min]++;
         }
         
-        // 填回原始陣列
+        // Rebuild integer values in order; this variant does not preserve identities of equal-key records.
         int index = 0;
         for (int i = 0; i < range; i++) {
             while (count[i]-- > 0) {
@@ -503,16 +511,16 @@ class Solution:
         if len(nums) <= 1:
             return nums
 
-        # 找出最小值與最大值以決定範圍
         min_val = min(nums)
         max_val = max(nums)
 
-        # 計算出現次數
+        # The problem bounds limit the count array to at most 100001 entries.
+        # Offset values by min_val so negative numbers map to nonnegative indices.
         count = [0] * (max_val - min_val + 1)
         for num in nums:
             count[num - min_val] += 1
 
-        # 填回原始陣列
+        # Rebuild integer values in order; equal-key record identities are not retained.
         index = 0
         for i, cnt in enumerate(count):
             for _ in range(cnt):
@@ -561,7 +569,7 @@ class Solution {
             return nums;
         }
         
-        // 分離正數與負數
+        // Sort nonnegative values separately from the magnitudes of negative values.
         List<Integer> positive = new ArrayList<>();
         List<Integer> negative = new ArrayList<>();
         
@@ -569,20 +577,21 @@ class Solution {
             if (num >= 0) {
                 positive.add(num);
             } else {
-                negative.add(-num);  // 轉成正數以便排序
+                // Negation is safe under the problem's [-50000, 50000] bounds.
+                negative.add(-num);
             }
         }
         
-        // 分開排序
         if (!positive.isEmpty()) {
             radixSort(positive);
         }
         if (!negative.isEmpty()) {
             radixSort(negative);
-            Collections.reverse(negative);  // 反轉以取得正確的負數順序
+            // Larger magnitudes must come first when restored to negative values.
+            Collections.reverse(negative);
         }
         
-        // 合併結果：負數在前，正數在後
+        // Restore negative signs, then append the sorted nonnegative values.
         int index = 0;
         for (int num : negative) {
             nums[index++] = -num;
@@ -597,10 +606,10 @@ class Solution {
     private void radixSort(List<Integer> list) {
         if (list.isEmpty()) return;
         
-        // 找出最大值以決定位數
         int max = Collections.max(list);
         
-        // 使用 counting sort 依每個位數排序
+        // Process decimal digits from least to most significant using stable passes.
+        // The problem's magnitude bound of 50000 keeps exp multiplication within int range.
         for (int exp = 1; max / exp > 0; exp *= 10) {
             countingSortByDigit(list, exp);
         }
@@ -609,20 +618,19 @@ class Solution {
     private void countingSortByDigit(List<Integer> list, int exp) {
         int n = list.size();
         int[] output = new int[n];
-        int[] count = new int[10];  // 數字 0-9
+        int[] count = new int[10];
         
-        // 計算各數字出現次數
         for (int num : list) {
             int digit = (num / exp) % 10;
             count[digit]++;
         }
         
-        // 計算累積次數
+        // Prefix sums give each digit's exclusive end position in the output array.
         for (int i = 1; i < 10; i++) {
             count[i] += count[i - 1];
         }
         
-        // 由後往前建立輸出陣列，以保持穩定性
+        // Fill from right to left to preserve the order established by earlier digit passes.
         for (int i = n - 1; i >= 0; i--) {
             int num = list.get(i);
             int digit = (num / exp) % 10;
@@ -630,7 +638,6 @@ class Solution {
             count[digit]--;
         }
         
-        // 複製回原始 list
         for (int i = 0; i < n; i++) {
             list.set(i, output[i]);
         }
@@ -644,17 +651,19 @@ class Solution:
         if len(nums) <= 1:
             return nums
 
-        # 分離正數與負數
+        # Sort nonnegative values separately from the magnitudes of negative values.
         positive = [n for n in nums if n >= 0]
-        negative = [-n for n in nums if n < 0]  # 轉成正數以便排序
+        # Use magnitudes so the digit sorter only handles nonnegative values.
+        negative = [-n for n in nums if n < 0]
 
         if positive:
             self._radix_sort(positive)
         if negative:
             self._radix_sort(negative)
-            negative.reverse()  # 反轉以取得正確的負數順序
+            # Reverse magnitudes so restoring their signs produces ascending negative values.
+            negative.reverse()
 
-        # 合併結果：負數在前，正數在後
+        # Restore negative signs, then append the sorted nonnegative values.
         index = 0
         for num in negative:
             nums[index] = -num
@@ -677,16 +686,17 @@ class Solution:
     def _counting_sort_by_digit(self, lst: list[int], exp: int) -> None:
         n = len(lst)
         output = [0] * n
-        count = [0] * 10  # 數字 0-9
+        count = [0] * 10
 
         for num in lst:
             digit = (num // exp) % 10
             count[digit] += 1
 
+        # Prefix sums give each digit's exclusive end position in the output array.
         for i in range(1, 10):
             count[i] += count[i - 1]
 
-        # 由後往前建立輸出陣列，以保持穩定性
+        # Fill from right to left to preserve the order established by earlier digit passes.
         for i in range(n - 1, -1, -1):
             digit = (lst[i] // exp) % 10
             output[count[digit] - 1] = lst[i]
@@ -768,23 +778,25 @@ Start
 **Wrong:** Always choosing first or last element
 
 ```java
-int pivot = nums[right];  // 對已排序陣列會退化成 O(n²)
+// An endpoint pivot can cause quadratic time on sorted input with simple two-way partitioning.
+int pivot = nums[right];
 ```
 ```python
-pivot = nums[right]  # 對已排序陣列會退化成 O(n²)
+# An endpoint pivot can cause quadratic time on sorted input with simple two-way partitioning.
+pivot = nums[right]
 ```
 
 **Correct:** Use median-of-three or random selection
 
 ```java
+// This computes only the middle index; median-of-three selection still needs
+// comparisons between the first, middle, and last values.
 int mid = left + (right - left) / 2;
-// 選擇第一個、中間、最後一個元素的中位數
-// 這可避免已排序/反向排序陣列的最差情況
 ```
 ```python
+# This computes only the middle index; median-of-three selection still needs
+# comparisons between the first, middle, and last values.
 mid = left + (right - left) // 2
-# 選擇第一個、中間、最後一個元素的中位數
-# 這可避免已排序/反向排序陣列的最差情況
 ```
 
 ### 2. Merge Sort Memory Allocation
@@ -792,19 +804,23 @@ mid = left + (right - left) // 2
 **Wrong:** Creating new array each time
 
 ```java
-int[] temp = new int[right - left + 1];  // 會建立許多陣列！
+// Allocating inside each merge creates repeated temporary arrays.
+int[] temp = new int[right - left + 1];
 ```
 ```python
-temp = nums[left:right + 1]  # 每次呼叫都會建立新的 list！
+# This slice allocates a new temporary list for each merge.
+temp = nums[left:right + 1]
 ```
 
 **Correct:** Reuse temporary array
 
 ```java
-int[] temp = new int[nums.length];  // 只配置一次，整段流程重複使用
+// Allocate once before recursion and pass the buffer to each merge.
+int[] temp = new int[nums.length];
 ```
 ```python
-temp = [0] * len(nums)  # 只配置一次，傳給遞迴呼叫
+# Allocate once before recursion and pass the buffer to each merge.
+temp = [0] * len(nums)
 ```
 
 ### 3. Heap Sort Index Calculation
@@ -812,23 +828,27 @@ temp = [0] * len(nums)  # 只配置一次，傳給遞迴呼叫
 **Wrong:** Incorrect child indices (1-indexed formula)
 
 ```java
-int left = i * 2;      // 對 0-indexed 陣列是錯的
-int right = i * 2 + 1; // 錯誤
+// These child-index formulas assume a one-based heap; nums uses zero-based indices.
+int left = i * 2;
+int right = i * 2 + 1;
 ```
 ```python
-left = i * 2       # 對 0-indexed 陣列是錯的
-right = i * 2 + 1   # 錯誤
+# These child-index formulas assume a one-based heap; nums uses zero-based indices.
+left = i * 2
+right = i * 2 + 1
 ```
 
 **Correct:** Proper 0-indexed calculation
 
 ```java
-int left = 2 * i + 1;   // 適用於 0-indexed
-int right = 2 * i + 2;  // 適用於 0-indexed
+// A zero-based heap stores children at 2 * i + 1 and 2 * i + 2.
+int left = 2 * i + 1;
+int right = 2 * i + 2;
 ```
 ```python
-left = 2 * i + 1    # 適用於 0-indexed
-right = 2 * i + 2   # 適用於 0-indexed
+# A zero-based heap stores children at 2 * i + 1 and 2 * i + 2.
+left = 2 * i + 1
+right = 2 * i + 2
 ```
 
 ### 4. Integer Overflow
@@ -836,18 +856,19 @@ right = 2 * i + 2   # 適用於 0-indexed
 **Wrong:** Potential overflow when calculating mid
 
 ```java
-int mid = (left + right) / 2;  // left + right 可能溢位！
+// For larger arrays, left + right may overflow a Java int.
+int mid = (left + right) / 2;
 ```
 
 **Correct:** Safe calculation
 
 ```java
-int mid = left + (right - left) / 2;  // 避免溢位
+// Avoid adding two potentially large indices when 0 <= left <= right.
+int mid = left + (right - left) / 2;
 ```
 ```python
-mid = left + (right - left) // 2  # Python 也可使用相同模式
-# 注意：Python 整數是任意精度，所以不必擔心溢位，
-# 但這個寫法對可讀性仍是良好實務。
+# Python integers do not overflow; this form matches the Java index calculation.
+mid = left + (right - left) // 2
 ```
 
 ---
@@ -857,30 +878,30 @@ mid = left + (right - left) // 2  # Python 也可使用相同模式
 ### Test Cases
 
 ```java
-// 案例 1：隨機陣列
+// Case 1: Unsorted values.
 [5, 2, 3, 1, 8, 7, 6, 4]
 
-// 案例 2：已排序
+// Case 2: Ascending values.
 [1, 2, 3, 4, 5, 6, 7, 8]
 
-// 案例 3：反向排序
+// Case 3: Descending values.
 [8, 7, 6, 5, 4, 3, 2, 1]
 
-// 案例 4：大量重複值
+// Case 4: Many duplicate values.
 [5, 5, 5, 1, 1, 1, 3, 3]
 ```
 
 ```python
-# 案例 1：隨機陣列
+# Case 1: Unsorted values.
 [5, 2, 3, 1, 8, 7, 6, 4]
 
-# 案例 2：已排序
+# Case 2: Ascending values.
 [1, 2, 3, 4, 5, 6, 7, 8]
 
-# 案例 3：反向排序
+# Case 3: Descending values.
 [8, 7, 6, 5, 4, 3, 2, 1]
 
-# 案例 4：大量重複值
+# Case 4: Many duplicate values.
 [5, 5, 5, 1, 1, 1, 3, 3]
 ```
 

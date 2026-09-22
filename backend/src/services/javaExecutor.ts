@@ -1,8 +1,3 @@
-/**
- * Java Executor：在隔離的暫存 workspace 中編譯並執行 Java 程式碼。
- * 產生 Runner.java harness，針對支援的題目 metadata 型別處理 JSON I/O、
- * 測試案例解析與結果序列化。
- */
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { performance } from 'perf_hooks';
@@ -12,7 +7,7 @@ import { SandboxRunner } from './sandboxRunner';
 import { cleanupWorkspace, createWorkspace, executeTestcases, ExecutionSummary, parseTestcaseOutput, TestcaseExecution } from './executionUtils';
 import { JAVA_JSON_SUPPORT } from './javaJsonSupport';
 
-// 產生的 Runner.java parser/serializer 程式碼使用的 internal-to-Java 型別映射。
+// Map metadata type labels to the Java types supported by the generated runner.
 const JAVA_TYPE_MAP: Record<string, string> = {
     integer: 'int',
     int: 'int',
@@ -46,12 +41,14 @@ const JAVA_TYPE_MAP: Record<string, string> = {
     'list<bool>': 'List<Boolean>',
 };
 
+// Compile the solution with a generated runner in a separate temporary directory.
+// The runner converts supported metadata types to and from JSON.
 export class JavaExecutor {
     private readonly sandboxRunner = new SandboxRunner();
 
-    /** 編譯 Solution.java 與 Runner.java；若有錯誤則回傳 compilation errors。 */
+    // Distinguish compiler diagnostics from startup failures and compilation timeouts.
     private async compile(workspaceDir: string, timeoutMs: number): Promise<{ success: boolean; status?: 'CE' | 'RE' | 'TLE'; error?: string; compilationErrors?: CompilationError[] }> {
-        // 編譯需要可寫 workspace，讓 javac 可在 source 旁輸出 .class 檔案。
+        // javac writes class files beside the sources, so compilation needs a writable workspace.
         const result = await this.sandboxRunner.execute({
             command: 'javac',
             args: ['-encoding', 'UTF-8', 'Solution.java', 'Runner.java'],
@@ -87,10 +84,9 @@ export class JavaExecutor {
         return parseTestcaseOutput(result, testcase, Math.round(performance.now() - startTime));
     }
 
-    /** 將 javac 錯誤輸出解析成結構化 CompilationError objects。 */
     private parseJavaCompilationErrors(stderr: string): CompilationError[] {
         const errors: CompilationError[] = [];
-        // Java 錯誤格式："Solution.java:3: error: cannot find symbol"。
+        // Match javac diagnostics such as "Solution.java:3: error: cannot find symbol".
         const errorRegex = /^(.+?\.java):(\d+):\s*(error|warning):\s*(.+)$/gm;
         let match;
 
@@ -99,9 +95,10 @@ export class JavaExecutor {
             const line = parseInt(lineStr, 10);
 
             errors.push({
-                file: path.basename(file),  // Monaco 只需要顯示用檔名。
+                file: path.basename(file),
                 line,
-                column: 1,  // javac 不一定為每個診斷提供穩定欄位。
+                // Use column 1 because this parser does not extract javac caret positions.
+                column: 1,
                 message: message.trim(),
                 severity: severity as 'error' | 'warning',
             });
@@ -146,7 +143,7 @@ export class JavaExecutor {
         }
     }
 
-    // 將 internal/LeetCode type string 映射到 getParseCode() 可理解的 Java 宣告。
+    // Reject types without a matching runner conversion instead of guessing a Java type.
     private mapTypeToJava(typeStr: string): string {
         const t = typeStr.toLowerCase().trim();
         const mapped = Object.prototype.hasOwnProperty.call(JAVA_TYPE_MAP, t) ? JAVA_TYPE_MAP[t] : undefined;
@@ -154,7 +151,7 @@ export class JavaExecutor {
         return mapped;
     }
 
-    // 產生 Java statement，將已解析 JSON 轉成目標 method parameter type。
+    // Read each named JSON value and convert it to the declared Java parameter type.
     private getParseCode(paramName: string, javaType: string, inputKey: string): string {
         switch (javaType) {
             case 'int':
@@ -202,9 +199,10 @@ export class JavaExecutor {
         }
     }
 
-    /** 依題目 metadata（params、return type）產生 Runner.java 執行包裝。 */
+    // Generate a runner from structured metadata rather than parsing the displayed signature.
     private getRunnerTemplate(metadata?: ProblemMetadata): string {
-        // 即使舊版內建題目缺少匯入 metadata 欄位，備援值仍可讓它們執行。
+        // Missing metadata falls back to sortArray(int[] nums), for legacy sorting problems.
+        // These defaults cannot infer another problem's method signature.
         if (!metadata?.functionName || !metadata?.params || !metadata?.returnType) {
             console.warn('Missing problem metadata (functionName/params/returnType); using hardcoded defaults');
         }
@@ -212,6 +210,7 @@ export class JavaExecutor {
         const params = metadata?.params || [{ name: 'nums', type: 'int[]' }];
         const returnType = this.mapTypeToJava(metadata?.returnType || 'int[]');
 
+        // Use numbered local names so metadata names cannot collide with runner variables.
         const parseLines = params.map((param, index) =>
             this.getParseCode(`arg${index}`, this.mapTypeToJava(param.type), param.name)).join('\n');
         const argsList = params.map((_, index) => `arg${index}`).join(', ');
@@ -238,8 +237,7 @@ ${parseLines}
 
 ${JAVA_JSON_SUPPORT}
 
-    // ======================== 型別轉換器 ========================
-    
+    // Convert parsed JSON lists to the Java array and list types accepted by Solution.
     static int[] toIntArray(java.util.List<?> list) {
         if (list == null) return null;
         int[] arr = new int[list.size()];
