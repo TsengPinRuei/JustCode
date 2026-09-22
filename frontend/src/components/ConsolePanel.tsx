@@ -1,7 +1,3 @@
-/**
- * Console 面板：底部 panel，包含 Testcase/Result 分頁與 Run/Submit 按鈕。
- * 管理 testcase input view 與 execution result view 之間的切換。
- */
 import { useState, type FC } from 'react';
 import { Problem, ExecutionResult } from '../types';
 import TestcaseTab from './TestcaseTab';
@@ -26,7 +22,7 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
     onRun,
     onSubmit,
 }) => {
-    // 選取的測試案例/自訂輸入模式放在這裡，因為 Run 會跨兩個分頁使用它。
+    // Keep input mode and custom text here so Run uses them from either console tab.
     const [inputMode, setInputMode] = useState<'visible' | 'custom'>('visible');
     const [customInput, setCustomInput] = useState('');
 
@@ -65,6 +61,7 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
                 </div>
             </div>
             <div className="console-content">
+                {/* Keep TestcaseTab mounted so switching to Result preserves the selected case. */}
                 <div hidden={activeTab !== 'testcase'}>
                     <TestcaseTab
                         problem={problem}

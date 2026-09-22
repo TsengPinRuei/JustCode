@@ -1,13 +1,9 @@
-/**
- * 題目列表頁：以表格顯示所有題目、狀態圖示、難度標籤、標籤與刪除動作。
- * 也包含 LeetCode 匯入 modal；內建題目（sort-array、add-two-integers）不可刪除。
- */
 import { useEffect, useRef, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiErrorMessage, problemsApi } from '../services/apiClient';
 import { ProblemMetadata, ProblemProgress } from '../types';
 
-/** 刪除 UI 會隱藏內建題目；後端仍會強制套用相同規則。 */
+// Hide deletion controls for bundled problems; the backend enforces the same protected IDs.
 const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
 
 const ProblemList: FC = () => {
@@ -82,11 +78,11 @@ const ProblemList: FC = () => {
             if (!mountedRef.current) return;
             setImportSuccess(`Successfully imported: ${result.title}`);
             setImportUrl('');
-            // 匯入後重新整理，因為後端會寫入新的題目目錄。
+            // Reload the sorted problem list after the backend publishes the imported directory.
             const data = await problemsApi.getProblems();
             if (!mountedRef.current) return;
             setProblems(data);
-            // 成功狀態短暫保留，讓使用者知道匯入已完成。
+            // Leave the success message visible briefly before closing the dialog.
             closeTimerRef.current = setTimeout(() => {
                 closeTimerRef.current = null;
                 setShowImportModal(false);
@@ -216,7 +212,6 @@ const ProblemList: FC = () => {
                 </table>
             </div>
 
-            {/* 匯入對話框只會根據 LeetCode 可見 metadata/範例建立本機題目。 */}
             {showImportModal && (
                 <div className="modal-overlay" onClick={closeImportModal}>
                     <div className="import-modal" onClick={(e) => e.stopPropagation()}>

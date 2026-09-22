@@ -34,7 +34,7 @@ export function createProblemRouter(
     const router = express.Router();
     let activeExecutions = 0;
 
-    // 拒絕額外工作而不累積無界佇列，讓快速重複提交不會耗盡本機程序與記憶體。
+    // Reject excess executions instead of queueing them, limiting process and memory use.
     const execute: express.RequestHandler = (_req, res, next) => {
         if (activeExecutions >= MAX_CONCURRENT_EXECUTIONS) {
             res.setHeader('Retry-After', '1');
@@ -47,7 +47,8 @@ export function createProblemRouter(
             released = true;
             activeExecutions--;
         };
-        // 連線中斷不代表執行已停止；只在 handler 真正結束後釋放名額。
+        // A disconnected client may leave its execution running.
+        // Release capacity only when the handler finishes.
         res.locals.releaseExecution = release;
         next();
     };
@@ -98,7 +99,8 @@ export function createProblemRouter(
             const result = await CodeExecutorFactory.getExecutor(language).executeCode(
                 code, testcases, true, metadata, testcases.length,
             );
-            // 自訂輸入沒有 expected；只把值比較不符改為成功，保留 CE/RE/TLE 和基礎設施錯誤。
+            // Custom input has no expected answer. Convert comparison failures to success,
+            // but preserve compilation, runtime, timeout, and infrastructure failures.
             if (inputMode === 'custom') {
                 const testcaseResults = result.testcaseResults.map(testcase => ({
                     ...testcase,

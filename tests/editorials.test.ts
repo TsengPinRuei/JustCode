@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import type { ProblemMetadata, Testcase } from '../backend/src/types';
 
 test('all complete sorting editorial solutions handle duplicates and boundary values', { timeout: 90000 }, async t => {
+    // Set local mode before importing executors because constants read the environment at module load.
     process.env.JUSTCODE_SANDBOX_MODE = 'local';
     const { JavaExecutor } = await import('../backend/src/services/javaExecutor');
     const { PythonExecutor } = await import('../backend/src/services/pythonExecutor');

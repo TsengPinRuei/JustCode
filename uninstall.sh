@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-set -euo pipefail  # 任一清理步驟失敗就停止，避免誤以為已完整移除。
+# Stop on cleanup errors so the script does not report a complete uninstall.
+set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 ASSUME_YES=0
@@ -42,7 +43,7 @@ if [ ! -f "package.json" ] || [ ! -d "frontend" ] || [ ! -d "backend" ]; then
     die "請從 JustCode 專案內的 uninstall.sh 執行，或確認專案檔案完整。"
 fi
 
-# 子目錄若是 symlink，刪除其 dist/node_modules 會走到專案外。先拒絕，避免部分清理。
+# Reject symlinked workspaces before cleanup so nested paths cannot delete files outside the project.
 if [ -L "$SCRIPT_DIR/frontend" ] || [ -L "$SCRIPT_DIR/backend" ]; then
     die "frontend/backend 不可為符號連結；請先確認實際清理範圍。"
 fi
@@ -61,6 +62,7 @@ safe_remove() {
         die "拒絕移除專案根目錄。"
     fi
 
+    # Remove a symlink itself, even when its target is missing; never recurse into its target.
     if [ -e "$target" ] || [ -L "$target" ]; then
         if [ -d "$target" ] && [ ! -L "$target" ]; then
             rm -rf -- "$target"
@@ -80,7 +82,7 @@ echo "原始碼、配置文件與 package-lock.json 將被保留"
 echo "專案目錄：$SCRIPT_DIR"
 echo ""
 
-# 這個腳本會刪除依賴與建置產物；先確認避免誤觸。
+# Require interactive confirmation unless --yes was explicitly supplied.
 if (( ASSUME_YES == 0 )); then
     if [ ! -t 0 ]; then
         die "非互動式環境請加上 --yes 明確確認，例如：./uninstall.sh --yes"
@@ -120,8 +122,8 @@ echo "步驟 3: 清理暫存檔..."
 safe_remove "temp"
 safe_remove "backend/temp"
 
-# 清理 Finder 產生的 macOS metadata，避免重新壓縮/提交時帶入。
 DSSTORE_COUNT=0
+# Remove Finder metadata while leaving Git's internal files untouched.
 while IFS= read -r -d '' dsstore_path; do
     rm -f -- "$dsstore_path"
     DSSTORE_COUNT=$((DSSTORE_COUNT + 1))

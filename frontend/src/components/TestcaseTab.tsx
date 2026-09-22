@@ -1,7 +1,3 @@
-/**
- * Testcase 分頁：顯示可見測試案例 input，或自訂 JSON input textarea。
- * 使用者可在預設 case 與 custom input 模式之間切換。
- */
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { Problem } from '../types';
 
@@ -20,21 +16,21 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
     onInputModeChange,
     onCustomInputChange,
 }) => {
+    // This selection controls display only; Run executes all visible testcases.
     const [selectedTestcase, setSelectedTestcase] = useState(0);
     const selectedVisibleTestcase = problem.visibleTestcases[selectedTestcase];
     const selectedInputRows = useMemo(() => {
-        // 切換可見案例時，保持參數/值格式穩定。
         if (!selectedVisibleTestcase) return [];
         return Object.entries(selectedVisibleTestcase.input).map(
             ([key, value]) => [key, JSON.stringify(value)] as const
         );
     }, [selectedVisibleTestcase]);
     const selectedExpectedOutput = useMemo(() => {
-        // 預期輸出在此分頁僅供顯示；執行時使用後端測試案例檔案。
+        // Expected output is display-only here; execution reads testcases from the backend files.
         return selectedVisibleTestcase ? JSON.stringify(selectedVisibleTestcase.output) : '';
     }, [selectedVisibleTestcase]);
 
-    // 匯入/新增題目時測試案例數量可能在分頁仍掛載時改變。
+    // Reset an out-of-range selection if the supplied visible testcase list shrinks.
     useEffect(() => {
         if (selectedTestcase >= problem.visibleTestcases.length) {
             setSelectedTestcase(0);
@@ -59,7 +55,7 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
                 <button
                     className={`testcase-tab ${inputMode === 'custom' ? 'active' : ''}`}
                     onClick={() => {
-                        // 用第一個可見測試案例預填自訂輸入，讓 JSON 形狀更明確。
+                        // Seed an empty custom input from the first visible case to show the required JSON shape.
                         if (!customInput && problem.visibleTestcases.length > 0) {
                             onCustomInputChange(JSON.stringify(problem.visibleTestcases[0].input, null, 2));
                         }

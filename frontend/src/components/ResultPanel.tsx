@@ -1,7 +1,3 @@
-/**
- * 結果面板：顯示程式執行結果，包含狀態（AC/WA/CE/RE/TLE）、
- * 通過數、逐筆測試案例詳細資訊，以及篩選後的除錯 console output。
- */
 import { useMemo, type FC } from 'react';
 import { ExecutionResult } from '../types';
 
@@ -12,7 +8,8 @@ interface ResultPanelProps {
 
 const DEBUG_SECTION_SPLIT_REGEX = /\n\n(?=\[Testcase \d+\])/;
 const DEBUG_SECTION_HEADER_REGEX = /^\[Testcase (\d+)\]/;
-// 將狀態文字集中在同一個 mapping，讓新增後端狀態時能在型別檢查中明顯失敗。
+// Keep labels exhaustive for the frontend ExecutionResult status union.
+// Update the separate backend and frontend contracts together.
 const STATUS_LABELS: Record<ExecutionResult['status'], string> = {
     AC: 'Accepted',
     WA: 'Wrong Answer',
@@ -22,7 +19,7 @@ const STATUS_LABELS: Record<ExecutionResult['status'], string> = {
 };
 
 const formatInputValue = (value: unknown): string => {
-    // 測試案例 input 通常是具名參數物件；每列顯示一個參數以便掃描。
+    // Show named input parameters on separate lines so testcase differences are easy to scan.
     if (typeof value === 'object' && value !== null) {
         return Object.entries(value as Record<string, unknown>)
             .map(([key, entryValue]) => `${key} = ${JSON.stringify(entryValue)}`)
@@ -35,12 +32,11 @@ const formatJsonValue = (value: unknown): string => JSON.stringify(value) ?? Str
 
 const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
     const filteredDebugOutput = useMemo(() => {
-        // 若沒有除錯輸出，或所有測試都通過，就略過。
+        // Hide debug output for accepted results; it is shown only for failing visible cases.
         if (!result || result.status === 'AC' || !result.debugOutput || !result.testcaseResults) {
             return null;
         }
 
-        // 將除錯區段對應到失敗的結果列。
         const failingIndices = new Set<number>();
         for (const tc of result.testcaseResults) {
             if (tc.status !== 'Passed') {
@@ -50,7 +46,7 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
 
         if (failingIndices.size === 0) return null;
 
-        // 後端會以 "[Testcase n]" 標記除錯輸出；只在這些標籤處切分。
+        // Match the backend's blank-line-delimited [Testcase n] headers when filtering debug text.
         const filteredDebug = result.debugOutput
             .split(DEBUG_SECTION_SPLIT_REGEX)
             .filter(section => {
@@ -64,7 +60,7 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
         return filteredDebug.trim() ? filteredDebug : null;
     }, [result]);
     const formattedTestcaseResults = useMemo(() => {
-        // 每次 result 只預先格式化一次 JSON，讓 render markup 專注在版面。
+        // Cache formatted values per result so repeated renders do not stringify large arrays again.
         return result?.testcaseResults.map((testResult) => ({
             testResult,
             input: testResult.input !== undefined ? formatInputValue(testResult.input) : undefined,
@@ -108,7 +104,6 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
                 )}
             </div>
 
-            {/* 只顯示失敗案例的除錯輸出，避免成功案例的雜訊蓋掉重點。 */}
             {filteredDebugOutput && (
                 <div className="debug-output-section">
                     <div className="debug-output-header">

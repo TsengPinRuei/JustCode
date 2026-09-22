@@ -91,6 +91,7 @@ export async function executeTestcases(
     if (testcases.length === 0) {
         return { status: 'RE', message: 'No testcases available', testcaseResults: [], totalTestcases: 0, passedTestcases: 0 };
     }
+    // Visible testcases must precede hidden testcases; this count marks their boundary.
     const hiddenStart = Math.max(0, Math.min(visibleTestcaseCount, testcases.length));
     const results: TestcaseResult[] = [];
     const debugOutputs: string[] = [];
@@ -122,6 +123,8 @@ export async function executeTestcases(
             status: result.status,
             executionTime: result.executionTime,
         } : result;
+        // Keep counting passes after failures until the submission deadline.
+        // Return results for executed visible cases, but only the first hidden failure.
         if (result.status === 'Passed') passed++;
         else if (!firstFailure) firstFailure = visibleResult;
         if (!hidden) results.push(visibleResult);
@@ -137,6 +140,8 @@ export async function executeTestcases(
 
     let status: ExecutionSummary['status'] = 'AC';
     let message = 'Accepted';
+    // The submission deadline takes precedence over earlier testcase failures.
+    // Otherwise, report the first failing testcase in execution order.
     if (deadlineExceeded) {
         status = 'TLE';
         message = 'Submission time limit exceeded';

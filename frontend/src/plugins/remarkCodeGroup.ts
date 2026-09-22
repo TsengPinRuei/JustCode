@@ -19,7 +19,7 @@ declare module 'mdast' {
     }
 }
 
-/** Group adjacent fenced blocks with distinct language labels into editor tabs. */
+// Group adjacent fenced blocks with distinct language labels into editorial tabs.
 export default function remarkCodeGroup() {
     return (tree: Root) => {
         visit(tree, node => {
@@ -42,6 +42,7 @@ export default function remarkCodeGroup() {
                 const languages = new Set<string>();
                 while (index < children.length) {
                     const current = children[index];
+                    // A repeated language starts a new group so separate examples do not become duplicate tabs.
                     if (current.type !== 'code' || !current.lang || languages.has(current.lang)) break;
                     group.push({ lang: current.lang, value: current.value });
                     languages.add(current.lang);

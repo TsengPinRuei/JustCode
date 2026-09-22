@@ -9,6 +9,7 @@ export const isProblemId = (value: unknown): value is string =>
 const isStringArray = (value: unknown): value is string[] =>
     Array.isArray(value) && value.every((item) => typeof item === 'string');
 
+// Function names are inserted into generated source, so accept identifier-shaped names only.
 export const isIdentifier = (value: unknown): value is string =>
     typeof value === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
 
@@ -37,6 +38,8 @@ export function validateMetadata(value: unknown, problemId: string): ProblemMeta
     return value as unknown as ProblemMetadata;
 }
 
+// Validate testcase structure and parameter names only.
+// Value types, problem constraints, and expected-answer correctness are not checked here.
 export function validateTestcases(value: unknown, metadata?: ProblemMetadata, allowEmpty = true): Testcase[] {
     if (!Array.isArray(value) || (!allowEmpty && value.length === 0)) {
         throw new Error(`Testcases must be ${allowEmpty ? 'a' : 'a non-empty'} JSON array`);

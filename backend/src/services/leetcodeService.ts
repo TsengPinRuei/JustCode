@@ -2,7 +2,7 @@ import { ProblemMetadata, Testcase, Language } from '../types';
 import { isIdentifier, isRecord } from './problemValidation';
 import { invalidInput } from './storage';
 
-// JustCode 匯入的 LeetCode GraphQL 回應子集合形狀。
+// Model only the GraphQL fields used by the importer.
 interface LeetCodeGraphQLResponse {
     data: {
         question: {
@@ -27,11 +27,11 @@ interface LeetCodeMetaData {
     return: { type: string };
 }
 
-// Signature regex 只供顯示/參考；執行時改用 LeetCode metaData。
+// Extract signatures for display only; runner generation uses structured metaData.
 const JAVA_SIGNATURE_REGEX = /public\s+\S+\s+\w+\s*\([^)]*\)/;
 const PYTHON_SIGNATURE_REGEX = /def\s+\w+\s*\(self[^)]*\)\s*->[^:]+/;
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
-// 將 LeetCode 型別標籤正規化為產生的 runner 支援的較窄集合。
+// Normalize known LeetCode type aliases; unknown labels are handled separately.
 const LEETCODE_TYPE_MAP: Record<string, string> = {
     integer: 'int',
     int: 'int',
@@ -68,12 +68,8 @@ const LEETCODE_TYPE_MAP: Record<string, string> = {
 export class LeetCodeService {
     private readonly GRAPHQL_URL = 'https://leetcode.com/graphql';
 
-    /**
-     * 從 LeetCode URL 擷取 titleSlug。
-     * 支援：https://leetcode.com/problems/two-sum/
-     *           https://leetcode.com/problems/two-sum/description/
-     *           https://leetcode.com/problems/two-sum
-     */
+    // Accept problem URLs on the allowed LeetCode hosts and normalize the slug to lowercase.
+    // Reject credentials and non-default ports before making a request.
     private extractSlug(url: string): string {
         try {
             const parsed = new URL(url);
@@ -87,10 +83,7 @@ export class LeetCodeService {
         }
     }
 
-    /**
-     * 從 LeetCode GraphQL API 取得公開題目資料。
-     * 只匯入可見 metadata/examples，不匯入 LeetCode hidden judge cases。
-     */
+    // Fetch public metadata, templates, and example inputs; hidden judge tests are not requested.
     private async fetchProblemData(titleSlug: string): Promise<LeetCodeGraphQLResponse> {
         const query = `
             query questionData($titleSlug: String!) {
@@ -133,7 +126,7 @@ export class LeetCodeService {
             throw new Error(`LeetCode API returned ${response.status}: ${response.statusText}`);
         }
 
-        // 限制解壓後的 response 大小；只檢查 Content-Length 無法涵蓋壓縮或串流回應。
+        // Limit bytes read from the decoded response stream; Content-Length alone cannot bound it.
         if (!response.body) throw new Error('LeetCode API returned an empty response');
         const reader = response.body.getReader();
         const chunks: Uint8Array[] = [];
@@ -168,22 +161,18 @@ export class LeetCodeService {
         return data as unknown as LeetCodeGraphQLResponse;
     }
 
-    /**
-     * 將 LeetCode HTML content 解析成近似 Markdown 的 description、examples 與 constraints。
-     * 這些 regex 刻意針對常見 LeetCode markup；若其 DOM 改變，可能需要更新。
-     */
+    // Parse the expected LeetCode HTML into description text, examples, and constraints.
+    // These patterns depend on the source markup and may need updates when it changes.
     private parseContent(html: string): {
         description: string;
         examples: Array<{ input: string; output: string; explanation?: string }>;
         constraints: string[];
     } {
-        // 分別累積文字欄位，避免局部解析失敗導致整個匯入中斷。
         let description = '';
         const examples: Array<{ input: string; output: string; explanation?: string }> = [];
         const constraints: string[] = [];
 
-        // 必須先移除 tags 再解碼 entities；否則 a &lt; b &gt; c 會被誤認成 HTML。
-        // 若存在 "Example 1" marker，description 取其之前的所有內容。
+        // Use the text before the first recognized example as the main description.
         const exampleStart = html.search(/<strong[^>]*>Example\s*1/i);
         if (exampleStart !== -1) {
             description = this.stripHtml(html.substring(0, exampleStart)).trim();
@@ -191,13 +180,14 @@ export class LeetCodeService {
             description = this.stripHtml(html).trim();
         }
 
-        // 範例從渲染後的題目敘述解析；原始測試案例 input 則來自 exampleTestcaseList。
+        // Read displayed examples from HTML; executable inputs come from exampleTestcaseList.
         const exampleRegex = /<strong[^>]*>Example\s*(\d+)[^<]*<\/strong>([\s\S]*?)(?=<strong[^>]*>Example\s*\d|<strong[^>]*>Constraints|<p><strong[^>]*>Constraints|$)/gi;
         let exMatch;
         while ((exMatch = exampleRegex.exec(html)) !== null) {
             const exContent = exMatch[2];
 
-            // 輸入/輸出在此保留為顯示用字串；parseTestcases 稍後轉成機器值。
+            // Keep these values as display text; parseTestcases parses the expected output.
+            // Executable input values come from exampleTestcaseList, not this input string.
             const inputMatch = exContent.match(/Input:\s*([\s\S]*?)(?=Output:|$)/i);
             const outputMatch = exContent.match(/Output:\s*([\s\S]*?)(?=Explanation:|<\/pre>|$)/i);
             const explanationMatch = exContent.match(/Explanation:\s*([\s\S]*?)(?=<\/pre>|$)/i);
@@ -210,14 +200,14 @@ export class LeetCodeService {
             }
         }
 
-        // Constraints 通常位於最後一個 Constraints 標題後方的列表。
+        // Read constraint list items after the first matching Constraints heading.
         const constraintSection = html.match(/<strong[^>]*>Constraints[^<]*<\/strong>([\s\S]*?)$/i);
         if (constraintSection) {
             const constraintHtml = constraintSection[1];
-            // 將每個 bullet 保持為單一精簡字串，供 UI 渲染。
             const liRegex = /<li\b[^>]*>([\s\S]*?)<\/li>/gi;
             let liMatch;
             while ((liMatch = liRegex.exec(constraintHtml)) !== null) {
+                // Collapse whitespace so each constraint occupies one compact list item.
                 const constraint = this.stripAllHtml(liMatch[1])
                     .replace(/\s+/g, ' ')
                     .trim();
@@ -230,10 +220,9 @@ export class LeetCodeService {
         return { description, examples, constraints };
     }
 
-    /**
-     * 移除 HTML tags，同時保留足夠的類 Markdown 格式供 description 使用。
-     */
+    // Preserve a small Markdown subset for the description while removing HTML tags.
     private stripHtml(html: string): string {
+        // Strip HTML tags before decoding entities so escaped comparison signs remain text.
         return this.decodeEntities(html
             .replace(/<code>/g, '`')
             .replace(/<\/code>/g, '`')
@@ -255,10 +244,9 @@ export class LeetCodeService {
             .trim());
     }
 
-    /**
-     * 從 examples/constraints 移除所有 HTML tags，避免 Markdown marker 造成雜訊。
-     */
+    // Return literal example and constraint text without adding Markdown formatting.
     private stripAllHtml(html: string): string {
+        // Strip HTML tags before decoding entities so escaped comparison signs remain text.
         return this.decodeEntities(html
             .replace(/<br\s*\/?>/g, '\n')
             .replace(/<\/?p>/g, '\n')
@@ -279,19 +267,15 @@ export class LeetCodeService {
         });
     }
 
-    /**
-     * 將 LeetCode type string 映射到 code executor 可理解的內部標籤。
-     * 不支援的複雜結構會原樣回傳，執行前需要 executor 支援。
-     */
+    // Normalize known aliases and preserve unknown type labels.
+    // Importing a label does not guarantee that an executor supports its structure.
     private mapLeetCodeType(lcType: string): string {
         const t = lcType.trim();
         return LEETCODE_TYPE_MAP[t] ?? t;
     }
 
-    /**
-     * 將 exampleTestcaseList value 解析成 testcase object。
-     * 每個 example input 都是依 metadata 順序排列、以換行分隔的參數值。
-     */
+    // Match each newline-separated input list to metadata parameters in order.
+    // Pair it with the corresponding HTML example output, rejecting count mismatches.
     private parseTestcases(
         exampleTestcaseList: string[],
         params: Array<{ name: string; type: string }>,
@@ -318,14 +302,13 @@ export class LeetCodeService {
             }
             const input: Record<string, unknown> = Object.create(null);
 
-            // 每一行對應一個參數；JSON.parse 負責處理 arrays/numbers/booleans。
             for (let j = 0; j < params.length; j++) {
                 const param = params[j];
                 const line = lines[j];
                 try {
                     input[param.name] = JSON.parse(line);
                 } catch {
-                    // LeetCode 範例中的裸字串不是合法 JSON，因此保留為文字。
+                    // Accept unquoted text only for string or character parameters.
                     if (!['string', 'char', 'character'].includes(param.type)) {
                         throw new Error(`Example ${i + 1} contains an invalid value for ${param.name}`);
                     }
@@ -333,7 +316,8 @@ export class LeetCodeService {
                 }
             }
 
-            // 僅字串回傳值容許非 JSON 文字；數值或集合解析失敗時拒絕產生錯誤 testcase。
+            // Accept unquoted expected text only for string or character results.
+            // Reject malformed JSON for numeric and collection results.
             let output: unknown;
             try {
                 output = JSON.parse(examples[i].output);
@@ -350,9 +334,8 @@ export class LeetCodeService {
         return testcases;
     }
 
-    /**
-     * 主要匯入函式：從 LeetCode 取得資料，並轉成 JustCode 的檔案式格式。
-     */
+    // Convert public problem data to local metadata, templates, and visible tests.
+    // The caller is responsible for saving these files.
     async importProblem(url: string): Promise<{
         metadata: ProblemMetadata;
         templates: Record<string, string>;
@@ -360,11 +343,10 @@ export class LeetCodeService {
     }> {
         const titleSlug = this.extractSlug(url);
 
-        // 轉成本機題目檔案前，先取得公開題目敘述 metadata。
         const response = await this.fetchProblemData(titleSlug);
         const question = response.data.question;
 
-        // metaData 提供 runner 產生流程使用的標準函式名稱、params 與 return type。
+        // Use structured metaData for the method name, ordered parameters, and return type.
         let parsedMetadata: unknown;
         try {
             parsedMetadata = JSON.parse(question.metaData);
@@ -380,10 +362,8 @@ export class LeetCodeService {
         }
         const metaData = parsedMetadata as unknown as LeetCodeMetaData;
 
-        // 從 LeetCode HTML content 解析人類可讀的題目敘述區段。
         const { description, examples, constraints } = this.parseContent(question.content);
 
-        // 儲存 executor 使用的 metadata 前，先正規化參數型別。
         const params = metaData.params.map(p => ({
             name: p.name,
             type: this.mapLeetCodeType(p.type),
@@ -391,7 +371,7 @@ export class LeetCodeService {
 
         const returnType = this.mapLeetCodeType(metaData.return.type);
 
-        // 只保存此專案已有 executor 支援的語言。
+        // Keep templates only for languages that have a local executor.
         const supportedLanguages: Language[] = [];
         const templates: Record<string, string> = {};
         const functionSignatures: Record<string, string> = {};
@@ -401,7 +381,6 @@ export class LeetCodeService {
             if (snippet.langSlug === 'java') {
                 supportedLanguages.push('java');
                 templates['java'] = snippet.code;
-                // 保留顯示用 signature 供 UI/參考；執行時改用 metadata。
                 const sigMatch = snippet.code.match(JAVA_SIGNATURE_REGEX);
                 functionSignatures['java'] = sigMatch ? sigMatch[0] : '';
             } else if (snippet.langSlug === 'python3') {
@@ -416,7 +395,7 @@ export class LeetCodeService {
             throw new Error('No supported languages (Java/Python3) found for this problem');
         }
 
-        // LeetCode 只公開範例測試案例；隱藏案例需稍後手動加入。
+        // Import public example tests only; additional hidden tests must be supplied locally.
         const testcases = this.parseTestcases(
             question.exampleTestcaseList,
             params,
@@ -424,7 +403,6 @@ export class LeetCodeService {
             returnType
         );
 
-        // 建立保存到 problem.json 的標準題目 metadata。
         const metadata: ProblemMetadata = {
             id: titleSlug,
             title: `${question.questionFrontendId}. ${question.title}`,

@@ -1,11 +1,11 @@
 {
     "compilerOptions": {
-        /* 將後端 TypeScript 編譯到 dist/，供 npm start 使用。 */
         "target": "ES2020",
         "module": "commonjs",
         "lib": [
             "ES2020"
         ],
+        // Emit backend JavaScript into dist for npm start.
         "outDir": "./dist",
         "rootDir": "./src",
         "strict": true,
@@ -15,7 +15,7 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
-        /* 對齊 Node 的模組解析方式，供 Express/後端 import 使用。 */
+        // Resolve imports using the Node-style lookup used by this CommonJS build.
         "moduleResolution": "node"
     },
     "include": [

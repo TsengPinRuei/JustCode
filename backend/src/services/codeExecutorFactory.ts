@@ -1,14 +1,11 @@
-/**
- * Code Executor Factory：依語言回傳對應 executor。
- * 讓 route handler 不需要知道各語言 runner 產生細節。
- */
 import { JavaExecutor } from './javaExecutor';
 import { PythonExecutor } from './pythonExecutor';
 import { ExecutionSummary } from './executionUtils';
 import { Language, Testcase, ProblemMetadata } from '../types';
 
-/** 所有語言專屬 code executor 都需實作的共用合約。 */
 export interface CodeExecutor {
+    // Testcases must list visible cases first; visibleTestcaseCount marks the boundary.
+    // Set showHiddenInputs to false for Submit to suppress hidden case details.
     executeCode(
         userCode: string,
         testcases: Testcase[],
@@ -18,7 +15,8 @@ export interface CodeExecutor {
     ): Promise<ExecutionSummary>;
 }
 
-/** 依 ProblemMetadata.supportedLanguages 宣告的語言回傳 executor 的 factory。 */
+// Reuse the executor for the requested language.
+// Routes must check that the problem supports that language before calling this factory.
 export class CodeExecutorFactory {
     private static readonly javaExecutor = new JavaExecutor();
     private static readonly pythonExecutor = new PythonExecutor();

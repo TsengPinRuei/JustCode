@@ -1,7 +1,3 @@
-/**
- * The workspace is keyed by problem ID so editor, timers, and requests belong to
- * exactly one problem, including direct navigation between two detail routes.
- */
 import { useEffect, useState, useRef, useCallback, lazy, Suspense, type FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { getApiErrorMessage, problemsApi } from '../services/apiClient';
@@ -28,6 +24,8 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
     const attemptStartedAtRef = useRef(attemptStartedAt);
     const mountedRef = useRef(false);
     const progressRef = useRef<ProblemProgress | null>(null);
+    // Track the current draft, last successful save, and latest requested save separately.
+    // A request is not a saved revision until it succeeds.
     const revisionRef = useRef(0);
     const savedRevisionRef = useRef(0);
     const requestedRevisionRef = useRef(0);
@@ -49,6 +47,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
             await problemsApi.saveProgress(id, snapshot);
             savedRevisionRef.current = Math.max(savedRevisionRef.current, revision);
         } catch (error) {
+            // An older failure must not reset the marker for a newer save request.
             if (revision === requestedRevisionRef.current) {
                 requestedRevisionRef.current = savedRevisionRef.current;
                 if (mountedRef.current) {
@@ -76,6 +75,8 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
 
     useEffect(() => {
         mountedRef.current = true;
+        // Warn before leaving with unsaved changes; starting a save cannot guarantee
+        // that an HTTP request will finish before the page closes.
         const warnUnsavedChanges = (event: BeforeUnloadEvent) => {
             if (revisionRef.current > savedRevisionRef.current) {
                 void flushProgress();
@@ -186,6 +187,8 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
                 setExecutionResult(result);
             }
 
+            // Record an accepted submission even if the editor changed while it ran.
+            // Preserve the newest draft; solve records contain timing and results, not a code snapshot.
             if (submit && result.status === 'AC' && current) {
                 const completedAt = Date.now();
                 const solvedAt = new Date(completedAt).toISOString();
@@ -196,7 +199,9 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
                     solveRecords: [...records, {
                         id: `${solvedAt}-${records.length + 1}`,
                         solvedAt,
+                        // Measure attempt time from problem load or the previous acceptance, including idle time.
                         durationMs: Math.max(1000, completedAt - startedAt),
+                        // Measure submission time from the browser request, not from testcase execution alone.
                         submitDurationMs: Math.max(1, completedAt - submitStartedAt),
                         language: submittedLanguage,
                         passedTestcases: result.passedTestcases,
@@ -292,6 +297,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
 
 const ProblemDetail: FC = () => {
     const { id } = useParams<{ id: string }>();
+    // Key by problem ID so navigation resets editor state, timers, and request ownership.
     return id ? <ProblemWorkspace key={id} id={id} /> : <div>Problem not found</div>;
 };
 

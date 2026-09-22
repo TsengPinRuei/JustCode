@@ -1,7 +1,3 @@
-/**
- * 程式碼編輯器元件：包裝 Monaco Editor，支援語言切換、字級控制、
- * 即時錯誤標示，以及不干擾游標的外部更新。
- */
 import { useState, useEffect, useMemo, type FC } from 'react';
 import Editor from '@monaco-editor/react';
 import type * as MonacoApi from 'monaco-editor/editor';
@@ -24,6 +20,7 @@ const LANGUAGE_LABELS: Record<Language, string> = {
     python3: 'Python3',
 };
 
+// Update diagnostic markers when the page supplies a new Run or Submit result.
 const CodeEditor: FC<CodeEditorProps> = ({
     code,
     onChange,
@@ -78,8 +75,8 @@ const CodeEditor: FC<CodeEditorProps> = ({
     }, [instance, compilationErrors, selectedLanguage]);
 
     const editorLanguage = selectedLanguage === 'java' ? 'java' : 'python';
+    // Keep editor options stable between renders unless the font size changes.
     const editorOptions = useMemo<editor.IStandaloneEditorConstructionOptions>(() => ({
-        // 除字級外保持 Monaco options 穩定，避免每次 render 都重新設定編輯器。
         fontSize,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,

@@ -2,7 +2,7 @@ import { constants, promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 
-// 內建 sort-array 的 hidden cases 約 38 MB；本機資料上限須涵蓋既有題庫。
+// Allow the bundled large sorting test data to fit within the local file-size limit.
 export const MAX_DATA_BYTES = 64 * 1024 * 1024;
 
 export function hasErrorCode(error: unknown, code: string): boolean {
@@ -13,8 +13,8 @@ export function invalidInput(message: string): Error & { code: string } {
     return Object.assign(new Error(message), { code: 'EINVAL' });
 }
 
-// 所有 service instance 共用佇列，讓同一題目的 read-modify-write 不會遺失更新。
-// 這是單一後端 process 的協調；不支援多個 server 同時修改同一份資料。
+// Serialize mutations for each problem across service instances in this process.
+// Multiple backend processes are not coordinated by this map.
 const mutations = new Map<string, Promise<void>>();
 
 export async function withStorageLock<T>(key: string, action: () => Promise<T>): Promise<T> {
@@ -34,7 +34,7 @@ export async function withStorageLock<T>(key: string, action: () => Promise<T>):
 export async function readTextFile(filePath: string): Promise<string> {
     const entry = await fs.lstat(filePath);
     if (!entry.isFile() || entry.isSymbolicLink()) throw new Error('Data path must point to a regular file');
-    // O_NOFOLLOW 防止檢查與 open 之間最後一層路徑被替換成 symlink。
+    // O_NOFOLLOW rejects a final path component replaced by a symlink after lstat.
     const file = await fs.open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
         const stat = await file.stat();
@@ -47,6 +47,7 @@ export async function readTextFile(filePath: string): Promise<string> {
     }
 }
 
+// Limit concurrent reads so a large problem library does not open every file at once.
 export async function mapInBatches<T, U>(items: T[], read: (item: T) => Promise<U>): Promise<U[]> {
     const results: U[] = [];
     for (let offset = 0; offset < items.length; offset += 16) {
@@ -69,7 +70,7 @@ export async function writeJsonAtomic(filePath: string, value: unknown): Promise
         } finally {
             await file.close();
         }
-        // 同一目錄中的 rename 讓讀取端只看見完整的舊版或新版 JSON。
+        // Rename within the same directory so readers see either the complete old JSON or the complete new JSON.
         await fs.rename(temporaryPath, filePath);
     } finally {
         await fs.rm(temporaryPath, { force: true });

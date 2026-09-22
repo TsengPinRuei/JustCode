@@ -1,7 +1,3 @@
-/**
- * 解題統計面板：顯示目前嘗試計時與已保存的 AC 歷史。
- * 解題紀錄先以 Submit 請求耗時（含網路與排隊）排名，再以總解題時間作為排序決勝條件。
- */
 import { useEffect, useMemo, useState, type FC } from 'react';
 import type { ProblemProgress, SolveRecord } from '../types';
 
@@ -23,13 +19,13 @@ const formatDuration = (durationMs: number): string => {
 };
 
 const formatSubmitDuration = (durationMs?: number): string => {
-    // 舊版 progress 檔案可能沒有 submitDurationMs；維持可顯示，但不捏造資料。
+    // Older progress files have no request timing; display a placeholder instead of inventing one.
     if (durationMs === undefined) return '-';
     return `${Math.max(1, Math.round(durationMs))}ms`;
 };
 
 const getSubmitDuration = (record: SolveRecord): number => {
-    // 缺少 submit timing 的紀錄會排在有計時紀錄之後，但仍保留在歷史中。
+    // Keep records without request timings in history, after records with measured timings.
     return record.submitDurationMs ?? Number.POSITIVE_INFINITY;
 };
 
@@ -47,7 +43,8 @@ const formatSolvedAt = (value: string): string => {
 };
 
 const rankRecords = (records: SolveRecord[]) => {
-    // 兩次提交測得相同請求耗時時，排序決勝條件讓排名保持可重現。
+    // Rank by browser request duration, then total attempt time, then timestamp.
+    // Request duration includes compilation, process startup, tests, and HTTP overhead.
     return [...records]
         .sort((a, b) =>
             getSubmitDuration(a) - getSubmitDuration(b) ||
@@ -60,6 +57,7 @@ const rankRecords = (records: SolveRecord[]) => {
         }));
 };
 
+// Show local accepted-submission history and the current wall-clock attempt time.
 const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt }) => {
     const [expanded, setExpanded] = useState(false);
     const [currentElapsedMs, setCurrentElapsedMs] = useState(() => Date.now() - attemptStartedAt);
@@ -71,17 +69,17 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
         latestRank,
         maxSubmitDuration,
     } = useMemo(() => {
-        // 從 progress 一次推導排行榜狀態，避免 UI state 與持久化歷史不同步。
+        // Derive the ranking from saved records so separate UI state cannot drift from history.
         const rankedRecords = rankRecords(records);
         const latestRecord = records.length > 0 ? records[records.length - 1] : null;
         let bestTotalRecord: SolveRecord | null = null;
+        // Start with a nonzero chart scale; records without request timing do not expand it.
         let maxSubmitDuration = 1;
 
         for (const record of records) {
             if (!bestTotalRecord || record.durationMs < bestTotalRecord.durationMs) {
                 bestTotalRecord = record;
             }
-            // 圖表分母至少保留 1ms，讓極快或舊版紀錄仍能渲染。
             const submitDuration = getSubmitDuration(record);
             if (Number.isFinite(submitDuration) && submitDuration > maxSubmitDuration) {
                 maxSubmitDuration = submitDuration;
@@ -159,7 +157,8 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
                             {rankedRecords.map(({ record, rank }) => {
                                 const isLatest = latestRecord?.id === record.id;
                                 const submitDuration = getSubmitDuration(record);
-                                // 缺少計時的紀錄顯示小型占位長條，而不是從圖表消失。
+                                // Keep every bar at least 10% wide, including records with no measured duration.
+                                // The minimum is a visibility aid, so very short bars are not exactly proportional.
                                 const width = Number.isFinite(submitDuration)
                                     ? Math.max(10, Math.round((submitDuration / maxSubmitDuration) * 100))
                                     : 10;

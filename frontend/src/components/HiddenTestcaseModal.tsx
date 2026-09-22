@@ -1,7 +1,3 @@
-/**
- * Hidden Testcase Modal：為單一題目匯入 AI 產生的 hidden testcase JSON。
- * Modal 只收集文字或 project-relative path；檔案系統與 JSON 安全性由後端驗證。
- */
 import { useState, useEffect, useRef, type ChangeEvent, type FC } from 'react';
 import { getApiErrorMessage, problemsApi } from '../services/apiClient';
 import type { HiddenTestcaseImportMode, Problem } from '../types';
@@ -13,6 +9,8 @@ interface HiddenTestcaseModalProps {
 
 type SourceMode = 'content' | 'projectPath';
 
+// Collect pasted JSON, a browser-selected file, or a project-relative path.
+// The backend validates the request structure and storage path, not answer correctness.
 const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose }) => {
     const [mode, setMode] = useState<HiddenTestcaseImportMode>('append');
     const [sourceMode, setSourceMode] = useState<SourceMode>('content');
@@ -33,14 +31,15 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
         if (!busyRef.current) onClose();
     };
 
-    // 只根據目前啟用的來源模式開啟匯入，避免誤送過期的 textarea/path 狀態。
+    // Enable import only when the active source has input, ignoring the inactive field.
     const hasInput = sourceMode === 'content' ? content.trim().length > 0 : projectPath.trim().length > 0;
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         event.target.value = '';
         if (!file || busyRef.current) return;
-        // Match the backend's file-size ceiling before allocating file contents.
+        // Reject oversized files before reading them into browser memory.
+        // The API's 10 MiB limit includes the JSON wrapper and escaping, so smaller files can still be rejected.
         if (file.size > 10 * 1024 * 1024) {
             setError('The selected file exceeds the 10 MB limit.');
             return;
@@ -49,7 +48,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
         setReading(true);
 
         try {
-            // 瀏覽器選取的檔案會讀成文字，並走與貼上 JSON 相同的 content 路徑。
+            // Send a browser-selected file as text through the same API field used for pasted JSON.
             const text = await file.text();
             if (!mountedRef.current) return;
             setSourceMode('content');
@@ -74,7 +73,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
         setSuccess(null);
 
         try {
-            // 只送出被選取的來源欄位；缺漏、無效或逃逸專案範圍的輸入由後端拒絕。
+            // Send only the selected source field; the backend validates content and path containment.
             const result = await problemsApi.importHiddenTestcases(problem.metadata.id, {
                 mode,
                 sourceType: sourceMode,
