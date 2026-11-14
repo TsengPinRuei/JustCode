@@ -1,3 +1,4 @@
+import { parseJson } from '../shared/json';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { isProblemId, isRecord, validateMetadata, validateTestcases } from './problemValidation';
@@ -48,7 +49,7 @@ export class ProblemService {
     private async readJsonFile<T>(filePath: string): Promise<T> {
         await this.assertProblemDirectory(path.dirname(filePath));
         const content = await readTextFile(filePath);
-        return JSON.parse(content) as T;
+        return parseJson(content) as T;
     }
 
     // Use the same validated metadata file for listing, display, and execution.
@@ -110,7 +111,7 @@ export class ProblemService {
             throw invalidInput('Hidden testcase content cannot exceed 64 MB');
         }
         try {
-            return validateTestcases(JSON.parse(content), metadata, false);
+            return validateTestcases(parseJson(content), metadata, false);
         } catch (error) {
             throw invalidInput(error instanceof SyntaxError ? 'Hidden testcase content must be valid JSON'
                 : error instanceof Error ? error.message : 'Invalid hidden testcases');

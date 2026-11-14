@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import ModalDialog from '../components/ModalDialog';
 import { getApiErrorMessage, problemsApi } from '../services/apiClient';
 import { ProblemMetadata, ProblemProgress } from '../types';
 
@@ -15,11 +16,12 @@ const ProblemList: FC = () => {
     const [importing, setImporting] = useState(false);
     const [importError, setImportError] = useState<string | null>(null);
     const [importSuccess, setImportSuccess] = useState<string | null>(null);
+    const [refreshError, setRefreshError] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loadRevision, setLoadRevision] = useState(0);
     const [deleting, setDeleting] = useState<Set<string>>(() => new Set());
     const importBusyRef = useRef(false);
-    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const mountedRef = useRef(false);
     const navigate = useNavigate();
 
@@ -49,14 +51,11 @@ const ProblemList: FC = () => {
         return () => {
             mountedRef.current = false;
             controller.abort();
-            if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
         };
     }, [loadRevision]);
 
     const closeImportModal = () => {
         if (importBusyRef.current) return;
-        if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
-        closeTimerRef.current = null;
         setShowImportModal(false);
     };
 
@@ -64,45 +63,42 @@ const ProblemList: FC = () => {
         navigate(`/problems/${problemId}`);
     };
 
-    const handleImport = async () => {
-        if (!importUrl.trim() || importBusyRef.current) return;
-        importBusyRef.current = true;
-        if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
+    const refreshProblems = async () => {
+        setRefreshing(true);
+        try {
+            const data = await problemsApi.getProblems();
+            if (mountedRef.current) {
+                setProblems(data);
+                setRefreshError(null);
+            }
+        } catch {
+            if (mountedRef.current) setRefreshError('The problem was imported, but the list could not be refreshed.');
+        } finally {
+            if (mountedRef.current) setRefreshing(false);
+        }
+    };
 
+    const handleImport = async () => {
+        if (!importUrl.trim() || importBusyRef.current || refreshing) return;
+        importBusyRef.current = true;
         setImporting(true);
         setImportError(null);
         setImportSuccess(null);
-
+        setRefreshError(null);
         try {
             const result = await problemsApi.importProblem(importUrl.trim());
             if (!mountedRef.current) return;
             setImportSuccess(`Successfully imported: ${result.title}`);
             setImportUrl('');
-            // Reload the sorted problem list after the backend publishes the imported directory.
-            const data = await problemsApi.getProblems();
-            if (!mountedRef.current) return;
-            setProblems(data);
-            // Leave the success message visible briefly before closing the dialog.
-            closeTimerRef.current = setTimeout(() => {
-                closeTimerRef.current = null;
-                setShowImportModal(false);
-                setImportSuccess(null);
-            }, 2000);
         } catch (error: unknown) {
             if (mountedRef.current) setImportError(getApiErrorMessage(error, 'Failed to import problem'));
+            return;
         } finally {
             importBusyRef.current = false;
             if (mountedRef.current) setImporting(false);
         }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !importing) {
-            handleImport();
-        }
-        if (e.key === 'Escape') {
-            closeImportModal();
-        }
+        // Refresh is independently retryable and never repeats a successful POST.
+        await refreshProblems();
     };
 
     const handleDelete = async (e: React.MouseEvent, problemId: string, title: string) => {
@@ -142,10 +138,10 @@ const ProblemList: FC = () => {
                 <button
                     className="import-btn"
                     onClick={() => {
-                        if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
                         setShowImportModal(true);
                         setImportError(null);
                         setImportSuccess(null);
+                        setRefreshError(null);
                     }}
                 >
                     <span className="import-btn-icon">+</span>
@@ -181,7 +177,7 @@ const ProblemList: FC = () => {
                                         <span className="status-icon status-attempted" title="Attempted">◐</span>
                                     )}
                                 </td>
-                                <td className="problem-title">{problem.title}</td>
+                                <td className="problem-title"><Link to={`/problems/${problem.id}`} onClick={(event) => event.stopPropagation()}>{problem.title}</Link></td>
                                 <td className="problem-difficulty">
                                     <span className={`difficulty-badge difficulty-${problem.difficulty.toLowerCase()}`}>
                                         {problem.difficulty}
@@ -199,10 +195,13 @@ const ProblemList: FC = () => {
                                         <button
                                             className="delete-btn"
                                             title="Delete problem"
+                                            aria-label={`Delete ${problem.title}`}
                                             disabled={deleting.has(problem.id)}
                                             onClick={(e) => handleDelete(e, problem.id, problem.title)}
                                         >
-                                            <img src="/trash-icon.png" alt="Delete" className="delete-icon" />
+                                            <svg className="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" />
+                                            </svg>
                                         </button>
                                     )}
                                 </td>
@@ -213,12 +212,12 @@ const ProblemList: FC = () => {
             </div>
 
             {showImportModal && (
-                <div className="modal-overlay" onClick={closeImportModal}>
-                    <div className="import-modal" onClick={(e) => e.stopPropagation()}>
+                <ModalDialog titleId="leetcode-import-title" busy={importing} onClose={closeImportModal}>
                         <div className="import-modal-header">
-                            <h2>Import from LeetCode</h2>
+                            <h2 id="leetcode-import-title">Import from LeetCode</h2>
                             <button
                                 className="modal-close-btn"
+                                aria-label="Close import dialog"
                                 disabled={importing}
                                 onClick={closeImportModal}
                             >
@@ -232,21 +231,23 @@ const ProblemList: FC = () => {
                             <div className="import-notice">
                                 <span>The imported problems only include the visible information from the examples, not the hidden information from LeetCode.</span>
                             </div>
+                            <label className="field-label" htmlFor="leetcode-url">LeetCode problem URL</label>
                             <div className="import-input-group">
                                 <input
                                     type="text"
+                                    id="leetcode-url"
                                     className="import-url-input"
                                     placeholder="https://leetcode.com/problems/PROBLEM-NAME/"
                                     value={importUrl}
                                     onChange={(e) => setImportUrl(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    autoFocus
+                                    onKeyDown={(event) => { if (event.key === 'Enter') void handleImport(); }}
+                                    data-dialog-autofocus
                                     disabled={importing}
                                 />
                                 <button
                                     className="import-submit-btn"
                                     onClick={handleImport}
-                                    disabled={importing || !importUrl.trim()}
+                                    disabled={importing || refreshing || !importUrl.trim()}
                                 >
                                     {importing ? (
                                         <>
@@ -259,20 +260,27 @@ const ProblemList: FC = () => {
                                 </button>
                             </div>
                             {importError && (
-                                <div className="import-feedback import-error">
+                                <div className="import-feedback import-error" role="alert">
                                     <span className="import-feedback-icon">✕</span>
                                     {importError}
                                 </div>
                             )}
                             {importSuccess && (
-                                <div className="import-feedback import-success">
+                                <div className="import-feedback import-success" role="status">
                                     <span className="import-feedback-icon">✓</span>
                                     {importSuccess}
                                 </div>
                             )}
+                            {refreshError && (
+                                <div className="import-feedback" role="status">
+                                    {refreshError}
+                                    <button type="button" className="editor-btn" disabled={refreshing} onClick={() => void refreshProblems()}>
+                                        {refreshing ? 'Refreshing...' : 'Reload list'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                </div>
+                </ModalDialog>
             )}
         </div>
     );

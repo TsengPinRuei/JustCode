@@ -1,3 +1,4 @@
+import { normalizeTestcases } from './numericContract';
 import { ProblemMetadata, Testcase } from '../types';
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -38,8 +39,8 @@ export function validateMetadata(value: unknown, problemId: string): ProblemMeta
     return value as unknown as ProblemMetadata;
 }
 
-// Validate testcase structure and parameter names only.
-// Value types, problem constraints, and expected-answer correctness are not checked here.
+// Validate structure, parameter names, exact numeric values and nullability.
+// Problem constraints and expected-answer correctness are not inferred here.
 export function validateTestcases(value: unknown, metadata?: ProblemMetadata, allowEmpty = true): Testcase[] {
     if (!Array.isArray(value) || (!allowEmpty && value.length === 0)) {
         throw new Error(`Testcases must be ${allowEmpty ? 'a' : 'a non-empty'} JSON array`);
@@ -55,5 +56,5 @@ export function validateTestcases(value: unknown, metadata?: ProblemMetadata, al
             throw new Error(`Testcase ${index + 1} input keys must exactly match params: ${names.join(', ')}`);
         }
     });
-    return value as Testcase[];
+    return normalizeTestcases(value as Testcase[], metadata);
 }

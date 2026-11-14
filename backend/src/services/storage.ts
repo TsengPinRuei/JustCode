@@ -1,3 +1,4 @@
+import { stringifyJson } from '../shared/json';
 import { constants, promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
@@ -57,7 +58,7 @@ export async function mapInBatches<T, U>(items: T[], read: (item: T) => Promise<
 }
 
 export async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
-    const content = JSON.stringify(value, null, 4);
+    const content = stringifyJson(value, 4);
     if (Buffer.byteLength(content, 'utf-8') > MAX_DATA_BYTES) {
         throw invalidInput('Data file cannot exceed 64 MB');
     }

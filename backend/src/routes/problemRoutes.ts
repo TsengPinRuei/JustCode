@@ -1,3 +1,4 @@
+import { parseJson } from '../shared/json';
 import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
 import { CodeExecutorFactory } from '../services/codeExecutorFactory';
@@ -76,7 +77,7 @@ export function createProblemRouter(
                 }
                 let input: unknown;
                 try {
-                    input = JSON.parse(customInput);
+                    input = parseJson(customInput);
                 } catch {
                     throw new RequestError('Invalid custom input JSON format');
                 }

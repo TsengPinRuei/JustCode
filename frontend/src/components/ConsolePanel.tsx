@@ -7,7 +7,7 @@ interface ConsolePanelProps {
     problem: Problem;
     activeTab: 'testcase' | 'result';
     onTabChange: (tab: 'testcase' | 'result') => void;
-    executing: boolean;
+    executionKind: 'run' | 'submit' | null;
     executionResult: ExecutionResult | null;
     onRun: (inputMode: 'visible' | 'custom', customInput?: string) => void;
     onSubmit: () => void;
@@ -17,7 +17,7 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
     problem,
     activeTab,
     onTabChange,
-    executing,
+    executionKind,
     executionResult,
     onRun,
     onSubmit,
@@ -32,12 +32,14 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
                 <div className="console-tabs-left">
                     <button
                         className={`tab ${activeTab === 'testcase' ? 'active' : ''}`}
+                        aria-pressed={activeTab === 'testcase'}
                         onClick={() => onTabChange('testcase')}
                     >
                         Testcase
                     </button>
                     <button
                         className={`tab ${activeTab === 'result' ? 'active' : ''}`}
+                        aria-pressed={activeTab === 'result'}
                         onClick={() => onTabChange('result')}
                     >
                         Result
@@ -47,16 +49,16 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
                     <button
                         className="action-btn run-btn"
                         onClick={() => onRun(inputMode, customInput)}
-                        disabled={executing}
+                        disabled={executionKind !== null}
                     >
-                        {executing ? 'Running...' : 'Run'}
+                        {executionKind === 'run' ? 'Running...' : 'Run'}
                     </button>
                     <button
                         className="action-btn submit-btn"
                         onClick={onSubmit}
-                        disabled={executing}
+                        disabled={executionKind !== null}
                     >
-                        {executing ? 'Submitting...' : 'Submit'}
+                        {executionKind === 'submit' ? 'Submitting...' : 'Submit'}
                     </button>
                 </div>
             </div>
@@ -72,7 +74,7 @@ const ConsolePanel: FC<ConsolePanelProps> = ({
                     />
                 </div>
                 {activeTab === 'result' && (
-                    <ResultPanel executing={executing} result={executionResult} />
+                    <ResultPanel executing={executionKind !== null} result={executionResult} />
                 )}
             </div>
         </div>

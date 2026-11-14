@@ -1,6 +1,10 @@
+import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { cleanupWorkspace } from '../backend/src/services/executionUtils';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { SandboxCommandOptions, SandboxCommandResult, SandboxRunner } from '../backend/src/services/sandboxRunner';
+import { SandboxCommandOptions, SandboxCommandResult, SandboxRunner, hasPendingContainer } from '../backend/src/services/sandboxRunner';
 import { MAX_OUTPUT_LENGTH } from '../backend/src/constants';
 
 type LocalRunner = {
@@ -71,6 +75,7 @@ test('Docker forwards stdin and awaits forced removal after output overflow', as
         if (options.args[0] === 'rm') {
             await new Promise(resolve => setTimeout(resolve, 5));
             removed = true;
+            return { stdout: '', stderr: '', exitCode: 0, timedOut: false, outputExceeded: false };
         }
         return { stdout: '', stderr: '', exitCode: 1, timedOut: false, outputExceeded: true };
     };
@@ -79,4 +84,71 @@ test('Docker forwards stdin and awaits forced removal after output overflow', as
     assert.equal(calls[0].stdin, '{"a":1}');
     assert.deepEqual(calls[1].args.slice(0, 2), ['rm', '--force']);
     assert.equal(removed, true);
+});
+
+
+test('Docker cleanup handles not-found, daemon failures, timeout, and recovery', async () => {
+    type DockerRunner = {
+        executeDocker(options: SandboxCommandOptions): Promise<SandboxCommandResult>;
+        execute(options: SandboxCommandOptions): Promise<SandboxCommandResult>;
+        runProcess(options: { command: string; args: string[] }): Promise<Omit<SandboxCommandResult, 'sandboxMode'>>;
+    };
+    const options = { command: 'python3', args: ['runner.py'], cwd: process.cwd(), timeoutMs: 1000, image: 'test-image' };
+    for (const kind of ['not-found', 'unavailable', 'timeout']) {
+        const runner = new SandboxRunner() as unknown as DockerRunner;
+        const calls: string[][] = [];
+        let recovered = false;
+        runner.runProcess = async command => {
+            calls.push(command.args);
+            if (command.args[0] === 'run') return { stdout: '', stderr: '', exitCode: -1, timedOut: true, outputExceeded: false };
+            if (command.args[0] === 'rm' && !recovered) return { stdout: '', stderr: kind === 'not-found' ? 'Error response from daemon: No such container: test' : 'simulated daemon failure', exitCode: 1, timedOut: kind === 'timeout', outputExceeded: false };
+            return { stdout: '', stderr: '', exitCode: 0, timedOut: false, outputExceeded: false };
+        };
+        try {
+            const result = await runner.executeDocker(options);
+            if (kind === 'not-found') {
+                assert.equal(result.infrastructureError, undefined);
+                assert.equal(calls.length, 2);
+            } else {
+                assert.match(result.infrastructureError || '', /justcode-[a-f0-9-]+/);
+                assert.match(result.infrastructureError || '', kind === 'timeout' ? /cleanup timed out/ : /simulated daemon failure/);
+                assert.equal(calls.filter(args => args[0] === 'rm').length, 2);
+                assert.equal(hasPendingContainer(options.cwd), true);
+                calls.length = 0;
+                const blocked = await runner.execute(options);
+                assert.ok(blocked.infrastructureError);
+                assert.equal(calls.every(args => args[0] === 'rm'), true);
+            }
+        } finally {
+            recovered = true;
+            await runner.execute(options);
+            assert.equal(hasPendingContainer(options.cwd), false);
+        }
+    }
+});
+
+
+test('a workspace is retained until its pending Docker container is removed', async () => {
+    const workspace = await fs.mkdtemp(join(tmpdir(), 'justcode-pending-'));
+    type DockerRunner = {
+        executeDocker(options: SandboxCommandOptions): Promise<SandboxCommandResult>;
+        execute(options: SandboxCommandOptions): Promise<SandboxCommandResult>;
+        runProcess(options: { args: string[] }): Promise<Omit<SandboxCommandResult, 'sandboxMode'>>;
+    };
+    const runner = new SandboxRunner() as unknown as DockerRunner;
+    let recovered = false;
+    runner.runProcess = async () => ({ stdout: '', stderr: recovered ? '' : 'daemon unavailable', exitCode: recovered ? 0 : 1, timedOut: false, outputExceeded: false });
+    const options = { command: 'python3', args: ['runner.py'], cwd: workspace, timeoutMs: 1000, image: 'test' };
+    try {
+        await runner.executeDocker(options);
+        await cleanupWorkspace(workspace);
+        assert.equal((await fs.stat(workspace)).isDirectory(), true);
+        recovered = true;
+        await runner.execute(options);
+        await assert.rejects(fs.stat(workspace), { code: 'ENOENT' });
+    } finally {
+        recovered = true;
+        await runner.execute(options);
+        await fs.rm(workspace, { recursive: true, force: true });
+    }
 });

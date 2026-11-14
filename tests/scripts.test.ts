@@ -33,3 +33,73 @@ test('uninstall preserves sources and lockfiles and refuses symlinked workspaces
         await rm(root, { recursive: true, force: true });
     }
 });
+
+
+test('all npm cleanup modes reject either symlinked workspace before removing files', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'justcode-npm-clean-'));
+    try {
+        for (const workspace of ['frontend', 'backend']) {
+            for (const mode of ['all', 'modules', 'build']) {
+                const project = join(root, `${workspace}-${mode}`);
+                const external = join(root, `${workspace}-${mode}-external`);
+                await mkdir(join(project, 'scripts'), { recursive: true });
+                await mkdir(external);
+                await copyFile(new URL('../scripts/clean.cjs', import.meta.url), join(project, 'scripts/clean.cjs'));
+                await writeFile(join(project, 'package.json'), '{}');
+                await mkdir(join(project, workspace === 'frontend' ? 'backend' : 'frontend'));
+                await symlink(external, join(project, workspace), 'junction');
+                await mkdir(join(project, 'node_modules'));
+                await writeFile(join(project, 'node_modules', 'keep.txt'), 'untouched');
+                for (const dir of ['dist', 'node_modules', 'temp']) {
+                    await mkdir(join(external, dir));
+                    await writeFile(join(external, dir, 'keep.txt'), 'external');
+                }
+                const result = spawnSync(process.execPath, ['scripts/clean.cjs', mode], { cwd: project, encoding: 'utf8' });
+                assert.notEqual(result.status, 0);
+                assert.match(result.stderr, /symlink/);
+                assert.equal(await readFile(join(project, 'node_modules', 'keep.txt'), 'utf8'), 'untouched');
+                for (const dir of ['dist', 'node_modules', 'temp']) {
+                    assert.equal(await readFile(join(external, dir, 'keep.txt'), 'utf8'), 'external');
+                }
+            }
+        }
+    } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('npm cleanup removes only the selected generated artifacts and unlinks target symlinks', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'justcode-npm-clean-normal-'));
+    const modules = ['node_modules', 'backend/node_modules', 'frontend/node_modules'];
+    const builds = ['backend/dist', 'frontend/dist', 'frontend/.vite'];
+    const caches = ['backend/tsconfig.tsbuildinfo', 'frontend/tsconfig.tsbuildinfo', 'frontend/tsconfig.node.tsbuildinfo'];
+    try {
+        for (const mode of ['all', 'modules', 'build']) {
+            const project = join(root, mode);
+            const external = join(root, mode + '-external');
+            await mkdir(join(project, 'scripts'), { recursive: true });
+            await mkdir(join(project, 'problems'));
+            await mkdir(external);
+            await writeFile(join(external, 'keep.txt'), 'external');
+            await copyFile(new URL('../scripts/clean.cjs', import.meta.url), join(project, 'scripts/clean.cjs'));
+            for (const file of ['package.json', 'package-lock.json', 'problems/progress.json']) {
+                await writeFile(join(project, file), '{"keep":true}');
+            }
+            for (const dir of [...modules, ...builds, 'temp', 'backend/temp']) {
+                await mkdir(join(project, dir), { recursive: true });
+            }
+            for (const file of caches) await writeFile(join(project, file), 'build cache');
+            await writeFile(join(project, 'frontend/source.ts'), 'source');
+            await rm(join(project, 'frontend/dist'), { recursive: true });
+            await symlink(external, join(project, 'frontend/dist'), 'junction');
+            execFileSync(process.execPath, ['scripts/clean.cjs', mode], { cwd: project });
+            const removed = mode === 'modules' ? modules : mode === 'build' ? [...builds, ...caches] : [...modules, ...builds, ...caches, 'temp', 'backend/temp'];
+            for (const file of removed) {
+                await assert.rejects(readFile(join(project, file)), { code: 'ENOENT' });
+            }
+            for (const file of ['package.json', 'package-lock.json', 'problems/progress.json']) {
+                assert.equal(await readFile(join(project, file), 'utf8'), '{"keep":true}');
+            }
+            assert.equal(await readFile(join(project, 'frontend/source.ts'), 'utf8'), 'source');
+            assert.equal(await readFile(join(external, 'keep.txt'), 'utf8'), 'external');
+        }
+    } finally { await rm(root, { recursive: true, force: true }); }
+});

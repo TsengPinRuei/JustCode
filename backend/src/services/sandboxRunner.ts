@@ -1,3 +1,4 @@
+import { promises as fs } from 'fs';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
@@ -29,6 +30,7 @@ export interface SandboxCommandResult {
     timedOut: boolean;
     outputExceeded: boolean;
     sandboxMode: 'docker' | 'local';
+    infrastructureError?: string;
 }
 
 interface ProcessRunOptions {
@@ -53,11 +55,24 @@ interface ProcessRunResult {
 // Restart the backend to recheck Docker after the daemon or available images change.
 const dockerAvailability = new Map<string, Promise<boolean>>();
 
+// Do not start more judge processes while a known container remains unaccounted
+// for. The next execution retries cleanup after the daemon becomes available.
+const pendingContainers = new Map<string, string>();
+const deferredWorkspaces = new Set<string>();
+export function deferWorkspaceCleanup(workspaceDir: string): void { deferredWorkspaces.add(workspaceDir); }
+export function hasPendingContainer(workspaceDir: string): boolean {
+    return [...pendingContainers.values()].includes(workspaceDir);
+}
+
+
 // Run judge commands in Docker or directly on the host.
 // Local execution limits time and output but is not a security boundary.
 export class SandboxRunner {
     // Forced Docker mode never falls back; auto uses Docker only after a successful readiness check.
     async execute(options: SandboxCommandOptions): Promise<SandboxCommandResult> {
+        const pendingError = await this.reconcileContainers();
+        if (pendingError) return { stdout: '', stderr: pendingError, exitCode: 1, timedOut: false,
+            outputExceeded: false, sandboxMode: 'docker', infrastructureError: pendingError };
         const mode = this.normalizeMode(SANDBOX_MODE);
         if (mode === 'docker' || (mode === 'auto' && await this.isDockerImageReady(options.image))) {
             return this.executeDocker(options);
@@ -173,20 +188,45 @@ export class SandboxRunner {
             stdin: options.stdin,
         });
 
-        // Killing the Docker CLI may leave its container running.
-        // Await a forced-removal attempt before workspace cleanup; removal failure is not checked here.
+        // Killing the CLI does not prove its container exited. Confirm removal
+        // and retain the workspace when the daemon cannot confirm cleanup.
         if (result.exitCode !== 0 || result.timedOut || result.outputExceeded) {
-            await this.runProcess({
-                command: 'docker',
-                args: ['rm', '--force', containerName],
-                timeoutMs: 3000,
-            });
+            const cleanupError = await this.removeContainer(containerName);
+            if (cleanupError) {
+                pendingContainers.set(containerName, options.cwd);
+                console.error(cleanupError);
+                return { ...result, exitCode: 1, stderr: [result.stderr, cleanupError].filter(Boolean).join('\n'),
+                    sandboxMode: 'docker', infrastructureError: cleanupError };
+            }
         }
 
         return {
             ...result,
             sandboxMode: 'docker',
         };
+    }
+
+    private async removeContainer(containerName: string): Promise<string | undefined> {
+        let detail = '';
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const removal = await this.runProcess({ command: 'docker', args: ['rm', '--force', containerName], timeoutMs: 3000 });
+            if (!removal.timedOut && !removal.outputExceeded && (removal.exitCode === 0 ||
+                /No such container(?::|\s)/i.test(removal.stderr))) return undefined;
+            detail = removal.timedOut ? 'cleanup timed out' : removal.stderr.slice(0, 1024) || `exit ${removal.exitCode}`;
+        }
+        return `Docker cleanup could not be confirmed for ${containerName}: ${detail}. Further execution is blocked until cleanup succeeds.`;
+    }
+
+    private async reconcileContainers(): Promise<string | undefined> {
+        for (const [containerName, workspace] of pendingContainers) {
+            const error = await this.removeContainer(containerName);
+            if (error) return error;
+            pendingContainers.delete(containerName);
+            if (!hasPendingContainer(workspace) && deferredWorkspaces.delete(workspace)) {
+                await fs.rm(workspace, { recursive: true, force: true }).catch(error => console.error('Failed to remove recovered workspace:', error));
+            }
+        }
+        return undefined;
     }
 
     private createLocalEnv(workspaceDir: string): NodeJS.ProcessEnv {

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { parseJson, stringifyJson } from '../../../backend/src/shared/json';
 import {
     ExecutionResult,
     HiddenTestcaseImportRequest,
@@ -16,6 +17,9 @@ const apiClient = axios.create({
     baseURL: '/api',
     timeout: 30000,
     headers: { 'Content-Type': 'application/json' },
+    // Keep integer tokens lossless before Axios can convert them to Number.
+    transformRequest: [(data) => data === undefined ? undefined : stringifyJson(data)],
+    transformResponse: [(data) => typeof data === 'string' && data.length ? parseJson(data) : data],
 });
 
 const progressPersistence = createProgressPersistence(async (id, progress) => {

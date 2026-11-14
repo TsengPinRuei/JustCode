@@ -1,8 +1,10 @@
+import { stringifyJson } from '../shared/json';
+import { normalizeTestcases } from './numericContract';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { performance } from 'perf_hooks';
 import { Testcase, CompilationError, ProblemMetadata } from '../types';
-import { RESULT_SEPARATOR, EXECUTION_TIMEOUT_MS, COMPILE_TIMEOUT_MS, JAVA_SANDBOX_IMAGE } from '../constants';
+import { RESULT_SEPARATOR, RESULT_END_SEPARATOR, EXECUTION_TIMEOUT_MS, COMPILE_TIMEOUT_MS, JAVA_SANDBOX_IMAGE } from '../constants';
 import { SandboxRunner } from './sandboxRunner';
 import { cleanupWorkspace, createWorkspace, executeTestcases, ExecutionSummary, parseTestcaseOutput, TestcaseExecution } from './executionUtils';
 import { JAVA_JSON_SUPPORT } from './javaJsonSupport';
@@ -62,8 +64,8 @@ export class JavaExecutor {
             const compilationErrors = this.parseJavaCompilationErrors(result.stderr);
             return {
                 success: false,
-                status: result.timedOut ? 'TLE' : compilationErrors.length ? 'CE' : 'RE',
-                error: result.timedOut ? 'Compilation time limit exceeded' : result.stderr.slice(0, 4096) || 'Compilation failed',
+                status: result.infrastructureError ? 'RE' : result.timedOut ? 'TLE' : compilationErrors.length ? 'CE' : 'RE',
+                error: result.infrastructureError || (result.timedOut ? 'Compilation time limit exceeded' : result.stderr.slice(0, 4096) || 'Compilation failed'),
                 compilationErrors,
             };
         }
@@ -71,17 +73,17 @@ export class JavaExecutor {
         return { success: true };
     }
 
-    private async runTestcase(workspaceDir: string, testcase: Testcase, timeoutMs: number): Promise<TestcaseExecution> {
+    private async runTestcase(workspaceDir: string, testcase: Testcase, timeoutMs: number, returnType?: string): Promise<TestcaseExecution> {
         const startTime = performance.now();
         const result = await this.sandboxRunner.execute({
             command: 'java',
             args: ['-Dfile.encoding=UTF-8', 'Runner'],
             cwd: workspaceDir,
             timeoutMs,
-            stdin: JSON.stringify(testcase.input),
+            stdin: stringifyJson(testcase.input),
             image: JAVA_SANDBOX_IMAGE,
         });
-        return parseTestcaseOutput(result, testcase, Math.round(performance.now() - startTime));
+        return parseTestcaseOutput(result, testcase, Math.round(performance.now() - startTime), returnType);
     }
 
     private parseJavaCompilationErrors(stderr: string): CompilationError[] {
@@ -114,6 +116,12 @@ export class JavaExecutor {
         metadata?: ProblemMetadata,
         visibleTestcaseCount = testcases.length
     ): Promise<ExecutionSummary> {
+        try {
+            testcases = normalizeTestcases(testcases, metadata, 'java');
+        } catch (error) {
+            return { status: 'RE', message: `Invalid testcase data: ${error instanceof Error ? error.message : String(error)}`,
+                testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0 };
+        }
         const deadline = performance.now() + EXECUTION_TIMEOUT_MS;
         const workspaceDir = await createWorkspace();
         try {
@@ -131,13 +139,13 @@ export class JavaExecutor {
             const compiled = await this.compile(workspaceDir, Math.min(COMPILE_TIMEOUT_MS, Math.max(1, deadline - performance.now())));
             if (!compiled.success) {
                 return {
-                    status: compiled.status || 'CE', message: compiled.error,
+                    status: compiled.status || 'CE', message: compiled.error + (compiled.compilationErrors?.some(error => error.file === 'Runner.java') ? '\nGenerated runner signature must match the solution. Metadata float/float[] means Java double/double[].' : ''),
                     testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0,
                     compilationErrors: compiled.compilationErrors || [],
                 };
             }
             return await executeTestcases(testcases, showHiddenInputs, visibleTestcaseCount, deadline,
-                (testcase, timeoutMs) => this.runTestcase(workspaceDir, testcase, timeoutMs));
+                (testcase, timeoutMs) => this.runTestcase(workspaceDir, testcase, timeoutMs, metadata?.returnType));
         } finally {
             await cleanupWorkspace(workspaceDir);
         }
@@ -155,9 +163,9 @@ export class JavaExecutor {
     private getParseCode(paramName: string, javaType: string, inputKey: string): string {
         switch (javaType) {
             case 'int':
-                return `        int ${paramName} = ((Number) data.get(${JSON.stringify(inputKey)})).intValue();`;
+                return `        int ${paramName} = checkedInt(data.get(${JSON.stringify(inputKey)}));`;
             case 'long':
-                return `        long ${paramName} = ((Number) data.get(${JSON.stringify(inputKey)})).longValue();`;
+                return `        long ${paramName} = checkedLong(data.get(${JSON.stringify(inputKey)}));`;
             case 'double':
                 return `        double ${paramName} = ((Number) data.get(${JSON.stringify(inputKey)})).doubleValue();`;
             case 'boolean':
@@ -229,6 +237,7 @@ ${parseLines}
             String output = toJson(result);
             System.out.print("${RESULT_SEPARATOR}\n");
             System.out.println("{\"result\":" + output + "}");
+            System.out.println("${RESULT_END_SEPARATOR}");
         } catch (Exception error) {
             error.printStackTrace();
             System.exit(1);
@@ -237,18 +246,26 @@ ${parseLines}
 
 ${JAVA_JSON_SUPPORT}
 
+    static int checkedInt(Object value) {
+        return ((java.math.BigDecimal) value).intValueExact();
+    }
+
+    static long checkedLong(Object value) {
+        return ((java.math.BigDecimal) value).longValueExact();
+    }
+
     // Convert parsed JSON lists to the Java array and list types accepted by Solution.
     static int[] toIntArray(java.util.List<?> list) {
         if (list == null) return null;
         int[] arr = new int[list.size()];
-        for (int i = 0; i < list.size(); i++) arr[i] = ((Number) list.get(i)).intValue();
+        for (int i = 0; i < list.size(); i++) arr[i] = checkedInt(list.get(i));
         return arr;
     }
     
     static long[] toLongArray(java.util.List<?> list) {
         if (list == null) return null;
         long[] arr = new long[list.size()];
-        for (int i = 0; i < list.size(); i++) arr[i] = ((Number) list.get(i)).longValue();
+        for (int i = 0; i < list.size(); i++) arr[i] = checkedLong(list.get(i));
         return arr;
     }
     
@@ -310,7 +327,7 @@ ${JAVA_JSON_SUPPORT}
     static List<Integer> toIntegerList(java.util.List<?> list) {
         if (list == null) return null;
         List<Integer> result = new ArrayList<>(list.size());
-        for (Object o : list) result.add(((Number) o).intValue());
+        for (Object o : list) result.add(o == null ? null : checkedInt(o));
         return result;
     }
     

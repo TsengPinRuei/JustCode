@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { once } from 'node:events';
+import { gzipSync, deflateSync } from 'node:zlib';
+import express from 'express';
 import { request as httpRequest } from 'node:http';
 import { createApp } from '../backend/src/app';
 import { createProblemRouter } from '../backend/src/routes/problemRoutes';
@@ -127,6 +129,81 @@ test('API validates requests, protects local access and preserves judge failures
             execute = async () => result;
             assert.equal((await request('/api/run', valid)).status, 200);
         });
+    } finally {
+        server.closeAllConnections();
+        await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
+});
+
+
+test('HTTP parser preserves client statuses, compressed JSON, exact integers and safe server errors', async () => {
+    const routes = express.Router();
+    routes.post('/echo', (req, res) => res.json(req.body));
+    routes.get('/failure', (_req, _res, next) => next(new Error('private server detail')));
+    routes.get('/invalid-status', (_req, _res, next) => next(Object.assign(new Error('private'), { status: 200 })));
+    routes.get('/items/:id', (_req, res) => res.json({ ok: true }));
+    const server = createApp(routes).listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    assert(address && typeof address === 'object');
+    const base = `http://127.0.0.1:${address.port}`;
+    try {
+        assert.equal((await fetch(base + '/api/items/%E0%A4%A')).status, 400);
+        for (const [body, encoding, expected] of [
+            ['{', 'identity', 400], ['{}', 'unsupported', 415],
+            ['{"padding":"' + 'x'.repeat(10 * 1024 * 1024) + '"}', 'identity', 413],
+        ] as const) {
+            const response = await fetch(base + '/api/echo', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Encoding': encoding }, body,
+            });
+            assert.equal(response.status, expected);
+        }
+        const exact = '{"min":-9223372036854775808,"max":9223372036854775807,"nested":[9007199254740993]}';
+        for (const [encoding, body] of [
+            ['identity', exact], ['gzip', gzipSync(exact)], ['deflate', deflateSync(exact)],
+        ] as const) {
+            const response = await fetch(base + '/api/echo', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Encoding': encoding }, body,
+            });
+            assert.equal(response.status, 200);
+            assert.equal(await response.text(), exact);
+        }
+        for (const path of ['/failure', '/invalid-status']) {
+            const response = await fetch(base + '/api' + path);
+            assert.equal(response.status, 500);
+            assert.deepEqual(await response.json(), { error: 'Internal server error' });
+        }
+        assert.equal((await fetch(base + '/health')).status, 200);
+    } finally {
+        server.closeAllConnections();
+        await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
+});
+
+
+test('custom run rejects a Python integer that overflows its declared double result', async () => {
+    const metadata: ProblemMetadata = {
+        id: 'float-echo', title: 'Float echo', difficulty: 'Easy', tags: [], description: '', examples: [],
+        constraints: [], supportedLanguages: ['python3'], functionSignatures: { java: '', python3: '' },
+        functionName: 'echo', params: [{ name: 'data', type: 'double' }], returnType: 'double',
+    };
+    const service = { getProblemMetadata: async () => metadata, getProblemForRun: async () => ({ metadata, visibleTestcases: [] }) } as unknown as ProblemService;
+    const server = createApp(createProblemRouter(service)).listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    assert(address && typeof address === 'object');
+    try {
+        const response = await fetch(`http://127.0.0.1:${address.port}/api/run`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ problemId: 'float-echo', language: 'python3',
+                code: 'class Solution:\n    def echo(self, data):\n        return 10 ** 400',
+                inputMode: 'custom', customInput: '{"data":0}' }),
+        });
+        assert.equal(response.status, 200);
+        const result = await response.json();
+        assert.equal(result.status, 'RE');
+        assert.equal(result.testcaseResults[0].status, 'Error');
+        assert.equal('actual' in result.testcaseResults[0], false);
     } finally {
         server.closeAllConnections();
         await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

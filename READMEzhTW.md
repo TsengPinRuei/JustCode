@@ -9,6 +9,8 @@ React 前端是你操作的網頁；Express 後端負責讀取題目檔案與執
 ![JustCode](https://img.shields.io/badge/JustCode-v1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+題目工作區以至少 **1200 × 720 CSS 像素**的桌面瀏覽器視窗為設計範圍。較窄或放大的視窗會保留桌面面板並提供捲動，未提供手機版面。
+
 第一次使用請先看[快速開始](#快速開始)，再跟著[完成第一道題目](#完成第一道題目)操作。目前介面使用英文，兩份指南都保留實際按鈕名稱，方便對照。
 
 - [主要功能](#主要功能)
@@ -46,7 +48,7 @@ React 前端是你操作的網頁；Express 後端負責讀取題目檔案與執
 
 | 工具 | 何時需要 |
 | --- | --- |
-| Node.js 與 npm | 必備，用來執行 App。本指南以 Node.js 22 驗證；鎖定的 Vite 相依版本接受 Node.js `18.x`、`20.x` 或 `>=22`，`install.sh` 則只檢查最低為 18。 |
+| Node.js 與 npm | 必備，用來執行 App。請使用 Node.js `20.x` 或 `>=22`，本機以 Node.js 22 驗證。React Router v7 與瀏覽器測試工具需要 Node.js 20+，鎖定的 Vite 版本不接受 Node.js 21；`install.sh` 會檢查此範圍。 |
 | JDK 11 或更新版本 | 本機執行 Java 時需要。JDK 同時包含 `javac` 編譯器與 `java` 執行環境。 |
 | Python 3.9 或更新版本 | 本機執行 Python3 時需要。可執行指令必須叫做 `python3`；排序題範本使用 `list[int]` 型別註記。 |
 | Docker | 選用，可取代本機 Java／Python 安裝。使用前請先啟動 Docker，並依[設定章節](#設定與執行限制)下載所需映像檔（image）。 |
@@ -135,7 +137,7 @@ class Solution:
 | 題目 | 難度 | 語言 | 可見／隱藏測資 | 隨附題解 |
 | --- | --- | --- | --- | --- |
 | [-27. Add Two Integers](problems/add-two-integers/problem.json) | Easy | Java、Python3 | 2 / 50 | [直接相加與位元運算解法](problems/add-two-integers/editorial.md) |
-| [-09. Sort an Array](problems/sort-array/problem.json) | Medium | Java、Python3 | 3 / 70 | [快速、合併、堆積、計數及基數排序](problems/sort-array/editorial.md) |
+| [-09. Sort an Array](problems/sort-array/problem.json) | Medium | Java、Python3 | 3 / 69 | [快速、合併、堆積、計數及基數排序](problems/sort-array/editorial.md) |
 
 兩題都附有範本與可見／隱藏測資，並受 UI／API 保護，不能刪除。建議先用加法確認安裝，再用排序練習演算法與比較解法。排序題敘述要求自行實作排序；判題程式只檢查輸出與執行限制，不會判斷你是否使用內建排序函式，也不會證明演算法的時間複雜度。
 
@@ -189,11 +191,13 @@ Sort an Array 則可以填：
 
 ### 從 LeetCode 匯入
 
+若先前匯入的題意或測資已被舊版匯入器改壞，請先備份草稿與自訂測資，再和原始來源比對後修正或重新匯入；現有資料不會被靜默重寫。
+
 1. 在 **Problems** 按 **Import from LeetCode**。
 2. 貼上例如 `https://leetcode.com/problems/two-sum/` 的網址，再按 **Import**。
 3. 成功後在列表開啟新題目；檔案會放在 `problems/two-sum/`。
 
-匯入器透過 LeetCode GraphQL 端點取得公開題目資料並解析敘述／範例，儲存 Java／Python3 程式碼片段及公開範例測資。它**不會**取得 LeetCode 私有判題測資或題解，而是建立空的 `testcases_hidden.json`。新增測資前，Submit 通過只代表匯入的範例通過。你可以自行加入 `editorial.md`，否則 Editorial 分頁會顯示 `Editorial coming soon...`。
+匯入器透過 LeetCode GraphQL 端點取得公開題目資料並解析敘述／範例，儲存 Java／Python3 程式碼片段及公開範例測資。已辨識的 `java.util`／Python `typing` 標準 import 會直接加入可見範本，讓編輯器行號保持一致。Markdown 會保留數學上／下標、安全 HTTP(S) 圖片及連結目的地；無法確定的範例欄位會拒絕匯入，不會猜測預期答案。它**不會**取得 LeetCode 私有判題測資或題解，而是建立空的 `testcases_hidden.json`。新增測資前，Submit 通過只代表匯入的範例通過。你可以自行加入 `editorial.md`，否則 Editorial 分頁會顯示 `Editorial coming soon...`。
 
 匯入已存在的 ID 會回傳 HTTP 409，不覆寫範本、進度或隱藏測資。設計類別型題目會被拒絕；需要 `ListNode`、`TreeNode` 等自訂結構的題目可能能匯入，但目前 runner 尚無法使用這些結構。LeetCode 回應格式變動或公開資料不可用，也可能使匯入失敗。
 
@@ -253,7 +257,7 @@ problems/<problem-id>/
 3. 還原時保持 App 停止，先另外保留需要的新資料，再將要還原的題目資料夾放回 `problems/`，執行 `npm run dev` 重新啟動。
 4. 若只想重做一題，先備份，再於 App 停止時刪除**該題的 `progress.json`** 即可。重開後會使用範本，不再有已儲存狀態或紀錄；這和編輯器的 Reset 不同。
 
-`npm run clean` 與 `./uninstall.sh` 會移除相依套件、建置結果和暫存檔，但保留 `problems/` 及 `package-lock.json`，不會清空練習紀錄。
+`npm run clean` 與 `./uninstall.sh` 會移除相依套件、建置結果和暫存檔，但保留 `problems/` 及 `package-lock.json`，不會清空練習紀錄。所有清理入口都會在刪除前拒絕符號連結形式的 `frontend`／`backend`；個別產物若為符號連結，只會移除連結，不會進入其指向的目錄。
 
 目前 `.gitignore` 忽略額外題目資料夾，但保留兩個內建題目。**內建題目的 `progress.json` 已被 Git 追蹤**，因此練習後可能出現已追蹤檔案變更，下載的版本也可能帶有作者儲存的進度。匯入題目不會自動包含在 Git 備份中；發布專案或建立 commit 前，請查看 `git status`，明確選擇要納入的題目資料與個人程式碼。
 
@@ -276,6 +280,14 @@ problems/<problem-id>/
 | `functionName`、`params`、`returnType` | 對應 `Solution` 中真正的方法；參數名稱／順序／型別與回傳值須符合 runner 和測資，新題目請完整填寫。 |
 
 可參考上方連結的內建 `problem.json` 完整範例。測資輸入欄位須和 `params` 完全一致；JSON／Markdown 可以用文字編輯器修改，外部修改後請重新整理瀏覽器。新資料夾和匯入題目套用相同 Git 忽略規則，非內建資料夾也能從 UI 刪除。
+
+### 數值與可空型別契約
+
+JSON 整數在檔案與 HTTP 回應中仍以不加引號的十進位數字儲存。JustCode 會無損解析，涵蓋 Java `long` 邊界及超過 2^53 的 Python 整數。Java `int`／`integer` 接受有號 32 位元整數，`long` 接受有號 64 位元整數；測資超界會在執行解答前回報。Python 整數不受 Java 範圍限制，但仍受既有檔案、請求、輸出與時間上限約束。Runner 在這些限制內解除 Python 十進位字串位數上限；指數寫法若需補超過 1,000,000 個零，會明確拒絕，避免短輸入造成無界配置。其他 API 用戶端也必須使用無損 JSON 解析器才能保留大整數。
+
+`double` 代表有限 IEEE-754 雙精度浮點數。metadata 的 `float` 是 `double` 別名，`float[]` 對應 Java `double[]`，不代表 Java 原生 `float`。兩種純量標籤都應使用如 `public double echo(double value)` 的方法。`1e19` 等看似整數的輸入仍可用於 double 型別；浮點轉換後仍採精確比較，沒有加入容許誤差判題。
+
+Boxed list 元素（`List<Integer>`、`List<String>`、`List<Boolean>` 及已支援的巢狀 list）允許 `null`；基本數值／boolean／char 陣列元素不允許。參考型別陣列與 list 參數本身可以是 `null`。產生器的 `Runner.java` 錯誤會顯示診斷，但不會標在使用者解答的程式行上。
 
 ## 設定與執行限制
 
@@ -333,6 +345,8 @@ npm run dev
 
 時間／輸出限制位於 [constants.ts](backend/src/constants.ts)，同時執行數位於 [problemRoutes.ts](backend/src/routes/problemRoutes.ts)，請求限制位於 [app.ts](backend/src/app.ts)，檔案限制位於 [storage.ts](backend/src/services/storage.ts)，前端逾時位於 [apiClient.ts](frontend/src/services/apiClient.ts)。這些限制沒有環境變數可覆寫。
 
+Docker 容器移除失敗時，錯誤會指出容器名稱，並保留執行工作目錄。後續執行會先重試清理，確認移除後才繼續。待清理狀態保存在後端記憶體；若重新啟動後端，請先檢查並手動移除錯誤中指定的容器，再刪除保留的工作目錄。
+
 ## 常用指令與驗證
 
 請在專案根目錄執行。這裡的 **workspace** 指由 npm 一起管理的前端／後端套件。
@@ -343,6 +357,7 @@ npm run dev
 | `npm run dev` | 啟動兩個開發伺服器。 |
 | `npm run dev:backend`／`npm run dev:frontend` | 只啟動其中一個開發伺服器。 |
 | `npm test` | 執行既有回歸測試；請安裝本機 Java 和 Python，才能涵蓋所有語言案例。 |
+| `npm run test:ui` | 使用模擬 API 執行 Chromium 互動回歸；需要 Node.js 20+ 及 `npx playwright install chromium`。 |
 | `npm run typecheck` | 檢查前端、後端及 Vite 設定型別，不產生建置檔。 |
 | `npm run build` | 將前後端分別建置至 `frontend/dist/`、`backend/dist/`。 |
 | `npm run build:frontend`／`npm run build:backend` | 只建置其中一個套件。 |
@@ -359,9 +374,10 @@ npm run dev
 npm test
 npm run typecheck
 npm run build
+npm run test:ui
 ```
 
-目前沒有獨立 lint script。測試涵蓋請求驗證／本機存取、儲存與同時寫入、匯入解析、進度儲存順序、結果解析與隱藏資料遮蔽、執行器錯誤／逾時、沙盒程序清理、題解程式及清理腳本；詳見 [tests/](tests/)。
+目前沒有獨立 lint script。測試涵蓋請求驗證／本機存取、儲存與同時寫入、匯入解析、進度儲存順序、結果解析與隱藏資料遮蔽、執行器錯誤／逾時、沙盒程序清理、題解程式及清理腳本；詳見 [tests/](tests/)。測試也會逐筆檢查所有內建測資的輸入域及獨立 oracle。[CI](.github/workflows/verify.yml) 設定 Node.js 22、JDK 17、Python 3.11，確認 runtime 存在後，在 push 與 pull request 執行型別、測試、建置及 Chromium 互動流程；本機新增設定不代表 GitHub 上已完成執行。
 
 缺少 `javac` 或 `python3` 時，部分執行器測試會**略過**，請檢查 skipped 數量後再判定是否完整驗證。若要固定使用本機執行器，可在 `npm test` 前設定 `JUSTCODE_SANDBOX_MODE=local`。匯入測試使用模擬 LeetCode 回應，Docker 參數／清理測試也模擬程序執行；測試通過不代表已確認即時 LeetCode 連線或真實 Docker 環境可用。
 
@@ -437,7 +453,7 @@ JustCode/
 └── READMEzhTW.md
 ```
 
-執行後產生的資料夾包含 `node_modules/`、前後端 `dist/`，以及後端工作目錄下的 `temp/` 執行暫存目錄；用 workspace 指令時通常位於 `backend/temp/`。每次執行結束會清理該次暫存工作目錄，這些不是題目儲存位置。
+執行後產生的資料夾包含 `node_modules/`、前後端 `dist/`，以及後端工作目錄下的 `temp/` 執行暫存目錄；用 workspace 指令時通常位於 `backend/temp/`。每次執行結束會清理該次暫存工作目錄；無法確認 Docker 容器已移除時會保留，這些不是題目儲存位置。
 
 ## API 簡介
 
@@ -494,3 +510,8 @@ JustCode/
 | 回歸驗證 | API、資料完整性、同時操作、語言執行、沙盒處理、前端狀態與可執行題解案例 | [測試](tests/)、[指令設定](package.json) |
 
 > 使用 React、TypeScript、Express 與 Monaco 開發本機刷題工具，支援 Java／Python3 執行、LeetCode 公開範例匯入、自訂／隱藏測資及進度自動儲存。實作檔案式資料保存、具選用 Docker 隔離的執行限制，並以回歸測試驗證判題、資料完整性與進度處理。
+
+
+## 授權資訊
+
+Copyright © 2026 Pin Ruei Tseng。專案原始碼、內建題目、題解與圖片採用 [MIT 授權](LICENSE)。依賴套件保留各自授權。日後從外部服務匯入的內容仍依其來源條款，匯入動作不會將本專案授權套用至該內容。

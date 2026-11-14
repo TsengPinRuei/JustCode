@@ -64,13 +64,15 @@ Given an integer array `nums`, sort the array in ascending order and return it.
 
 ## Solutions Overview
 
+Properties below describe the implementations shown on this page. Stability means that equal keys retain their record order: `(2, A), (1, X), (2, B)` becomes `(1, X), (2, A), (2, B)`, never B before A. Identical integers alone cannot demonstrate record stability.
+
 | Algorithm      | Average Time | Worst Time   | Space       | Stable | Best For            |
 | -------------- | ------------ | ------------ | ----------- | ------ | ------------------- |
 | Quick Sort     | O(n log n)   | O(n²)        | O(log n)    | No     | General use         |
 | Merge Sort     | O(n log n)   | O(n log n)   | O(n)        | Yes    | Stable sorting      |
 | Heap Sort      | O(n log n)   | O(n log n)   | O(1)        | No     | Space-constrained   |
-| Counting Sort  | O(n + k)     | O(n + k)     | O(k)        | Yes    | Small value range   |
-| Radix Sort     | O(d × n)     | O(d × n)     | O(n + k)    | Yes    | Integer sorting     |
+| Counting Sort  | O(n + k)     | O(n + k)     | O(k)        | Not guaranteed for records | Small value range   |
+| Radix Sort     | O(d × n)     | O(d × n)     | O(n + k)    | No for signed records | Integer sorting     |
 
 ---
 
@@ -463,8 +465,10 @@ class Solution:
 Non-comparison sorting algorithm, suitable for small value ranges:
 
 1. Count occurrences of each value
-2. Calculate cumulative counts
-3. Place elements in sorted order
+2. Visit values from minimum to maximum
+3. Reconstruct each integer as many times as its frequency
+
+This frequency-only variant does not preserve record identities. A stable record-sorting variant instead uses cumulative counts to assign positions in a separate output array, placing equal-key records in their original order.
 
 This is lightning-fast when the value range is small!
 
@@ -786,22 +790,21 @@ int pivot = nums[right];
 pivot = nums[right]
 ```
 
-**Correct:** Use median-of-three or random selection
+**Alternative:** Choose a random pivot value from the active subarray. This reduces dependence on input order, but does not guarantee worst-case O(n log n). The complete solution above also uses three-way partitioning for duplicates.
 
 ```java
-// This computes only the middle index; median-of-three selection still needs
-// comparisons between the first, middle, and last values.
-int mid = left + (right - left) / 2;
+int pivotIndex = java.util.concurrent.ThreadLocalRandom.current().nextInt(left, right + 1);
+int pivot = nums[pivotIndex];
 ```
 ```python
-# This computes only the middle index; median-of-three selection still needs
-# comparisons between the first, middle, and last values.
-mid = left + (right - left) // 2
+import random
+pivot_index = random.randrange(left, right + 1)
+pivot = nums[pivot_index]
 ```
 
 ### 2. Merge Sort Memory Allocation
 
-**Wrong:** Creating new array each time
+**Correct, with repeated allocation:** Creating a temporary array during each merge (as in the Python solution above). Peak auxiliary space remains O(n), while the total number of allocated elements across all merges is O(n log n).
 
 ```java
 // Allocating inside each merge creates repeated temporary arrays.
@@ -812,7 +815,7 @@ int[] temp = new int[right - left + 1];
 temp = nums[left:right + 1]
 ```
 
-**Correct:** Reuse temporary array
+**Optional allocation optimization:** Reuse one temporary array. This reduces cumulative allocation to O(n); the merge still copies the active range into the buffer before reading it. Time remains O(n log n) and peak auxiliary space remains O(n).
 
 ```java
 // Allocate once before recursion and pass the buffer to each merge.
