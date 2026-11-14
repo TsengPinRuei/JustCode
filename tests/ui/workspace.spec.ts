@@ -309,8 +309,13 @@ test('a failed save survives route navigation and retries the latest draft', asy
     await monacoAction(page, 'edit', 'class Solution { /* KEEP UNSAVED */ }');
     await expect(page.getByRole('button', { name: 'Retry save' })).toBeVisible();
     await page.getByRole('link', { name: 'Problems', exact: true }).click();
+    // Wait for React to commit the list route; going back earlier can cancel
+    // that transition and keep the original workspace mounted without a retry.
+    await expect(page.getByRole('link', { name: 'Add Two Integers', exact: true })).toBeVisible();
+    expect(stored).toBeNull();
     failing = false;
     await page.goBack();
+    await expect(page).toHaveURL(/\/problems\/add-two-integers$/);
     await expect(page.locator('.monaco-editor')).toBeVisible();
     expect(await monacoAction(page, 'value')).toContain('KEEP UNSAVED');
     await expect.poll(() => stored?.code.java).toContain('KEEP UNSAVED');
