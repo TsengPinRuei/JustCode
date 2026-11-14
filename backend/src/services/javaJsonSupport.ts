@@ -71,11 +71,8 @@ export const JAVA_JSON_SUPPORT = String.raw`
             int start = index;
             while (index < json.length() && "-+0123456789.eE".indexOf(json.charAt(index)) >= 0) index++;
             String number = json.substring(start, index);
-            // Keep integral values as Long so they are not rounded through Double before conversion.
-            if (number.indexOf('.') >= 0 || number.indexOf('e') >= 0 || number.indexOf('E') >= 0) {
-                return Double.valueOf(number);
-            }
-            return Long.valueOf(number);
+            // Preserve the token before converting according to the declared parameter type.
+            return new java.math.BigDecimal(number);
         }
 
         String readString() {

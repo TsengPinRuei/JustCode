@@ -9,6 +9,8 @@ The React frontend is the page you use; the Express backend reads problem files 
 ![JustCode](https://img.shields.io/badge/JustCode-v1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+The workspace targets a desktop browser viewport of at least **1200 × 720 CSS pixels**. Smaller or zoomed viewports retain the desktop panels with scrolling; a mobile layout is not provided.
+
 Start with [Quick Start](#quick-start), then follow [Your First Solution](#your-first-solution). The interface currently uses English labels; both guides use the exact button names.
 
 - [Features](#features)
@@ -46,7 +48,7 @@ Start with [Quick Start](#quick-start), then follow [Your First Solution](#your-
 
 | Tool | When you need it |
 | --- | --- |
-| Node.js and npm | Always, to run the app. This guide was verified with Node.js 22. The locked Vite dependency accepts Node.js `18.x`, `20.x`, or `>=22`; `install.sh` only checks the lower bound of 18. |
+| Node.js and npm | Always, to run the app. Use Node.js `20.x` or `>=22`; Node.js 22 is the tested version. React Router v7 and the browser test tooling require Node.js 20+, and the locked Vite release excludes Node.js 21. `install.sh` checks this range. |
 | JDK 11 or newer | To run Java locally. A JDK includes both `javac` (compiler) and `java` (runtime). |
 | Python 3.9 or newer | To run Python3 locally. The executable must be named `python3`; the sorting template uses `list[int]` annotations. |
 | Docker | Optional alternative to installing Java/Python locally. Start Docker and download the images in [Configuration](#configuration-and-execution-limits) before using it. |
@@ -135,7 +137,7 @@ These are the files shipped in this checkout; counts change if you edit or impor
 | Problem | Difficulty | Languages | Visible / hidden tests | Included editorial |
 | --- | --- | --- | --- | --- |
 | [-27. Add Two Integers](problems/add-two-integers/problem.json) | Easy | Java, Python3 | 2 / 50 | [Addition and a bitwise alternative](problems/add-two-integers/editorial.md) |
-| [-09. Sort an Array](problems/sort-array/problem.json) | Medium | Java, Python3 | 3 / 70 | [Quick, merge, heap, counting, and radix sort](problems/sort-array/editorial.md) |
+| [-09. Sort an Array](problems/sort-array/problem.json) | Medium | Java, Python3 | 3 / 69 | [Quick, merge, heap, counting, and radix sort](problems/sort-array/editorial.md) |
 
 Both problems include templates and visible/hidden test files. They are protected from UI/API deletion. Start with addition to check your installation, then use sorting to practice algorithms and compare approaches. The sorting statement asks you to implement sorting yourself; the judge checks outputs and execution limits, not whether you used a built-in sorting function or achieved a particular complexity.
 
@@ -193,9 +195,9 @@ Use valid JSON: double-quoted keys/strings, no comments, and no trailing commas.
 2. Paste a URL such as `https://leetcode.com/problems/two-sum/` and click **Import**.
 3. After success, open the new problem in the list. Its files are under `problems/two-sum/`.
 
-The importer reads public problem data through LeetCode's GraphQL endpoint and parses its statement/examples. It saves Java/Python3 snippets and public example tests. It does **not** fetch LeetCode's private judge tests or editorials; it creates an empty `testcases_hidden.json`. Until you add tests, an accepted Submit only validates the imported examples. Add `editorial.md` yourself if desired; otherwise the Editorial tab says `Editorial coming soon...`.
+The importer reads public problem data through LeetCode's GraphQL endpoint and parses its statement/examples. It saves Java/Python3 snippets and public example tests. Recognized standard `java.util`/Python `typing` imports are added visibly to the templates, preserving editor line numbers. Mathematical superscripts/subscripts, safe HTTP(S) images and link destinations are retained in Markdown; ambiguous example fields are rejected instead of inventing an expected answer. It does **not** fetch LeetCode's private judge tests or editorials; it creates an empty `testcases_hidden.json`. Until you add tests, an accepted Submit only validates the imported examples. Add `editorial.md` yourself if desired; otherwise the Editorial tab says `Editorial coming soon...`.
 
-Importing an existing ID returns HTTP 409 without overwriting its templates, progress, or hidden tests. Design-class problems are rejected; problems requiring custom structures such as `ListNode` or `TreeNode` may import but cannot use those structures with the current runners. Changes to LeetCode's response format or unavailable public data can also prevent import.
+Importing an existing ID returns HTTP 409 without overwriting its templates, progress, or hidden tests. Design-class problems are rejected; problems requiring custom structures such as `ListNode` or `TreeNode` may import but cannot use those structures with the current runners. Changes to LeetCode's response format or unavailable public data can also prevent import. If a previously imported statement or testcase was damaged by an older importer, back up your drafts/tests and compare it with the original source before repairing or reimporting it; existing data is not silently rewritten.
 
 To remove a non-built-in problem, click its trash icon in the list and confirm. This deletes the **entire problem folder**, including saved code and history; back it up first if needed.
 
@@ -253,7 +255,7 @@ Display examples in `problem.json` are separate from executable tests. Changing 
 3. To restore, keep the app stopped, preserve any newer data separately, then copy the desired problem folders back into `problems/`. Restart with `npm run dev`.
 4. To restart one problem from scratch, first back it up, then remove **only that problem's `progress.json`** while the app is stopped. Reopening it uses its templates with no saved status or records. This differs from the editor's Reset button.
 
-`npm run clean` and `./uninstall.sh` remove dependencies/builds/temporary files but preserve `problems/` and `package-lock.json`. They do not erase practice history.
+`npm run clean` and `./uninstall.sh` remove dependencies/builds/temporary files but preserve `problems/` and `package-lock.json`. They do not erase practice history. All cleanup entry points refuse symlinked `frontend`/`backend` directories before removing anything; symlinks at individual generated targets are removed without traversing their destinations.
 
 The current `.gitignore` ignores additional problem folders but allows the two built-in folders. **The built-in `progress.json` files are tracked by Git**, so practice can change tracked files; a checkout can contain the progress saved by its author. Imported problems are not automatically included in Git backups. Before publishing this project or making a commit, inspect `git status` and intentionally choose which problem data and personal code to include.
 
@@ -277,6 +279,14 @@ When designing a different function, update these fields together:
 
 Use the linked built-in `problem.json` files as complete examples. Test input keys must match `params` exactly. JSON/Markdown files can be edited in a text editor; refresh the browser after external changes. New folders use the same Git ignore rules as imported problems, and non-built-in folders can be deleted through the UI.
 
+### Numeric and nullable type contract
+
+JSON integers remain unquoted decimal numbers in files and HTTP responses. JustCode parses them without rounding, including Java `long` limits and Python integers larger than 2^53. Java `int`/`integer` accepts signed 32-bit values and `long` accepts signed 64-bit values; out-of-range testcase data is reported before running the solution. Python integer metadata is not limited to Java ranges. Existing file/request/output/time limits still apply. The runner removes Python’s decimal-string digit cap within those limits. Exponent notation requiring more than 1,000,000 appended zeroes is rejected explicitly instead of allocating an unbounded integer from a short token. External API clients must also use a lossless JSON parser for large integers.
+
+`double` is a finite IEEE-754 double. Metadata `float` is an alias for `double`, including `float[]` → Java `double[]`; it does not mean Java native `float`. Use `public double echo(double value)` for either scalar label. Integer-looking values such as `1e19` are valid for double metadata. Comparison remains exact after floating-point conversion; no tolerance judge is added.
+
+Boxed list elements (`List<Integer>`, `List<String>`, `List<Boolean>`, and supported nested lists) may be `null`; primitive numeric/boolean/char array elements may not. Reference arrays and list parameters may themselves be `null`. Generated `Runner.java` diagnostics are displayed separately from markers in your solution.
+
 ## Configuration and Execution Limits
 
 No `.env` file is needed or automatically loaded. Set environment variables in the terminal **before starting the backend**, and restart it after changing them.
@@ -296,6 +306,8 @@ No `.env` file is needed or automatically loaded. Set environment variables in t
 | `auto` | Uses Docker when the daemon and required local image are available; otherwise falls back to local execution. It does not download images automatically. |
 | `docker` | Requires Docker and the configured image; fails if unavailable instead of falling back. Use this mode for code you do not fully trust. |
 | `local` | Uses local `javac`, `java`, and `python3`, without a shell and with a reduced environment. It is not an isolation/security boundary: code still runs with your user's file access. |
+
+If Docker container removal fails, the error identifies the container and the execution workspace is retained. Further execution first retries cleanup; execution resumes only after removal is confirmed. This pending state is kept in backend memory. After a backend restart, inspect and remove the named container manually before deleting its retained workspace.
 
 Docker mode disables container networking and applies a read-only root filesystem, capability removal, and resource limits. Only the execution workspace is mounted; it is writable when compilation needs it. These controls are for a local practice tool, not a claim of production-grade isolation.
 
@@ -343,6 +355,7 @@ Run from the project root. A **workspace** here means one of the frontend/backen
 | `npm run dev` | Start both development servers. |
 | `npm run dev:backend` / `npm run dev:frontend` | Start one development server. |
 | `npm test` | Run the existing regression suite. Install both local Java and Python to exercise all language cases. |
+| `npm run test:ui` | Run Chromium interaction regressions with mocked APIs; requires Node.js 20+ and `npx playwright install chromium`. |
 | `npm run typecheck` | Check backend, frontend, and Vite configuration types without producing build files. |
 | `npm run build` | Build both packages into `frontend/dist/` and `backend/dist/`. |
 | `npm run build:frontend` / `npm run build:backend` | Build one package. |
@@ -359,9 +372,10 @@ After changing the project, run:
 npm test
 npm run typecheck
 npm run build
+npm run test:ui
 ```
 
-No separate lint script is configured. Tests cover request validation/local access, storage and concurrent writes, import parsing, progress-save ordering, result parsing and hidden-data masking, executor errors/timeouts, sandbox process cleanup, editorial solutions, and cleanup scripts. See [tests/](tests/).
+No separate lint script is configured. Tests cover request validation/local access, storage and concurrent writes, import parsing, progress-save ordering, result parsing and hidden-data masking, executor errors/timeouts, sandbox process cleanup, editorial solutions, and cleanup scripts. See [tests/](tests/). The suite also checks every bundled testcase against its declared input domain and an independent oracle. [CI](.github/workflows/verify.yml) installs Node.js 22, JDK 17 and Python 3.11, checks runtime availability, and runs type checks, tests, builds and Chromium flows on pushes and pull requests. Local configuration alone does not establish that a GitHub run has completed.
 
 Some executor tests **skip** when `javac` or `python3` is missing; check the skipped count before claiming full verification. For a predictable local executor run, set `JUSTCODE_SANDBOX_MODE=local` before `npm test`. Import tests use mocked LeetCode responses, and the Docker argument/cleanup test mocks process execution; passing the suite does not establish live LeetCode availability or a working Docker installation.
 
@@ -437,7 +451,7 @@ JustCode/
 └── READMEzhTW.md
 ```
 
-Generated folders include `node_modules/`, both `dist/` folders, and execution workspaces under `temp/` relative to the backend's working directory (normally `backend/temp/` with workspace commands). Execution workspaces are cleaned after a run; these are not the problem store.
+Generated folders include `node_modules/`, both `dist/` folders, and execution workspaces under `temp/` relative to the backend's working directory (normally `backend/temp/` with workspace commands). Execution workspaces are cleaned after a run unless Docker removal could not be confirmed; these are not the problem store.
 
 ## API Overview
 
@@ -494,3 +508,8 @@ For direct API clients, `/api/submit` returns the judgment only; the browser cre
 | Regression verification | API, data integrity, concurrency, language execution, sandbox handling, frontend state, and executable editorial cases | [Tests](tests/), [scripts](package.json) |
 
 > Built a local coding-practice application with React, TypeScript, Express, and Monaco, supporting Java/Python3 execution, LeetCode example import, custom/hidden tests, and automatic progress saving. Implemented file-based persistence, execution limits with optional Docker isolation, and regression tests for judging, data integrity, and progress handling.
+
+
+## License Metadata
+
+Copyright © 2026 Pin Ruei Tseng. The project source, bundled problems, editorials, and images are available under the [MIT License](LICENSE). Dependencies retain their own licenses. Content imported later from external services remains subject to its source terms; importing it does not apply this project’s license to it.

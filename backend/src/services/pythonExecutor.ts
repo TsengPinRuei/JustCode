@@ -1,25 +1,27 @@
+import { stringifyJson } from '../shared/json';
+import { normalizeTestcases } from './numericContract';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { performance } from 'perf_hooks';
 import { CompilationError, ProblemMetadata, Testcase } from '../types';
-import { COMPILE_TIMEOUT_MS, EXECUTION_TIMEOUT_MS, PYTHON_SANDBOX_IMAGE, RESULT_SEPARATOR } from '../constants';
+import { COMPILE_TIMEOUT_MS, EXECUTION_TIMEOUT_MS, PYTHON_SANDBOX_IMAGE, RESULT_SEPARATOR, RESULT_END_SEPARATOR } from '../constants';
 import { SandboxRunner } from './sandboxRunner';
 import { cleanupWorkspace, createWorkspace, executeTestcases, ExecutionSummary, parseTestcaseOutput, TestcaseExecution } from './executionUtils';
 
 export class PythonExecutor {
     private readonly sandboxRunner = new SandboxRunner();
 
-    private async runTestcase(workspaceDir: string, testcase: Testcase, timeoutMs: number): Promise<TestcaseExecution> {
+    private async runTestcase(workspaceDir: string, testcase: Testcase, timeoutMs: number, returnType?: string): Promise<TestcaseExecution> {
         const startTime = performance.now();
         const result = await this.sandboxRunner.execute({
             command: 'python3',
             args: ['runner.py'],
             cwd: workspaceDir,
             timeoutMs,
-            stdin: JSON.stringify(testcase.input),
+            stdin: stringifyJson(testcase.input),
             image: PYTHON_SANDBOX_IMAGE,
         });
-        return parseTestcaseOutput(result, testcase, Math.round(performance.now() - startTime));
+        return parseTestcaseOutput(result, testcase, Math.round(performance.now() - startTime), returnType);
     }
 
     private parsePythonSyntaxErrors(stderr: string): CompilationError[] {
@@ -40,6 +42,12 @@ export class PythonExecutor {
         metadata?: ProblemMetadata,
         visibleTestcaseCount = testcases.length
     ): Promise<ExecutionSummary> {
+        try {
+            testcases = normalizeTestcases(testcases, metadata, 'python3');
+        } catch (error) {
+            return { status: 'RE', message: `Invalid testcase data: ${error instanceof Error ? error.message : String(error)}`,
+                testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0 };
+        }
         const deadline = performance.now() + EXECUTION_TIMEOUT_MS;
         const workspaceDir = await createWorkspace();
         try {
@@ -49,7 +57,7 @@ export class PythonExecutor {
             // exceptions named SyntaxError must remain RE, not editor compilation errors.
             const compiled = await this.sandboxRunner.execute({
                 command: 'python3',
-                args: ['-c', 'compile(open("solution.py", encoding="utf-8").read(), "solution.py", "exec")'],
+                args: ['-c', 'import sys; getattr(sys, "set_int_max_str_digits", lambda _: None)(0); compile(open("solution.py", encoding="utf-8").read(), "solution.py", "exec")'],
                 cwd: workspaceDir,
                 timeoutMs: Math.min(COMPILE_TIMEOUT_MS, Math.max(1, deadline - performance.now())),
                 image: PYTHON_SANDBOX_IMAGE,
@@ -57,14 +65,14 @@ export class PythonExecutor {
             if (compiled.exitCode !== 0) {
                 const compilationErrors = this.parsePythonSyntaxErrors(compiled.stderr);
                 return {
-                    status: compiled.timedOut ? 'TLE' : compilationErrors.length ? 'CE' : 'RE',
-                    message: compiled.timedOut ? 'Compilation time limit exceeded' : compiled.stderr.slice(0, 4096),
+                    status: compiled.infrastructureError ? 'RE' : compiled.timedOut ? 'TLE' : compilationErrors.length ? 'CE' : 'RE',
+                    message: compiled.infrastructureError || (compiled.timedOut ? 'Compilation time limit exceeded' : compiled.stderr.slice(0, 4096)),
                     testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0,
                     compilationErrors,
                 };
             }
             return await executeTestcases(testcases, showHiddenInputs, visibleTestcaseCount, deadline,
-                (testcase, timeoutMs) => this.runTestcase(workspaceDir, testcase, timeoutMs));
+                (testcase, timeoutMs) => this.runTestcase(workspaceDir, testcase, timeoutMs, metadata?.returnType));
         } finally {
             await cleanupWorkspace(workspaceDir);
         }
@@ -78,6 +86,10 @@ export class PythonExecutor {
         const names = JSON.stringify(JSON.stringify(params.map(param => param.name)));
         return `import json
 import sys
+# The request/output byte and execution-time budgets bound integer conversion.
+# Python 3.11+ otherwise adds a separate decimal-string digit limit.
+if hasattr(sys, "set_int_max_str_digits"):
+    sys.set_int_max_str_digits(0)
 from solution import Solution
 
 def main():
@@ -88,6 +100,7 @@ def main():
         output = json.dumps({'result': result}, allow_nan=False)
         print(${JSON.stringify(RESULT_SEPARATOR)})
         print(output)
+        print(${JSON.stringify(RESULT_END_SEPARATOR)})
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)
         sys.exit(1)

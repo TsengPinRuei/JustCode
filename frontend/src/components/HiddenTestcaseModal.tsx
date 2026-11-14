@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type ChangeEvent, type FC } from 'react';
 import { getApiErrorMessage, problemsApi } from '../services/apiClient';
 import type { HiddenTestcaseImportMode, Problem } from '../types';
+import ModalDialog from './ModalDialog';
 
 interface HiddenTestcaseModalProps {
     problem: Problem;
@@ -20,6 +21,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [reading, setReading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const busyRef = useRef(false);
     const mountedRef = useRef(false);
     useEffect(() => {
@@ -93,11 +95,10 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
     };
 
     return (
-        <div className="modal-overlay" onClick={close}>
-            <div className="import-modal hidden-test-modal" onClick={(event) => event.stopPropagation()}>
+        <ModalDialog titleId="hidden-test-title" busy={busy} onClose={close} className="hidden-test-modal">
                 <div className="import-modal-header">
-                    <h2>Add Hidden Tests</h2>
-                    <button type="button" className="modal-close-btn" onClick={close} disabled={busy}>
+                    <h2 id="hidden-test-title">Add Hidden Tests</h2>
+                    <button type="button" className="modal-close-btn" aria-label="Close hidden tests dialog" onClick={close} disabled={busy}>
                         ×
                     </button>
                 </div>
@@ -112,6 +113,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
                             <button
                                 type="button"
                                 disabled={busy}
+                                aria-pressed={mode === 'append'}
                                 className={mode === 'append' ? 'active' : ''}
                                 onClick={() => setMode('append')}
                             >
@@ -120,6 +122,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
                             <button
                                 type="button"
                                 disabled={busy}
+                                aria-pressed={mode === 'replace'}
                                 className={mode === 'replace' ? 'active' : ''}
                                 onClick={() => setMode('replace')}
                             >
@@ -134,6 +137,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
                             <button
                                 type="button"
                                 disabled={busy}
+                                aria-pressed={sourceMode === 'content'}
                                 className={sourceMode === 'content' ? 'active' : ''}
                                 onClick={() => setSourceMode('content')}
                             >
@@ -142,6 +146,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
                             <button
                                 type="button"
                                 disabled={busy}
+                                aria-pressed={sourceMode === 'projectPath'}
                                 className={sourceMode === 'projectPath' ? 'active' : ''}
                                 onClick={() => setSourceMode('projectPath')}
                             >
@@ -153,16 +158,18 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
                     <div className="hidden-test-section hidden-test-source-section">
                         <div
                             className={`hidden-test-source-pane ${sourceMode === 'content' ? 'active' : ''}`}
-                            aria-hidden={sourceMode !== 'content'}
+                            hidden={sourceMode !== 'content'}
                         >
                             <div className="hidden-test-source-pane-inner">
                                 <div className="hidden-test-file-row">
-                                    <label className="hidden-test-file-btn">
+                                    <button type="button" className="hidden-test-file-btn" disabled={busy} onClick={() => fileInputRef.current?.click()}>
                                         Choose File
-                                        <input type="file" disabled={busy} accept=".json,application/json,text/plain" onChange={handleFileChange} />
-                                    </label>
+                                    </button>
+                                    <input ref={fileInputRef} type="file" hidden disabled={busy} accept=".json,application/json,text/plain" onChange={handleFileChange} aria-label="Hidden testcase file" />
                                 </div>
+                                <label className="field-label" htmlFor="hidden-test-json">Hidden testcase JSON</label>
                                 <textarea
+                                    id="hidden-test-json"
                                     className="hidden-test-textarea"
                                     disabled={busy}
                                     value={content}
@@ -178,10 +185,12 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
 
                         <div
                             className={`hidden-test-source-pane ${sourceMode === 'projectPath' ? 'active' : ''}`}
-                            aria-hidden={sourceMode !== 'projectPath'}
+                            hidden={sourceMode !== 'projectPath'}
                         >
                             <div className="hidden-test-source-pane-inner">
+                                <label className="field-label" htmlFor="hidden-test-path">Project-relative JSON path</label>
                                 <input
+                                    id="hidden-test-path"
                                     type="text"
                                     className="hidden-test-path-input"
                                     disabled={busy}
@@ -224,8 +233,7 @@ const HiddenTestcaseModal: FC<HiddenTestcaseModalProps> = ({ problem, onClose })
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
+        </ModalDialog>
     );
 };
 

@@ -1,6 +1,9 @@
 import { ProblemMetadata, Testcase, Language } from '../types';
 import { isIdentifier, isRecord } from './problemValidation';
 import { invalidInput } from './storage';
+import { parseLeetCodeContent } from './leetcodeHtml';
+import { addJavaStandardImports, addPythonStandardImports } from './leetcodeTemplates';
+import { parseJson } from '../shared/json';
 
 // Model only the GraphQL fields used by the importer.
 interface LeetCodeGraphQLResponse {
@@ -161,112 +164,6 @@ export class LeetCodeService {
         return data as unknown as LeetCodeGraphQLResponse;
     }
 
-    // Parse the expected LeetCode HTML into description text, examples, and constraints.
-    // These patterns depend on the source markup and may need updates when it changes.
-    private parseContent(html: string): {
-        description: string;
-        examples: Array<{ input: string; output: string; explanation?: string }>;
-        constraints: string[];
-    } {
-        let description = '';
-        const examples: Array<{ input: string; output: string; explanation?: string }> = [];
-        const constraints: string[] = [];
-
-        // Use the text before the first recognized example as the main description.
-        const exampleStart = html.search(/<strong[^>]*>Example\s*1/i);
-        if (exampleStart !== -1) {
-            description = this.stripHtml(html.substring(0, exampleStart)).trim();
-        } else {
-            description = this.stripHtml(html).trim();
-        }
-
-        // Read displayed examples from HTML; executable inputs come from exampleTestcaseList.
-        const exampleRegex = /<strong[^>]*>Example\s*(\d+)[^<]*<\/strong>([\s\S]*?)(?=<strong[^>]*>Example\s*\d|<strong[^>]*>Constraints|<p><strong[^>]*>Constraints|$)/gi;
-        let exMatch;
-        while ((exMatch = exampleRegex.exec(html)) !== null) {
-            const exContent = exMatch[2];
-
-            // Keep these values as display text; parseTestcases parses the expected output.
-            // Executable input values come from exampleTestcaseList, not this input string.
-            const inputMatch = exContent.match(/Input:\s*([\s\S]*?)(?=Output:|$)/i);
-            const outputMatch = exContent.match(/Output:\s*([\s\S]*?)(?=Explanation:|<\/pre>|$)/i);
-            const explanationMatch = exContent.match(/Explanation:\s*([\s\S]*?)(?=<\/pre>|$)/i);
-
-            if (inputMatch && outputMatch) {
-                const input = this.stripAllHtml(inputMatch[1]).trim();
-                const output = this.stripAllHtml(outputMatch[1]).trim();
-                const explanation = explanationMatch ? this.stripAllHtml(explanationMatch[1]).trim() : undefined;
-                examples.push({ input, output, ...(explanation ? { explanation } : {}) });
-            }
-        }
-
-        // Read constraint list items after the first matching Constraints heading.
-        const constraintSection = html.match(/<strong[^>]*>Constraints[^<]*<\/strong>([\s\S]*?)$/i);
-        if (constraintSection) {
-            const constraintHtml = constraintSection[1];
-            const liRegex = /<li\b[^>]*>([\s\S]*?)<\/li>/gi;
-            let liMatch;
-            while ((liMatch = liRegex.exec(constraintHtml)) !== null) {
-                // Collapse whitespace so each constraint occupies one compact list item.
-                const constraint = this.stripAllHtml(liMatch[1])
-                    .replace(/\s+/g, ' ')
-                    .trim();
-                if (constraint) {
-                    constraints.push(constraint);
-                }
-            }
-        }
-
-        return { description, examples, constraints };
-    }
-
-    // Preserve a small Markdown subset for the description while removing HTML tags.
-    private stripHtml(html: string): string {
-        // Strip HTML tags before decoding entities so escaped comparison signs remain text.
-        return this.decodeEntities(html
-            .replace(/<code>/g, '`')
-            .replace(/<\/code>/g, '`')
-            .replace(/<strong>/g, '**')
-            .replace(/<\/strong>/g, '**')
-            .replace(/<em>/g, '*')
-            .replace(/<\/em>/g, '*')
-            .replace(/<sup>/g, '^')
-            .replace(/<\/sup>/g, '')
-            .replace(/<br\s*\/?>/g, '\n')
-            .replace(/<\/?p>/g, '\n')
-            .replace(/<\/?pre>/g, '')
-            .replace(/<\/?ul>/g, '\n')
-            .replace(/<\/?ol>/g, '\n')
-            .replace(/<li>/g, '- ')
-            .replace(/<\/li>/g, '\n')
-            .replace(/<[^>]+>/g, '')
-            .replace(/\n{3,}/g, '\n\n')
-            .trim());
-    }
-
-    // Return literal example and constraint text without adding Markdown formatting.
-    private stripAllHtml(html: string): string {
-        // Strip HTML tags before decoding entities so escaped comparison signs remain text.
-        return this.decodeEntities(html
-            .replace(/<br\s*\/?>/g, '\n')
-            .replace(/<\/?p>/g, '\n')
-            .replace(/<\/?pre>/g, '')
-            .replace(/<[^>]+>/g, '')
-            .replace(/\n{3,}/g, '\n\n')
-            .trim());
-    }
-
-    private decodeEntities(text: string): string {
-        const entities: Record<string, string> = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'", nbsp: ' ' };
-        return text.replace(/&(#x[0-9a-f]+|#\d+|lt|gt|amp|quot|apos|nbsp);/gi, (match, entity: string) => {
-            if (!entity.startsWith('#')) return entities[entity.toLowerCase()];
-            const hex = entity[1].toLowerCase() === 'x';
-            const codepoint = Number.parseInt(entity.slice(hex ? 2 : 1), hex ? 16 : 10);
-            return codepoint > 0 && codepoint <= 0x10ffff && !(codepoint >= 0xd800 && codepoint <= 0xdfff)
-                ? String.fromCodePoint(codepoint) : match;
-        });
-    }
-
     // Normalize known aliases and preserve unknown type labels.
     // Importing a label does not guarantee that an executor supports its structure.
     private mapLeetCodeType(lcType: string): string {
@@ -306,10 +203,10 @@ export class LeetCodeService {
                 const param = params[j];
                 const line = lines[j];
                 try {
-                    input[param.name] = JSON.parse(line);
+                    input[param.name] = parseJson(line);
                 } catch {
                     // Accept unquoted text only for string or character parameters.
-                    if (!['string', 'char', 'character'].includes(param.type)) {
+                    if (!['string', 'char', 'character'].includes(param.type) || line.startsWith('"')) {
                         throw new Error(`Example ${i + 1} contains an invalid value for ${param.name}`);
                     }
                     input[param.name] = line;
@@ -320,9 +217,9 @@ export class LeetCodeService {
             // Reject malformed JSON for numeric and collection results.
             let output: unknown;
             try {
-                output = JSON.parse(examples[i].output);
+                output = parseJson(examples[i].output);
             } catch {
-                if (!['string', 'char'].includes(returnType)) {
+                if (!['string', 'char'].includes(returnType) || examples[i].output.startsWith('"')) {
                     throw new Error(`Example ${i + 1} has an unsupported expected output`);
                 }
                 output = examples[i].output;
@@ -362,7 +259,9 @@ export class LeetCodeService {
         }
         const metaData = parsedMetadata as unknown as LeetCodeMetaData;
 
-        const { description, examples, constraints } = this.parseContent(question.content);
+        const { description, examples, constraints } = parseLeetCodeContent(
+            question.content, `https://leetcode.com/problems/${titleSlug}/`
+        );
 
         const params = metaData.params.map(p => ({
             name: p.name,
@@ -380,12 +279,12 @@ export class LeetCodeService {
             if (Object.prototype.hasOwnProperty.call(templates, snippet.langSlug)) continue;
             if (snippet.langSlug === 'java') {
                 supportedLanguages.push('java');
-                templates['java'] = snippet.code;
+                templates['java'] = addJavaStandardImports(snippet.code);
                 const sigMatch = snippet.code.match(JAVA_SIGNATURE_REGEX);
                 functionSignatures['java'] = sigMatch ? sigMatch[0] : '';
             } else if (snippet.langSlug === 'python3') {
                 supportedLanguages.push('python3');
-                templates['python3'] = snippet.code;
+                templates['python3'] = addPythonStandardImports(snippet.code);
                 const sigMatch = snippet.code.match(PYTHON_SIGNATURE_REGEX);
                 functionSignatures['python3'] = sigMatch ? sigMatch[0] : '';
             }

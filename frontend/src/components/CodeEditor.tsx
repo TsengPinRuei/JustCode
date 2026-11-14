@@ -6,6 +6,7 @@ import type { editor } from 'monaco-editor';
 import { Language, CompilationError } from '../types';
 
 interface CodeEditorProps {
+    problemId: string;
     code: string;
     onChange: (value: string) => void;
     onReset: () => void;
@@ -22,6 +23,7 @@ const LANGUAGE_LABELS: Record<Language, string> = {
 
 // Update diagnostic markers when the page supplies a new Run or Submit result.
 const CodeEditor: FC<CodeEditorProps> = ({
+    problemId,
     code,
     onChange,
     onReset,
@@ -47,32 +49,50 @@ const CodeEditor: FC<CodeEditorProps> = ({
         setFontSize(prev => Math.max(prev - 2, MIN_FONT_SIZE));
     };
 
+    const modelPath = `justcode:///${encodeURIComponent(problemId)}/${selectedLanguage === 'java' ? 'Solution.java' : 'solution.py'}`;
+
     useEffect(() => {
         if (!instance) return;
         const { editor: mountedEditor, monaco } = instance;
-        const model = mountedEditor.getModel();
-        if (!model) return;
-
-        // Compiler locations may refer to generated wrapper lines outside the
-        // user's buffer. Clamp them before asking Monaco for a line's bounds.
-        const markers = (compilationErrors ?? []).map(error => {
-            const line = Math.max(1, Math.min(model.getLineCount(), error.line));
-            const maxColumn = model.getLineMaxColumn(line);
-            const column = Math.max(1, Math.min(maxColumn, error.column));
-            return {
-                severity: error.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
-                message: error.message,
-                startLineNumber: line,
-                startColumn: column,
-                endLineNumber: line,
-                endColumn: maxColumn,
-            };
-        });
-        monaco.editor.setModelMarkers(model, 'compilation', markers);
+        const updateMarkers = () => {
+            const model = mountedEditor.getModel();
+            if (!model) return;
+            const sourceFile = selectedLanguage === 'java' ? 'Solution.java' : 'solution.py';
+            const markers = (compilationErrors ?? []).filter(error =>
+                error.file.replace(/\\/g, '/').split('/').pop() === sourceFile
+                && error.line >= 1 && error.line <= model.getLineCount()
+            ).map(error => {
+                const maxColumn = model.getLineMaxColumn(error.line);
+                return {
+                    severity: error.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+                    message: error.message,
+                    startLineNumber: error.line,
+                    startColumn: Math.max(1, Math.min(maxColumn, error.column)),
+                    endLineNumber: error.line,
+                    endColumn: maxColumn,
+                };
+            });
+            monaco.editor.setModelMarkers(model, 'compilation', markers);
+        };
+        updateMarkers();
+        const listener = mountedEditor.onDidChangeModel(updateMarkers);
         return () => {
-            if (!model.isDisposed()) monaco.editor.setModelMarkers(model, 'compilation', []);
+            listener.dispose();
+            const model = mountedEditor.getModel();
+            if (model && !model.isDisposed()) monaco.editor.setModelMarkers(model, 'compilation', []);
         };
     }, [instance, compilationErrors, selectedLanguage]);
+
+    useEffect(() => {
+        if (!instance) return;
+        // Keep models while switching languages, then release this problem's models on navigation.
+        return () => {
+            for (const language of ['java', 'python3'] as const) {
+                const path = `justcode:///${encodeURIComponent(problemId)}/${language === 'java' ? 'Solution.java' : 'solution.py'}`;
+                instance.monaco.editor.getModel(instance.monaco.Uri.parse(path))?.dispose();
+            }
+        };
+    }, [instance, problemId]);
 
     const editorLanguage = selectedLanguage === 'java' ? 'java' : 'python';
     // Keep editor options stable between renders unless the font size changes.
@@ -97,6 +117,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
         <>
             <div className="editor-toolbar">
                 <div className="editor-toolbar-left">
+                    <label htmlFor="language-select" className="editor-language-label">Language</label>
                     <select
                         id="language-select"
                         value={selectedLanguage}
@@ -136,6 +157,9 @@ const CodeEditor: FC<CodeEditorProps> = ({
             <div className="monaco-editor-wrapper">
                 <Editor
                     height="100%"
+                    path={modelPath}
+                    keepCurrentModel
+                    saveViewState
                     language={editorLanguage}
                     value={code}
                     onChange={handleEditorChange}

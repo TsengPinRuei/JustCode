@@ -16,7 +16,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [loadRevision, setLoadRevision] = useState(0);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [executing, setExecuting] = useState(false);
+    const [executionKind, setExecutionKind] = useState<'run' | 'submit' | null>(null);
     const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
     const [activeTab, setActiveTab] = useState<'testcase' | 'result'>('testcase');
     const [progressSnapshot, setProgressSnapshot] = useState<ProblemProgress | null>(null);
@@ -169,7 +169,12 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
         const submittedLanguage = selectedLanguage;
         const submitStartedAt = Date.now();
         const startedAt = attemptStartedAtRef.current;
-        setExecuting(true);
+        const ownsCurrentBuffer = () => {
+            const current = progressRef.current;
+            return !controller.signal.aborted && current?.selectedLanguage === submittedLanguage
+                && (current.code[submittedLanguage] ?? problem?.templates[submittedLanguage]) === submittedCode;
+        };
+        setExecutionKind(submit ? 'submit' : 'run');
         setExecutionResult(null);
         setActiveTab('result');
         void flushProgress();
@@ -182,8 +187,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
             const current = progressRef.current;
             // Diagnostics belong to the executed buffer; edits made while the
             // request was running must not receive stale compiler markers.
-            if (current?.selectedLanguage === submittedLanguage
-                && (current.code[submittedLanguage] ?? problem?.templates[submittedLanguage]) === submittedCode) {
+            if (ownsCurrentBuffer()) {
                 setExecutionResult(result);
             }
 
@@ -212,7 +216,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
                 setAttemptStartedAt(completedAt);
             }
         } catch (error) {
-            if (!controller.signal.aborted) {
+            if (ownsCurrentBuffer()) {
                 setExecutionResult({
                     status: 'RE',
                     message: getApiErrorMessage(error, `Failed to ${submit ? 'submit' : 'run'} code. Please try again.`),
@@ -223,7 +227,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
             }
         } finally {
             if (executionRef.current === controller) executionRef.current = null;
-            if (!controller.signal.aborted) setExecuting(false);
+            if (!controller.signal.aborted) setExecutionKind(null);
         }
     };
 
@@ -244,7 +248,9 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
     }
 
     return (
-        <div className="problem-detail-container">
+        <div className="problem-workspace">
+            <p className="workspace-width-notice">This workspace is designed for desktop windows at least 1200 px wide. Scroll horizontally to reach both panels in a smaller or zoomed window.</p>
+            <div className="problem-detail-container" role="region" aria-label="Problem and code workspace" tabIndex={0}>
             <ResizableSplitPane
                 direction="horizontal"
                 minPrimarySizePx={450}
@@ -266,6 +272,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
                                 )}
                                 <Suspense fallback={<div className="loading">Loading editor...</div>}>
                                     <CodeEditor
+                                        problemId={id}
                                         code={code}
                                         onChange={handleCodeChange}
                                         onReset={handleReset}
@@ -282,7 +289,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
                                 problem={problem}
                                 activeTab={activeTab}
                                 onTabChange={setActiveTab}
-                                executing={executing}
+                                executionKind={executionKind}
                                 executionResult={executionResult}
                                 onRun={(mode, input) => void execute(false, mode, input)}
                                 onSubmit={() => void execute(true)}
@@ -291,6 +298,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
                     />
                 }
             />
+            </div>
         </div>
     );
 };

@@ -1,3 +1,4 @@
+import { parseJson, stringifyJson } from '../backend/src/shared/json';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { promises as fs } from 'node:fs';
@@ -127,4 +128,23 @@ test('failed atomic replacement keeps the previous file and removes temporary ou
     } finally {
         await fs.rm(directory, { recursive: true, force: true });
     }
+});
+
+
+test('storage and hidden imports preserve exact large integer tokens', async () => {
+    const root = await fs.mkdtemp(path.join(tmpdir(), 'justcode-exact-storage-'));
+    const service = new ProblemService(root);
+    const largeMetadata = { ...metadata, params: [{ name: 'n', type: 'long' }], returnType: 'long' };
+    const testcase = parseJson('{"input":{"n":9223372036854775807},"output":9223372036854775807}');
+    try {
+        await service.saveProblem('example', { ...data, metadata: largeMetadata, visibleTestcases: [testcase] as typeof data.visibleTestcases });
+        const problem = await service.getProblemForRun('example');
+        assert.equal(problem.visibleTestcases[0].input.n, 9223372036854775807n);
+        assert.equal(problem.visibleTestcases[0].output, 9223372036854775807n);
+        await service.importHiddenTestcases('example', { mode: 'append', sourceType: 'content', content: '[{"input":{"n":9007199254740993},"output":9007199254740993}]' });
+        const loaded = await service.getProblemForExecution('example');
+        assert.equal(loaded.hiddenTestcases?.[0].output, 9007199254740993n);
+        assert.match(await fs.readFile(path.join(root, 'problems/example/testcases_hidden.json'), 'utf8'), /9007199254740993/);
+        assert.deepEqual(parseJson(stringifyJson(loaded.visibleTestcases)), loaded.visibleTestcases);
+    } finally { await fs.rm(root, { recursive: true, force: true }); }
 });

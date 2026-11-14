@@ -1,3 +1,4 @@
+import { stringifyJson } from '../../../backend/src/shared/json';
 import { useMemo, type FC } from 'react';
 import { ExecutionResult } from '../types';
 
@@ -22,13 +23,13 @@ const formatInputValue = (value: unknown): string => {
     // Show named input parameters on separate lines so testcase differences are easy to scan.
     if (typeof value === 'object' && value !== null) {
         return Object.entries(value as Record<string, unknown>)
-            .map(([key, entryValue]) => `${key} = ${JSON.stringify(entryValue)}`)
+            .map(([key, entryValue]) => `${key} = ${stringifyJson(entryValue)}`)
             .join('\n');
     }
-    return JSON.stringify(value) ?? String(value);
+    return stringifyJson(value) ?? String(value);
 };
 
-const formatJsonValue = (value: unknown): string => JSON.stringify(value) ?? String(value);
+const formatJsonValue = (value: unknown): string => stringifyJson(value) ?? String(value);
 
 const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
     const filteredDebugOutput = useMemo(() => {
@@ -103,6 +104,16 @@ const ResultPanel: FC<ResultPanelProps> = ({ executing, result }) => {
                     </div>
                 )}
             </div>
+
+            {result.compilationErrors && result.compilationErrors.length > 0 && (
+                <ul className="compilation-diagnostics" aria-label="Compilation diagnostics">
+                    {result.compilationErrors.map((error, index) => (
+                        <li key={index}>
+                            <code>{error.file}:{error.line}:{error.column}</code>: {error.message}
+                        </li>
+                    ))}
+                </ul>
+            )}
 
             {filteredDebugOutput && (
                 <div className="debug-output-section">

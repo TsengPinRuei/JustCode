@@ -25,3 +25,6 @@ export const DOCKER_SANDBOX_PIDS_LIMIT = process.env.JUSTCODE_DOCKER_PIDS_LIMIT 
 
 // Protect the bundled problems from deletion through the API and UI.
 export const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
+
+// A result frame has a start line, one JSON payload line, and an end line.
+export const RESULT_END_SEPARATOR = '__RESULT_JSON_END__';

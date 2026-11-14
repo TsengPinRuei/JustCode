@@ -1,3 +1,4 @@
+import { stringifyJson } from '../../../backend/src/shared/json';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -138,6 +139,7 @@ function CodeGroupBlock({ languages }: { languages: string }) {
                     <button
                         key={item.lang}
                         className={`code-group-tab ${idx === activeIndex ? 'active' : ''}`}
+                        aria-pressed={idx === activeIndex}
                         onClick={() => setActive(idx)}
                     >
                         {LANG_LABELS[item.lang] ?? item.lang}
@@ -219,7 +221,7 @@ const buildDescriptionDownload = (problem: Problem): string => {
     const constraints = problem.metadata.constraints.length > 0
         ? problem.metadata.constraints.map((constraint) => `- ${constraint}`).join('\n')
         : '- No constraints provided.';
-    const sampleJson = JSON.stringify(buildHiddenTestcaseSample(problem), null, 2);
+    const sampleJson = stringifyJson(buildHiddenTestcaseSample(problem), 2);
 
     return [
         `# ${problem.metadata.title}`,
@@ -316,12 +318,14 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progre
             <div className="tabs" data-active-tab={activeTab}>
                 <button
                     className={`tab ${activeTab === 'description' ? 'active' : ''}`}
+                    aria-pressed={activeTab === 'description'}
                     onClick={() => setActiveTab('description')}
                 >
                     Description
                 </button>
                 <button
                     className={`tab ${activeTab === 'editorial' ? 'active' : ''}`}
+                    aria-pressed={activeTab === 'editorial'}
                     onClick={() => setActiveTab('editorial')}
                 >
                     Editorial
@@ -352,7 +356,12 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progre
                                         </div>
                                     </div>
                                 </div>
-                                {example.explanation && <p><em>Explanation: {example.explanation}</em></p>}
+                                {example.explanation && (
+                                    <div className="example-explanation">
+                                        <strong>Explanation:</strong>
+                                        <ReactMarkdown remarkPlugins={DESCRIPTION_REMARK_PLUGINS}>{example.explanation}</ReactMarkdown>
+                                    </div>
+                                )}
                             </div>
                         ))}
 

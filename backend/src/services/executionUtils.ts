@@ -1,13 +1,15 @@
+import { parseJson } from '../shared/json';
+import { FloatingPointRangeError, normalizeFloatingValue } from './numericContract';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { performance } from 'perf_hooks';
 import { StringDecoder } from 'string_decoder';
 import { ExecutionResult, Testcase, TestcaseResult } from '../types';
-import { MAX_OUTPUT_LENGTH, RESULT_SEPARATOR, TESTCASE_TIMEOUT_MS } from '../constants';
-import { SandboxCommandResult } from './sandboxRunner';
+import { MAX_OUTPUT_LENGTH, RESULT_SEPARATOR, RESULT_END_SEPARATOR, TESTCASE_TIMEOUT_MS } from '../constants';
+import { deferWorkspaceCleanup, hasPendingContainer, SandboxCommandResult } from './sandboxRunner';
 
 export type ExecutionSummary = ExecutionResult & { totalTestcases: number; passedTestcases: number };
-export type TestcaseExecution = { result: TestcaseResult; debugOutput: string };
+export type TestcaseExecution = { result: TestcaseResult; debugOutput: string; infrastructureError?: string };
 
 export async function createWorkspace(): Promise<string> {
     const root = path.join(process.cwd(), 'temp');
@@ -16,6 +18,7 @@ export async function createWorkspace(): Promise<string> {
 }
 
 export async function cleanupWorkspace(workspaceDir: string): Promise<void> {
+    if (hasPendingContainer(workspaceDir)) { deferWorkspaceCleanup(workspaceDir); return; }
     try {
         await fs.rm(workspaceDir, { recursive: true, force: true });
     } catch (error) {
@@ -26,6 +29,8 @@ export async function cleanupWorkspace(workspaceDir: string): Promise<void> {
 function jsonValuesEqual(expected: unknown, actual: unknown): boolean {
     // JSON numbers have no distinct signed-zero value for judge comparisons.
     if (expected === actual) return true;
+    if (typeof expected === 'bigint' && typeof actual === 'number' && Number.isSafeInteger(actual)) return expected === BigInt(actual);
+    if (typeof actual === 'bigint' && typeof expected === 'number' && Number.isSafeInteger(expected)) return actual === BigInt(expected);
     if (!expected || !actual || typeof expected !== 'object' || typeof actual !== 'object') return false;
     if (Array.isArray(expected)) {
         return Array.isArray(actual) && expected.length === actual.length &&
@@ -42,18 +47,17 @@ function jsonValuesEqual(expected: unknown, actual: unknown): boolean {
 export function parseTestcaseOutput(
     processResult: SandboxCommandResult,
     testcase: Testcase,
-    executionTime: number
+    executionTime: number,
+    returnType?: string
 ): TestcaseExecution {
-    // A newline cannot occur unescaped inside the result's JSON string. Taking the
-    // last complete marker tolerates solutions printing the marker as debug text.
-    const lfMarker = `${RESULT_SEPARATOR}\n`;
-    const crlfMarker = `${RESULT_SEPARATOR}\r\n`;
-    const lfIndex = processResult.stdout.lastIndexOf(lfMarker);
-    const crlfIndex = processResult.stdout.lastIndexOf(crlfMarker);
-    const separatorIndex = Math.max(lfIndex, crlfIndex);
-    const markerLength = crlfIndex > lfIndex ? crlfMarker.length : lfMarker.length;
-    const debugOutput = (separatorIndex === -1 ? processResult.stdout :
-        processResult.stdout.slice(0, separatorIndex)).trim();
+    // Only the bounded payload belongs to the result. Logs before and after it
+    // remain debug output, including shutdown hooks and Python atexit handlers.
+    // This framing separates output, not hostile code running in the same process.
+    const frames = new RegExp(`${RESULT_SEPARATOR}\\r?\\n([^\\r\\n]*)\\r?\\n${RESULT_END_SEPARATOR}(?:\\r?\\n|$)`, 'g');
+    let frame: RegExpExecArray | null = null;
+    for (const candidate of processResult.stdout.matchAll(frames)) frame = candidate;
+    const debugOutput = (frame ? processResult.stdout.slice(0, frame.index) +
+        processResult.stdout.slice(frame.index + frame[0].length) : processResult.stdout).trim();
     const result: TestcaseResult = {
         index: 0,
         status: 'Error',
@@ -61,24 +65,27 @@ export function parseTestcaseOutput(
         expected: testcase.output,
         executionTime,
     };
-    if (processResult.timedOut) {
+    if (processResult.infrastructureError) {
+        result.errorMessage = processResult.infrastructureError;
+    } else if (processResult.timedOut) {
         result.status = 'Timeout';
     } else if (processResult.exitCode !== 0 || processResult.outputExceeded) {
         result.errorMessage = processResult.stderr.slice(0, 4096) || 'Runtime error';
     } else {
         try {
-            if (separatorIndex === -1) throw new Error('Missing result marker');
-            const parsed: unknown = JSON.parse(processResult.stdout.slice(separatorIndex + markerLength));
+            if (!frame) throw new Error('Missing complete result frame');
+            const parsed: unknown = parseJson(frame[1]);
             if (!parsed || typeof parsed !== 'object' || !Object.prototype.hasOwnProperty.call(parsed, 'result')) {
                 throw new Error('Missing result value');
             }
-            result.actual = (parsed as { result: unknown }).result;
+            const actual = (parsed as { result: unknown }).result;
+            result.actual = returnType ? normalizeFloatingValue(actual, returnType) : actual;
             result.status = jsonValuesEqual(testcase.output, result.actual) ? 'Passed' : 'Failed';
-        } catch {
-            result.errorMessage = 'Failed to parse runner output';
+        } catch (error) {
+            result.errorMessage = error instanceof FloatingPointRangeError ? `Invalid runner result: ${error.message}` : 'Failed to parse runner output';
         }
     }
-    return { result, debugOutput };
+    return { result, debugOutput, infrastructureError: processResult.infrastructureError };
 }
 
 export async function executeTestcases(
@@ -100,10 +107,11 @@ export async function executeTestcases(
     let firstFailure: TestcaseResult | undefined;
     let includedHiddenFailure = false;
     let deadlineExceeded = false;
+    let infrastructureFailure: string | undefined;
 
     for (let i = 0; i < testcases.length; i++) {
         const remaining = deadline - performance.now();
-        const { result, debugOutput } = remaining <= 0 ? {
+        const { result, debugOutput, infrastructureError } = remaining <= 0 ? {
             result: { index: 0, status: 'Timeout' as const, executionTime: 0 },
             debugOutput: '',
         } : await run(testcases[i], Math.max(1, Math.min(TESTCASE_TIMEOUT_MS, remaining)));
@@ -132,6 +140,7 @@ export async function executeTestcases(
             results.push(visibleResult);
             includedHiddenFailure = true;
         }
+        if (infrastructureError) { infrastructureFailure = infrastructureError; break; }
         if (remaining <= 0 || performance.now() >= deadline) {
             deadlineExceeded = true;
             break;
@@ -142,7 +151,10 @@ export async function executeTestcases(
     let message = 'Accepted';
     // The submission deadline takes precedence over earlier testcase failures.
     // Otherwise, report the first failing testcase in execution order.
-    if (deadlineExceeded) {
+    if (infrastructureFailure) {
+        status = 'RE';
+        message = infrastructureFailure;
+    } else if (deadlineExceeded) {
         status = 'TLE';
         message = 'Submission time limit exceeded';
     } else if (firstFailure) {
