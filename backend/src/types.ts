@@ -112,10 +112,10 @@ export type ProblemStatus = 'none' | 'attempted' | 'solved';
 // Persisted timing and result summary for one accepted submission; it does not contain source code.
 export interface SolveRecord {
     id: string;
-    // Browser timestamp when the accepted response was received, in ISO format.
+    // UTC completion time; imported records retain the historical acceptance instant.
     solvedAt: string;
     // Wall-clock time for this attempt, including idle and submission time.
-    durationMs: number;
+    durationMs?: number;
     // Browser request duration, including compilation, test execution, and request overhead.
     // Optional because older progress files did not record this measurement.
     submitDurationMs?: number;
@@ -124,7 +124,7 @@ export interface SolveRecord {
     totalTestcases: number;
 }
 
-// Persisted per-problem state stored in progress.json.
+// Progress view combining SQLite drafts, state, and read-only accepted submission summaries.
 export interface ProblemProgress {
     status: ProblemStatus;
     // Keep separate drafts for each language so switching languages preserves the other draft.

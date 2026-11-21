@@ -35,12 +35,25 @@ export function createProgressPersistence(
 
         async read(id: string, load: () => Promise<ProblemProgress | null>) {
             await wait(id);
-            return drafts.get(id) ?? await load();
+            const draft = drafts.get(id);
+            if (!draft) return load();
+            // A separate Submit can record a solve even when a draft save fails.
+            try {
+                const saved = await load();
+                if (saved?.status === 'solved') return { ...draft, status: saved.status, solveRecords: saved.solveRecords };
+            } catch {
+                // The unsaved editor text is still available offline.
+            }
+            return draft;
         },
 
-        async readAll(load: () => Promise<Record<string, ProblemProgress>>) {
+        async readStatuses(load: () => Promise<Record<string, ProblemProgress['status']>>) {
             await wait();
-            return { ...await load(), ...Object.fromEntries(drafts) };
+            const statuses = { ...await load() };
+            for (const [id, draft] of drafts) {
+                if (statuses[id] !== 'solved') statuses[id] = draft.status;
+            }
+            return statuses;
         },
 
         async remove(id: string, remove: () => Promise<void>) {

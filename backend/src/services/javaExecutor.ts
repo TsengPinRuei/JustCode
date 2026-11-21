@@ -49,7 +49,7 @@ export class JavaExecutor {
     private readonly sandboxRunner = new SandboxRunner();
 
     // Distinguish compiler diagnostics from startup failures and compilation timeouts.
-    private async compile(workspaceDir: string, timeoutMs: number): Promise<{ success: boolean; status?: 'CE' | 'RE' | 'TLE'; error?: string; compilationErrors?: CompilationError[] }> {
+    private async compile(workspaceDir: string, timeoutMs: number): Promise<{ success: boolean; status?: 'CE' | 'RE' | 'TLE'; judgeError?: true; error?: string; compilationErrors?: CompilationError[] }> {
         // javac writes class files beside the sources, so compilation needs a writable workspace.
         const result = await this.sandboxRunner.execute({
             command: 'javac',
@@ -64,6 +64,7 @@ export class JavaExecutor {
             const compilationErrors = this.parseJavaCompilationErrors(result.stderr);
             return {
                 success: false,
+                ...(result.infrastructureError && { judgeError: true as const }),
                 status: result.infrastructureError ? 'RE' : result.timedOut ? 'TLE' : compilationErrors.length ? 'CE' : 'RE',
                 error: result.infrastructureError || (result.timedOut ? 'Compilation time limit exceeded' : result.stderr.slice(0, 4096) || 'Compilation failed'),
                 compilationErrors,
@@ -119,7 +120,7 @@ export class JavaExecutor {
         try {
             testcases = normalizeTestcases(testcases, metadata, 'java');
         } catch (error) {
-            return { status: 'RE', message: `Invalid testcase data: ${error instanceof Error ? error.message : String(error)}`,
+            return { status: 'RE', judgeError: true, message: `Invalid testcase data: ${error instanceof Error ? error.message : String(error)}`,
                 testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0 };
         }
         const deadline = performance.now() + EXECUTION_TIMEOUT_MS;
@@ -130,7 +131,7 @@ export class JavaExecutor {
                 runnerCode = this.getRunnerTemplate(metadata);
             } catch (error) {
                 return {
-                    status: 'CE', message: error instanceof Error ? error.message : 'Unsupported problem metadata',
+                    status: 'CE', judgeError: true, message: error instanceof Error ? error.message : 'Unsupported problem metadata',
                     testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0,
                 };
             }
@@ -142,6 +143,7 @@ export class JavaExecutor {
                     status: compiled.status || 'CE', message: compiled.error + (compiled.compilationErrors?.some(error => error.file === 'Runner.java') ? '\nGenerated runner signature must match the solution. Metadata float/float[] means Java double/double[].' : ''),
                     testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0,
                     compilationErrors: compiled.compilationErrors || [],
+                    judgeError: compiled.judgeError,
                 };
             }
             return await executeTestcases(testcases, showHiddenInputs, visibleTestcaseCount, deadline,

@@ -29,7 +29,7 @@ if (( EUID == 0 )); then
 fi
 
 if ! command_exists node; then
-    die "未找到 Node.js。請先安裝 Node.js 20.x 或 22 以上版本。"
+    die "未找到 Node.js。請先安裝 Node.js 22 以上版本。"
 fi
 
 if ! command_exists npm; then
@@ -44,9 +44,9 @@ if ! [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]]; then
     die "無法解析 Node.js 版本：$NODE_VERSION"
 fi
 
-# React Router v7 requires Node.js 20+; the locked Vite release excludes Node.js 21.
-if (( NODE_MAJOR < 20 || NODE_MAJOR == 21 )); then
-    die "JustCode 需要 Node.js 20.x 或 22 以上版本（當前：$NODE_VERSION）。"
+# The SQLite binding requires Node.js 22 or later.
+if (( NODE_MAJOR < 22 )); then
+    die "JustCode 需要 Node.js 22 以上版本（當前：$NODE_VERSION）。"
 fi
 
 echo "專案目錄：$SCRIPT_DIR"

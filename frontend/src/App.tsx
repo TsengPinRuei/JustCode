@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { problemsApi } from './services/apiClient';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Activity from './pages/Activity';
 import Navbar from './components/Navbar';
 import ProblemList from './pages/ProblemList';
 import ProblemDetail from './pages/ProblemDetail';
@@ -24,6 +25,7 @@ function App() {
                 <Navbar />
                 <Routes>
                     <Route path="/" element={<Navigate to="/problems" replace />} />
+                    <Route path="/activity" element={<Activity />} />
                     <Route path="/problems" element={<ProblemList />} />
                     <Route path="/problems/:id" element={<ProblemDetail />} />
                 </Routes>

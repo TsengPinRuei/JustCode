@@ -19,9 +19,11 @@ export default defineConfig({
         screenshot: 'only-on-failure',
     },
     webServer: {
-        command: 'npm run dev --workspace=frontend -- --host 127.0.0.1 --port 5178 --strictPort',
+        command: 'node --import tsx tests/ui/server.ts',
+        env: { JUSTCODE_SANDBOX_MODE: 'local' },
+        gracefulShutdown: { signal: 'SIGTERM', timeout: 5000 },
         cwd: path.resolve(__dirname, '../..'),
         url: 'http://127.0.0.1:5178',
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
     },
 });

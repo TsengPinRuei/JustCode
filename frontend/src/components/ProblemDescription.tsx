@@ -1,5 +1,7 @@
 import { stringifyJson } from '../../../backend/src/shared/json';
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { CopyButton } from './CopyButton';
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkCodeGroup from '../plugins/remarkCodeGroup';
@@ -39,87 +41,6 @@ const extractText = (node: React.ReactNode): string => {
     }
     return '';
 };
-
-const copyTextToClipboard = async (text: string) => {
-    // Try the async clipboard API, then fall back if it is unavailable or rejects the write.
-    if (navigator.clipboard?.writeText) {
-        try {
-            await navigator.clipboard.writeText(text);
-            return;
-        } catch {
-        }
-    }
-
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.setAttribute('readonly', '');
-    // Keep the fallback textarea off screen to avoid visible layout changes while copying.
-    textarea.style.position = 'fixed';
-    textarea.style.top = '0';
-    textarea.style.left = '-9999px';
-    const previousFocus = document.activeElement;
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
-    try {
-        const copied = document.execCommand('copy');
-        if (!copied) throw new Error('Copy command failed');
-    } finally {
-        textarea.remove();
-        if (previousFocus instanceof HTMLElement) previousFocus.focus({ preventScroll: true });
-    }
-};
-
-function CopyButton({ getText }: { getText: () => string }) {
-    const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const mountedRef = useRef(false);
-    const requestRef = useRef(0);
-    useEffect(() => {
-        mountedRef.current = true;
-        return () => {
-            mountedRef.current = false;
-            if (timerRef.current !== null) clearTimeout(timerRef.current);
-        };
-    }, []);
-
-    const handleCopy = useCallback(async () => {
-        const request = ++requestRef.current;
-        if (timerRef.current !== null) clearTimeout(timerRef.current);
-        let state: 'copied' | 'failed' = 'copied';
-        try {
-            await copyTextToClipboard(getText());
-        } catch {
-            state = 'failed';
-        }
-        // Ignore an older copy request or a result received after unmounting.
-        if (!mountedRef.current || request !== requestRef.current) return;
-        setCopyState(state);
-        timerRef.current = setTimeout(() => {
-            timerRef.current = null;
-            setCopyState('idle');
-        }, 2000);
-    }, [getText]);
-
-    const label = copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Failed' : 'Copy';
-
-    return (
-        <button
-            type="button"
-            className={`code-copy-btn ${copyState}`}
-            onClick={handleCopy}
-            title={copyState === 'copied' ? 'Copied!' : copyState === 'failed' ? 'Copy failed' : 'Copy code'}
-            aria-label={copyState === 'copied' ? 'Copied code' : copyState === 'failed' ? 'Copy failed' : 'Copy code'}
-        >
-            {copyState === 'copied' && (
-                <span className="code-copy-icon" aria-hidden="true">✓</span>
-            )}
-            <span>{label}</span>
-        </button>
-    );
-}
 
 function CodeGroupBlock({ languages }: { languages: string }) {
     // remarkCodeGroup passes grouped language labels and source text as serialized JSON.
@@ -302,6 +223,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progre
                     </div>
                 </div>
                 <div className="problem-meta">
+                    <Link className="history-link" to={`/activity?problemId=${encodeURIComponent(problem.metadata.id)}`}>Submission history</Link>
                     <span className={`difficulty-badge difficulty-${problem.metadata.difficulty.toLowerCase()}`}>
                         {problem.metadata.difficulty}
                     </span>

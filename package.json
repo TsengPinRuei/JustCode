@@ -15,6 +15,7 @@
     "build:frontend": "npm run build --workspace=frontend",
     "build:backend": "npm run build --workspace=backend",
     "start:backend": "npm start --workspace=backend",
+    "data:backup": "tsx backend/src/backup.ts",
     "clean": "node scripts/clean.cjs all",
     "clean:modules": "node scripts/clean.cjs modules",
     "clean:build": "node scripts/clean.cjs build",
@@ -40,6 +41,6 @@
     "vite": "^6.4.4"
   },
   "engines": {
-    "node": "^20.0.0 || >=22.0.0"
+    "node": ">=22"
   }
 }

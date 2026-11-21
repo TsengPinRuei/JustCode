@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
+import { activityFilter, pageNumber } from '../services/activityQueries';
 import { parseJson } from '../shared/json';
 import express, { Request, Response } from 'express';
 import { ProblemService } from '../services/problemService';
@@ -17,7 +20,7 @@ function endpoint(handler: (req: Request, res: Response) => Promise<unknown>): e
                 code === 'ENOENT' ? 404 : code === 'EEXIST' ? 409 : code === 'EINVAL' ? 400 : 500;
             if (status === 500) console.error('API request failed:', error);
             const message = error instanceof Error ? error.message : 'Request failed';
-            res.status(status).json({ error: status === 404 ? 'Problem not found' : message });
+            res.status(status).json({ error: code === 'ENOENT' ? 'Problem not found' : message });
         });
     };
 }
@@ -29,7 +32,7 @@ function validateLanguage(metadata: ProblemMetadata, language: string): void {
 }
 
 export function createProblemRouter(
-    problemService = new ProblemService(),
+    problemService: ProblemService,
     leetcodeService = new LeetCodeService(),
 ): express.Router {
     const router = express.Router();
@@ -97,7 +100,7 @@ export function createProblemRouter(
             }
             validateLanguage(metadata, language);
             if (!testcases.length) throw new RequestError('Problem has no testcases');
-            const result = await CodeExecutorFactory.getExecutor(language).executeCode(
+            const { judgeError: _internal, ...result } = await CodeExecutorFactory.getExecutor(language).executeCode(
                 code, testcases, true, metadata, testcases.length,
             );
             // Custom input has no expected answer. Convert comparison failures to success,
@@ -122,21 +125,68 @@ export function createProblemRouter(
         }
     }));
 
-    router.post('/submit', execute, endpoint(async (req, res) => {
+    router.post('/submit', endpoint(async (req, res) => {
+        const payload = validateExecutionRequest(req.body, false);
+        const submissionId = req.body.submissionId === undefined ? randomUUID() : req.body.submissionId;
+        if (typeof submissionId !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(submissionId)) {
+            throw new RequestError('submissionId must be a UUID');
+        }
+        const request = { ...payload, submissionId };
+        let hasSlot = false;
         try {
-            const { problemId, code, language } = validateExecutionRequest(req.body, false);
-            const problem = await problemService.getProblemForExecution(problemId);
-            validateLanguage(problem.metadata, language);
-            const testcases = [...problem.visibleTestcases, ...(problem.hiddenTestcases ?? [])];
-            if (!testcases.length) throw new RequestError('Problem has no testcases');
-            const result = await CodeExecutorFactory.getExecutor(language).executeCode(
-                code, testcases, false, problem.metadata, problem.visibleTestcases.length,
-            );
-            res.json(result);
+            const admitted = await problemService.admitSubmission(request, () => {
+                if (activeExecutions >= MAX_CONCURRENT_EXECUTIONS) {
+                    res.setHeader('Retry-After', '1');
+                    throw new RequestError('Execution is busy. Please retry shortly.', 429);
+                }
+                activeExecutions++;
+                hasSlot = true;
+            });
+            if (admitted.existing) {
+                const { state, result, error } = admitted.existing;
+                return res.status(state === 'running' ? 202 : 200).json({ ...result, submissionId, state, ...(error && { error }) });
+            }
+            const problem = admitted.problem!;
+            const started = performance.now();
+            try {
+                const { judgeError, ...result } = await CodeExecutorFactory.getExecutor(request.language).executeCode(request.code,
+                    [...problem.visibleTestcases, ...(problem.hiddenTestcases ?? [])], false, problem.metadata, problem.visibleTestcases.length);
+                if (judgeError) throw new RequestError('The judge could not evaluate this submission.', 503);
+                problemService.practice.complete(request, result, Math.round(performance.now() - started));
+                if (!res.destroyed) res.json({ ...result, submissionId, state: 'completed' });
+            } catch (cause) {
+                const message = cause instanceof RequestError ? cause.message : 'Unable to complete submission';
+                if (!(cause instanceof RequestError)) console.error('Submission failed:', cause);
+                problemService.practice.fail(submissionId, message);
+                if (!res.destroyed) res.status(cause instanceof RequestError ? cause.status : 500)
+                    .json({ submissionId, state: 'error', error: message });
+            }
         } finally {
-            res.locals.releaseExecution();
+            if (hasSlot) activeExecutions--;
         }
     }));
+
+    router.get('/submissions', endpoint(async (req, res) => {
+        const filter = activityFilter(req.query);
+        res.json(problemService.practice.activity.list(filter, pageNumber(req.query.page, 1, 1_000_000_000),
+            pageNumber(req.query.limit, 50, 100)));
+    }));
+    router.get('/submissions/:id', endpoint(async (req, res) => {
+        const item = problemService.practice.activity.detail(req.params.id);
+        if (!item) throw new RequestError('Submission not found', 404);
+        res.json(item);
+    }));
+    router.patch('/submissions/:id/timing', endpoint(async (req, res) => {
+        const valid = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0;
+        if (!isRecord(req.body) || !valid(req.body.submitDurationMs) ||
+            (req.body.durationMs !== undefined && !valid(req.body.durationMs)) ||
+            Object.keys(req.body).some(key => key !== 'durationMs' && key !== 'submitDurationMs')) {
+            throw new RequestError('Invalid browser timings');
+        }
+        problemService.practice.timing(req.params.id, req.body.submitDurationMs, req.body.durationMs);
+        res.json({ success: true });
+    }));
+    router.get('/stats/daily', endpoint(async (req, res) => res.json(problemService.practice.activity.daily(activityFilter(req.query)))));
 
     router.post('/import-problem', endpoint(async (req, res) => {
         if (!isRecord(req.body) || typeof req.body.url !== 'string' || !req.body.url.trim()) {
@@ -158,9 +208,14 @@ export function createProblemRouter(
         res.json(result);
     }));
 
-    router.get('/progress', endpoint(async (_req, res) => res.json(await problemService.getAllProgress())));
+    router.get('/progress', endpoint(async (req, res) => res.json(
+        req.query.view === 'status' ? problemService.practice.statuses() : await problemService.getAllProgress()
+    )));
     router.get('/progress/:id', endpoint(async (req, res) => res.json(await problemService.getProgress(req.params.id))));
     router.put('/progress/:id', endpoint(async (req, res) => {
+        if (isRecord(req.body) && (req.body.solveRecords !== undefined || req.body.status === 'solved')) {
+            throw new RequestError('Solve history and solved status are assigned by Submit');
+        }
         await problemService.saveProgress(req.params.id, validateProgress(req.body));
         res.json({ success: true });
     }));
@@ -171,5 +226,3 @@ export function createProblemRouter(
     }));
     return router;
 }
-
-export default createProblemRouter();
