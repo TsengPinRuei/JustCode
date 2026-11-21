@@ -125,6 +125,8 @@ test('dialogs contain focus, restore it, block busy Escape, and keyboard file se
     await expect(trigger).toBeFocused();
     await openWorkspace(page);
     const hiddenTrigger = page.getByRole('button', { name: 'Add Hidden Tests' });
+    // Arm Chromium's file chooser interception before opening the dialog.
+    const chooserPromise = page.waitForEvent('filechooser');
     await hiddenTrigger.click();
     const hiddenDialog = page.getByRole('dialog', { name: 'Add Hidden Tests' });
     await expect(hiddenDialog).toBeVisible();
@@ -134,14 +136,15 @@ test('dialogs contain focus, restore it, block busy Escape, and keyboard file se
     await expect(page.getByLabel('Hidden testcase JSON')).toBeHidden();
     await page.getByRole('button', { name: 'Paste JSON' }).click();
     await expect(page.getByRole('button', { name: 'Paste JSON' })).toHaveAttribute('aria-pressed', 'true');
-    const chooseFile = page.getByRole('button', { name: 'Choose File' });
+    await hiddenDialog.getByLabel('Hidden testcase file').dispatchEvent('cancel', { bubbles: true, cancelable: false });
+    await expect(hiddenDialog).toBeVisible();
+    const chooseFile = hiddenDialog.getByRole('button', { name: 'Choose File' });
     // focus() alone only waits for attachment. Confirm the newly selected pane
     // is visible and its button actually owns focus before sending a keyboard action.
     await expect(chooseFile).toBeVisible();
     await chooseFile.focus();
     await expect(chooseFile).toBeFocused();
-    const chooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
-    await page.keyboard.press('Enter');
+    await chooseFile.press('Enter');
     const chooser = await chooserPromise;
     const contents = '[{"input":{"a":1,"b":2},"output":3}]';
     await chooser.setFiles({ name: 'test.json', mimeType: 'application/json', buffer: Buffer.from(contents) });
