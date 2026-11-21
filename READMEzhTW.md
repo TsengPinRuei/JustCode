@@ -127,7 +127,7 @@ class Solution {
 <details>
 <summary>直接在專案內建立自己的題目</summary>
 
-1. 複製[內建加法題資料夾](problems/add-two-integers/)為 `problems/my-addition/`，略過舊版的 `progress.json`。
+1. 複製[內建加法題資料夾](problems/add-two-integers/)為 `problems/my-addition/`。
 2. 在 `problem.json` 把 `id` 改成 `my-addition`，並自訂題名。ID 必須和資料夾同名，以小寫英文字母或數字開頭，最長 200 個字元，可使用小寫英文字母、數字、連字號與底線。讓 `functionName`、`params`、`returnType` 與畫面顯示的方法簽名及各語言的 `template.java`、`template.py` 一致。
 3. 在 `testcases_visible.json` 放入至少一筆測資。每筆 `input` 的欄位名稱必須與參數完全相同，`output` 是預期回傳值。`problem.json` 內的範例供畫面顯示。可依需要加入 `testcases_hidden.json` 和 `editorial.md`。
 4. 重新整理 **Problems**，開啟新題目，以 **Run** 和 **Submit** 驗證。如果題目設定或可見測資無效，後端會在終端機列出略過的資料夾。

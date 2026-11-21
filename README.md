@@ -127,7 +127,7 @@ Open **Add Hidden Tests**. Choose **Append** to keep existing cases or **Replace
 <details>
 <summary>Author a problem directly in the repository</summary>
 
-1. Copy the [bundled addition folder](problems/add-two-integers/) to `problems/my-addition/`. Omit the legacy `progress.json` from your copy.
+1. Copy the [bundled addition folder](problems/add-two-integers/) to `problems/my-addition/`.
 2. In `problem.json`, set `id` to `my-addition` and give the problem a title. The ID must match the folder name, start with a lowercase letter or digit, and contain only lowercase letters, digits, hyphens or underscores (up to 200 characters). Keep `functionName`, `params` and `returnType` in sync with the displayed signatures and each language's `template.java` or `template.py`.
 3. Put at least one case in `testcases_visible.json`. Each `input` object must use exactly the parameter names, and each `output` is the expected return value. The examples in `problem.json` are for display. Add `testcases_hidden.json` and `editorial.md` as needed.
 4. Refresh **Problems**, open the new problem, and check it with **Run** and **Submit**. The backend logs skipped folders when metadata or visible tests are invalid.

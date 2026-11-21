@@ -16,10 +16,8 @@
   --border-default: var(--border-color);
 
   --accent-green: #00b8a3;
-  --accent-green-dark: #009688;
   --accent-yellow: #ffc01e;
   --accent-red: #ef4743;
-  --accent-orange: #ff9800;
   --accent-blue: #65bfff;
   --accent-blue-dark: #005a94;
   --accent-blue-fill: #0067a8;
@@ -35,8 +33,6 @@
   --status-tle: #9c27b0;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -478,10 +474,6 @@ body {
   height: 100%;
   background: linear-gradient(135deg, var(--accent-red), var(--accent-yellow), var(--accent-blue));
   border-radius: inherit;
-}
-
-.solve-rank-row.latest .solve-rank-bar {
-  background: linear-gradient(135deg, var(--accent-red), var(--accent-yellow), var(--accent-blue));
 }
 
 .solve-rank-duration {

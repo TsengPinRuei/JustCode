@@ -234,16 +234,6 @@ export class ProblemService {
         return { metadata, visibleTestcases: validateTestcases(visibleTestcases, metadata, false) };
     }
 
-    // Read visible tests without loading metadata or validating parameter names against it.
-    async getVisibleTestcases(problemId: string): Promise<Testcase[]> {
-        return this.readVisibleTestcases(this.getProblemDir(problemId));
-    }
-
-    // Read hidden tests without loading metadata or validating parameter names against it.
-    async getHiddenTestcases(problemId: string): Promise<Testcase[]> {
-        return this.readHiddenTestcases(this.getProblemDir(problemId));
-    }
-
     // Append or replace locally supplied hidden testcases after structural validation.
     async importHiddenTestcases(
         problemId: string,
@@ -290,17 +280,6 @@ export class ProblemService {
                 mode: request.mode,
             };
         });
-    }
-
-    // Combine visible and hidden tests without loading metadata.
-    // Parameter-name validation requires a metadata-aware loading method.
-    async getAllTestcases(problemId: string): Promise<Testcase[]> {
-        const problemDir = this.getProblemDir(problemId);
-        const [visibleTestcases, hiddenTestcases] = await Promise.all([
-            this.readVisibleTestcases(problemDir),
-            this.readHiddenTestcases(problemDir),
-        ]);
-        return [...visibleTestcases, ...hiddenTestcases];
     }
 
     // Create a new problem directory; reject an existing ID without overwriting its files.
