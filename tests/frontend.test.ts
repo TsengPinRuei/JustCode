@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { setImmediate } from 'node:timers/promises';
 import { test } from 'node:test';
 import { createElement } from 'react';
+import { createRequire } from 'node:module';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ProblemDescription from '../frontend/src/components/ProblemDescription';
 import type { Root, Code } from 'mdast';
 import type { Problem, ProblemProgress } from '../frontend/src/types/index';
 import { createProgressPersistence } from '../frontend/src/services/progressPersistence';
 import remarkCodeGroup from '../frontend/src/plugins/remarkCodeGroup';
+
+const { MemoryRouter } = createRequire(require.resolve('../frontend/package.json'))('react-router-dom');
 
 const progress = (code: string): ProblemProgress => ({
     code: { java: code }, selectedLanguage: 'java', status: 'attempted', lastUpdated: '',
@@ -68,8 +71,11 @@ test('failed saves retain the latest draft and do not poison later retries', asy
     await assert.rejects(store.save('one', snapshot), /offline/);
     assert.equal(store.hasUnsavedDrafts('one'), true);
     assert.equal(await store.read('one', async () => { throw new Error('must not discard draft'); }), snapshot);
-    const all = await store.readAll(async () => ({ one: progress('outdated') }));
-    assert.equal(all.one, snapshot);
+    assert.equal((await store.readStatuses(async () => ({ one: 'none' }))).one, 'attempted');
+    assert.equal((await store.readStatuses(async () => ({ one: 'solved' }))).one, 'solved');
+    const record = { id: 'accepted', language: 'java' as const, solvedAt: '2024-03-01T00:00:00Z', passedTestcases: 1, totalTestcases: 1 };
+    const recovered = await store.read('one', async () => ({ ...progress('older code'), status: 'solved', solveRecords: [record] }));
+    assert.deepEqual(recovered, { ...snapshot, status: 'solved', solveRecords: [record] });
     failing = false;
     await store.save('one', progress('retried'));
     assert.deepEqual(calls, ['unsaved', 'retried']);
@@ -159,9 +165,9 @@ test('problem example data preserves HTML-like text and Markdown punctuation lit
         templates: { java: '', python3: '' },
         visibleTestcases: [],
     };
-    const html = renderToStaticMarkup(createElement(ProblemDescription, {
+    const html = renderToStaticMarkup(createElement(MemoryRouter, null, createElement(ProblemDescription, {
         problem, progress: null, attemptStartedAt: 0,
-    }));
+    })));
     assert.match(html, /&lt;tag&gt;\*literal\*&lt;\/tag&gt;/);
     assert.match(html, /\x60value\x60/);
     assert.doesNotMatch(html, /<em>literal<\/em>/);

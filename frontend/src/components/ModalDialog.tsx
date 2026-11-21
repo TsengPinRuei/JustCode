@@ -54,6 +54,8 @@ export default function ModalDialog({ titleId, busy, onClose, className = '', ch
             aria-modal="true"
             aria-busy={busy}
             onCancel={(event) => {
+                // A file input also bubbles a cancel event when its picker is dismissed.
+                if (event.target !== event.currentTarget) return;
                 event.preventDefault();
                 if (!busy) onClose();
             }}

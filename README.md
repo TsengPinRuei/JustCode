@@ -4,7 +4,7 @@
 
 JustCode is a coding practice app that runs on your own computer. Choose a problem, write a Java or Python3 solution in your browser, and check it against local testcases. A **testcase** is an input together with the answer your code should return.
 
-The React frontend is the page you use; the Express backend reads problem files and runs your code. Problems and progress live in `problems/`. Normal local use needs no account, database, API key, or cloud service.
+The React frontend provides the editor. The Express backend runs your code and reads the catalog from `problems/`. Your drafts and submissions live in an embedded SQLite database at `data/justcode.sqlite`. The app runs locally without an account.
 
 ![JustCode](https://img.shields.io/badge/JustCode-v1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -35,7 +35,7 @@ Start with [Quick Start](#quick-start), then follow [Your First Solution](#your-
 - Write Java or Python3 in the Monaco editor, switch languages without losing the other draft, restore a template, and adjust the font size.
 - Run visible tests, try custom JSON input, or submit against visible and hidden tests.
 - See accepted answers, wrong answers, syntax/compilation errors, runtime errors, timeouts, editor error markers, and details for visible tests.
-- Automatically save code and accepted-submission timing records per problem, with save-error messages and a retry action.
+- Save per-language drafts and every formal submission. Open **Activity** to filter local practice by date, language or problem.
 - Import public LeetCode statements, examples, constraints, Java/Python3 templates, and example testcases.
 - Download a Markdown problem brief; add hidden tests from pasted JSON, a browser-selected file, or a project-relative file path.
 - Read Markdown editorials with tables, language tabs for adjacent code blocks, and copy buttons. Resize the problem, editor, and console panes.
@@ -48,7 +48,7 @@ Start with [Quick Start](#quick-start), then follow [Your First Solution](#your-
 
 | Tool | When you need it |
 | --- | --- |
-| Node.js and npm | Always, to run the app. Use Node.js `20.x` or `>=22`; Node.js 22 is the tested version. React Router v7 and the browser test tooling require Node.js 20+, and the locked Vite release excludes Node.js 21. `install.sh` checks this range. |
+| Node.js and npm | Use Node.js 22 or later. The workspace install includes the SQLite driver. `install.sh` checks the Node.js version. |
 | JDK 11 or newer | To run Java locally. A JDK includes both `javac` (compiler) and `java` (runtime). |
 | Python 3.9 or newer | To run Python3 locally. The executable must be named `python3`; the sorting template uses `list[int]` annotations. |
 | Docker | Optional alternative to installing Java/Python locally. Start Docker and download the images in [Configuration](#configuration-and-execution-limits) before using it. |
@@ -87,8 +87,17 @@ cd JustCode
 
 If you already downloaded it, open a terminal in the **project root**: the folder containing `package.json`, `frontend/`, `backend/`, and `problems/`. Run commands there unless stated otherwise.
 
+Run these commands on macOS and Linux.
+
 ```bash
 npm install
+npm run dev
+```
+
+On Windows, use an up-to-date Node.js 22 LTS or later. The pinned npm command honors this project's SQLite install setting and loads the bundled Windows binary. [npm install issue](https://github.com/npm/cli/issues/9837)
+
+```powershell
+npx --yes npm@11.20.0 ci
 npm run dev
 ```
 
@@ -149,7 +158,7 @@ Both problems include templates and visible/hidden test files. They are protecte
 | --- | --- | --- |
 | **Run** while a **Case** tab is selected | All visible testcases, not just the displayed case | Your return values matched those visible answers. It does not mark the problem solved. |
 | **Testcase → Custom Input → Run** | One input you enter | The program ran and returned a value. There is no expected answer to compare, even when the summary says **Accepted**. |
-| **Submit** | All visible tests plus the current local hidden tests | Passing creates a solved status and an accepted record. It ignores the Custom Input box. |
+| **Submit** | Visible and local hidden tests | Saves a code snapshot and the judgment. AC also marks the problem solved. |
 
 For Add Two Integers, enter this in **Custom Input**:
 
@@ -181,11 +190,13 @@ Use valid JSON: double-quoted keys/strings, no comments, and no trailing commas.
 
 - The language selector preserves a separate code draft for Java and Python3. **Reset** immediately replaces and saves the current language's code with its template; it keeps the other language and existing solve records. Copy anything you want to keep before resetting.
 - **A− / A+** change the font size from 12 to 24. Drag the dividers to resize the problem/editor area or editor/console area. **Description** shows the statement; **Editorial** shows the explanation and copyable code.
-- Code edits are saved after about one second without further edits. Language changes and accepted records request an immediate save; page navigation also attempts to flush pending changes. If **Changes have not been saved** appears, keep the tab open, copy your code, restore the backend connection, and use **Retry save**. Failed drafts are held in browser memory, not a durable offline store.
+- Code edits are saved after about one second without further edits. Language changes request an immediate draft save; page navigation also attempts to flush pending changes. If **Changes have not been saved** appears, keep the tab open, copy your code, restore the backend connection, and use **Retry save**. Failed drafts are held in browser memory, not a durable offline store.
 - An untouched problem has no status icon; editing marks it attempted (**◐**); an accepted Submit marks it solved (**✓**). Later edits or failed submissions do not clear a solved status.
 - **Stats → Current** measures wall-clock time since opening the problem or the latest accepted submission, including idle time. Refreshing/reopening starts a new attempt timer. **Best Total** is the shortest saved time to an accepted submission.
 - **Latest Submit** is the latest accepted submission's browser request duration, including compilation, process startup, tests, and request overhead. **Latest Rank** orders this problem's local accepted records by that duration, then total attempt time and timestamp. It is not a global leaderboard or a controlled algorithm benchmark.
-- Records contain timing, language, timestamp, and passed/total counts. Only the latest draft per language is stored; there is no complete source-code history for every submission.
+- **Activity** opens the last 30 calendar days in your browser's time zone. Apply filters for a problem ID, language or date range, or clear the date fields for all time. **Submission history** on a problem opens the same page filtered to that problem.
+- Daily and period totals count admitted submissions, accepted submissions, distinct problems practiced and distinct problems accepted. Run and rejected requests are excluded. The date is the submission's admission time (the original acceptance time for legacy records). Traveling to a different time zone can change day boundaries.
+- Use **View** to inspect the submitted code and result, or **Copy** to reuse the code. Server judge time and browser request time are separate measurements. Rankings use measured browser request times. An interrupted request can have a result even when the browser timing is missing.
 
 ## Importing Problems and Hidden Tests
 
@@ -233,8 +244,7 @@ problems/<problem-id>/
 ├── template.py
 ├── testcases_visible.json
 ├── testcases_hidden.json
-├── editorial.md
-└── progress.json
+└── editorial.md
 ```
 
 | File | Purpose and requirements |
@@ -244,20 +254,20 @@ problems/<problem-id>/
 | `testcases_visible.json` | Required, non-empty JSON array of `{ "input": {...}, "output": ... }`. Used by Run and Submit. |
 | `testcases_hidden.json` | Optional; the same shape, and may be `[]`. Used only by Submit. Import creates an empty file. |
 | `editorial.md` | Optional Markdown explanation. Adjacent fenced code blocks with different language labels can display as language tabs. |
-| `progress.json` | App-managed status, code by language, selected language, accepted `solveRecords`, and `lastUpdated`. Created/updated when saving progress; do not use it as a template or testcase file. |
+| `progress.json` (older checkouts only) | Read on first migration. Later saves go to SQLite. |
 
 Display examples in `problem.json` are separate from executable tests. Changing an example paragraph does not change what the judge runs; edit the testcase files too.
 
-### Backup, restore, or start over
+### Migrate, back up and restore
 
-1. Wait for saves to finish, close the app tabs, and stop the servers with `Ctrl+C`.
-2. Copy the entire **`problems/` folder** to a separate backup location using Finder/File Explorer. This preserves imported problems, templates, editorials, visible/hidden tests, code, and records. `node_modules/`, `dist/`, and `temp/` are not your progress.
-3. To restore, keep the app stopped, preserve any newer data separately, then copy the desired problem folders back into `problems/`. Restart with `npm run dev`.
-4. To restart one problem from scratch, first back it up, then remove **only that problem's `progress.json`** while the app is stopped. Reopening it uses its templates with no saved status or records. This differs from the editor's Reset button.
+On first backend startup, JustCode validates existing progress JSON and saves copies in `data/backups/legacy-*/`. It imports drafts, language, status and accepted summaries in one transaction. A malformed file stops startup and the error names the file to repair. Once migration succeeds, the SQLite schema version prevents repeat imports. The original JSON stays in place. Older versions recorded only accepted summaries, so **Imported** rows may have no source code or browser request time.
 
-`npm run clean` and `./uninstall.sh` remove dependencies/builds/temporary files but preserve `problems/` and `package-lock.json`. They do not erase practice history. All cleanup entry points refuse symlinked `frontend`/`backend` directories before removing anything; symlinks at individual generated targets are removed without traversing their destinations.
+1. Wait for draft saves and submissions to finish. Run `npm run data:backup` in the project root. The command prints the path of a consistent SQLite snapshot and works with the backend running or stopped after its first successful start.
+2. Copy that snapshot and the matching `problems/` folder to a separate backup location. Keep the catalog unchanged while copying. The snapshot contains personal code. Git ignores `data/` and non-bundled problems.
+3. To restore, stop the backend and move the existing `data/` and `problems/` directories to a safe location outside the checkout. Put the backed-up catalog back in `problems/`. Create a fresh `data/` directory and copy the snapshot there as `justcode.sqlite`. Start the app and verify a draft and its history. Keeping the old database together with its WAL and SHM files avoids mixing different database versions.
+4. Deleting an imported problem removes its files, drafts and submission history from the live app. A running submission must finish first. Reimporting the same ID starts fresh. The editor's **Reset** changes only the active language draft.
 
-The current `.gitignore` ignores additional problem folders but allows the two built-in folders. **The built-in `progress.json` files are tracked by Git**, so practice can change tracked files; a checkout can contain the progress saved by its author. Imported problems are not automatically included in Git backups. Before publishing this project or making a commit, inspect `git status` and intentionally choose which problem data and personal code to include.
+`npm run clean` and `./uninstall.sh` preserve `data/`, its backups and the problem catalog.
 
 ### Add your own problem without LeetCode
 
@@ -351,11 +361,12 @@ Run from the project root. A **workspace** here means one of the frontend/backen
 
 | Command | Purpose |
 | --- | --- |
-| `npm install` | Install workspace dependencies. |
+| `npm install` (macOS/Linux) or `npx --yes npm@11.20.0 ci` (Windows) | Install workspace dependencies. |
 | `npm run dev` | Start both development servers. |
 | `npm run dev:backend` / `npm run dev:frontend` | Start one development server. |
 | `npm test` | Run the existing regression suite. Install both local Java and Python to exercise all language cases. |
-| `npm run test:ui` | Run Chromium interaction regressions with mocked APIs; requires Node.js 20+ and `npx playwright install chromium`. |
+| `npm run test:ui` | Run Chromium interaction tests, including a real Python submission through an isolated backend and SQLite database. Requires Python3 and `npx playwright install chromium`. |
+| `npm run data:backup` | Save a consistent SQLite snapshot under `data/backups/`. |
 | `npm run typecheck` | Check backend, frontend, and Vite configuration types without producing build files. |
 | `npm run build` | Build both packages into `frontend/dist/` and `backend/dist/`. |
 | `npm run build:frontend` / `npm run build:backend` | Build one package. |
@@ -400,7 +411,7 @@ Vite preview is for local build checks. The backend does not serve frontend asse
 
 ## Limitations
 
-- One local user: no login, cloud sync, shared progress, database, or global leaderboard. Use one backend and avoid editing the same problem in multiple tabs; there is no cross-tab or multi-process conflict-resolution protocol.
+- One local user: no login, cloud sync, shared progress, or global leaderboard. Use one backend and avoid editing the same problem in multiple tabs; there is no cross-tab or multi-process conflict-resolution protocol.
 - **Explore** and **Discuss** in the navigation bar are disabled placeholders, not implemented features.
 - Only Java and Python3 runners are implemented. They call a method on `Solution` and judge its return value. Custom node structures, design-class APIs, and `void`/in-place-only judging are not implemented.
 - Java input conversion supports a defined set of primitives, arrays, and lists; Python receives JSON-shaped values. Arbitrary imported type names are not guaranteed to work. See [Java's type mapping](backend/src/services/javaExecutor.ts) before adding new types.
@@ -428,7 +439,7 @@ JustCode/
 │   ├── public/                   # Static assets
 │   ├── src/
 │   │   ├── components/           # Editor, results, stats, tests, Markdown, panes
-│   │   ├── pages/                # Problem list and problem workspace
+│   │   ├── pages/                # Problem list, workspace and Activity
 │   │   ├── plugins/              # Markdown code-group transformation
 │   │   ├── services/             # API client, save ordering, local Monaco setup
 │   │   ├── types/                # Frontend data contracts
@@ -438,6 +449,7 @@ JustCode/
 │   ├── index.html
 │   ├── vite.config.ts            # Development/preview API proxy
 │   └── package.json
+├── data/                         # Local SQLite database and backups (ignored by Git)
 ├── problems/
 │   ├── add-two-integers/
 │   └── sort-array/
@@ -466,12 +478,16 @@ You can use the app entirely through the browser; this table is for developers. 
 | `POST` | `/api/submit` | Judge visible and hidden tests. |
 | `POST` | `/api/import-problem` | Import a public LeetCode URL. |
 | `POST` | `/api/problems/:id/hidden-testcases` | Append/replace hidden tests from JSON content or a project-relative file. |
-| `GET` | `/api/progress` | Read saved progress across problems. |
-| `GET` | `/api/progress/:id` | Read one problem's progress; `null` for a missing file or the bundled empty-progress placeholder. |
-| `PUT` | `/api/progress/:id` | Save validated progress and assign its update timestamp. |
+| `GET` | `/api/progress` | Read saved progress across problems. The problem list uses `?view=status` to fetch status alone. |
+| `GET` | `/api/progress/:id` | Read saved drafts, status and accepted summaries. Returns `null` for a problem with no practice. |
+| `PUT` | `/api/progress/:id` | Save language drafts, selected language and `none`/`attempted` state. Solve records and solved status are server-owned. |
+| `GET` | `/api/submissions` | List submission summaries newest first. Use `problemId`, `language`, `from`, `to`, `timezone`, `page` (starts at 1) and `limit` (default 50, maximum 100). |
+| `GET` | `/api/submissions/:id` | Read a single code snapshot, masked result, timings and execution state. |
+| `PATCH` | `/api/submissions/:id/timing` | Add measured `submitDurationMs` and optional `durationMs` to a completed submission. The first value for each measurement is retained. |
+| `GET` | `/api/stats/daily` | Daily and period totals for the same problem, language and date filters. Dates include both endpoints and use the supplied IANA time zone (API default UTC). |
 | `DELETE` | `/api/problems/:id` | Delete a non-built-in problem and its data. |
 
-For direct API clients, `/api/submit` returns the judgment only; the browser creates an accepted record and saves it separately through the progress endpoint. Reading corrupt saved progress produces an error rather than silently replacing it with empty progress. Request shapes are in [backend types](backend/src/types.ts) and [request validation](backend/src/requestValidation.ts).
+Pass a new UUID as `submissionId` with each `POST /api/submit`. Retrying the same ID and payload returns its stored outcome, or HTTP 202 while it runs. Reusing an ID with different content returns 409. Omitting the ID lets the server generate one. Run stays outside practice history. Server admission persists the snapshot before judging. Unfinished judgments become `interrupted` on restart. See the [API types](backend/src/shared/activity.ts).
 
 ## Troubleshooting
 
@@ -489,7 +505,7 @@ For direct API clients, `/api/submit` returns the judgment only; the browser cre
 | Custom input or hidden tests are rejected | Use the correct JSON shape and exact parameter names. Hidden imports need a non-empty array; Project Path must point to an existing regular file inside the repository. Check the 10/64 MiB limits. |
 | A problem is absent from the list | Check the folder name, matching metadata `id`, valid metadata, and non-empty visible tests. The backend skips invalid folders and logs a warning. |
 | The editor is empty or starter code fails | A template may be missing, or its body may be deliberately unfinished. Use the first-solution example; add the language's template when authoring problems. |
-| Progress cannot load or save | Copy the current editor text, inspect the error/server logs, and use Retry/Retry save. Back up a corrupt `progress.json` before repairing it or removing it to start over; the backend intentionally refuses to overwrite corrupt progress. |
+| Progress cannot load or save | Copy unsaved editor text and use **Retry save** after reconnecting. For a migration error, repair a copy of the named legacy file, then restart. For database recovery, use the restore steps above. |
 | Run works but Submit fails to read tests | Back up and inspect `testcases_hidden.json`. A missing hidden file means no hidden tests; malformed JSON is an error, not an empty test set. Repair it or intentionally replace it through Add Hidden Tests. |
 | AC code shows no debug output | Successful runs hide debug output by design. Inspect the returned value; debug output is shown only for failing visible cases. |
 
@@ -502,12 +518,13 @@ For direct API clients, `/api/submit` returns the judgment only; the browser cre
 | Full-stack practice UI | React/TypeScript, Monaco editor, per-language drafts, resizable panels, Markdown editorials, and statistics | [ProblemDetail](frontend/src/pages/ProblemDetail.tsx), [components](frontend/src/components/), [frontend dependencies](frontend/package.json) |
 | Java/Python judging | Generate runners from function metadata, compile/check syntax, execute tests, compare JSON values, and return diagnostics | [Executor factory](backend/src/services/codeExecutorFactory.ts), [Java](backend/src/services/javaExecutor.ts), [Python](backend/src/services/pythonExecutor.ts), [shared result logic](backend/src/services/executionUtils.ts) |
 | Execution controls | Local/Docker selection, deadlines, bounded output, process cleanup, and concurrent-request limits | [Sandbox runner](backend/src/services/sandboxRunner.ts), [routes](backend/src/routes/problemRoutes.ts) |
-| File-based persistence | Validate data, serialize changes per problem within the backend process, write synchronized temporary JSON files, then rename them into place | [Storage](backend/src/services/storage.ts), [problem service](backend/src/services/problemService.ts) |
+| Catalog file storage | Validate data, serialize changes per problem within the backend process, write synchronized temporary JSON files, then rename them into place | [Storage](backend/src/services/storage.ts), [problem service](backend/src/services/problemService.ts) |
 | Problem import | Validate URLs/metadata/testcases, convert public LeetCode data, and publish a completed staging folder without overwriting existing problems | [Importer](backend/src/services/leetcodeService.ts), [validation](backend/src/services/problemValidation.ts), [problem service](backend/src/services/problemService.ts) |
+| SQLite history | Store snapshots before judging, commit results and status together, query practice in the browser’s time zone | [Database](backend/src/services/practiceDatabase.ts), [queries](backend/src/services/activityQueries.ts) |
 | Progress reliability | Order saves per problem, retain failed drafts in memory, retry saves, and flush during navigation | [Progress persistence](frontend/src/services/progressPersistence.ts), [workspace](frontend/src/pages/ProblemDetail.tsx) |
 | Regression verification | API, data integrity, concurrency, language execution, sandbox handling, frontend state, and executable editorial cases | [Tests](tests/), [scripts](package.json) |
 
-> Built a local coding-practice application with React, TypeScript, Express, and Monaco, supporting Java/Python3 execution, LeetCode example import, custom/hidden tests, and automatic progress saving. Implemented file-based persistence, execution limits with optional Docker isolation, and regression tests for judging, data integrity, and progress handling.
+> Built a local coding-practice application with React, TypeScript, Express, and Monaco, supporting Java/Python3 execution, LeetCode example import, custom/hidden tests, and automatic progress saving. Implemented SQLite submission history and daily statistics, execution limits with optional Docker isolation, and regression tests for judging, data integrity, and progress handling.
 
 
 ## License Metadata

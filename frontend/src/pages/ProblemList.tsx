@@ -9,7 +9,7 @@ const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
 
 const ProblemList: FC = () => {
     const [problems, setProblems] = useState<ProblemMetadata[]>([]);
-    const [progress, setProgress] = useState<Record<string, ProblemProgress>>({});
+    const [progress, setProgress] = useState<Record<string, ProblemProgress['status']>>({});
     const [loading, setLoading] = useState(true);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importUrl, setImportUrl] = useState('');
@@ -34,7 +34,7 @@ const ProblemList: FC = () => {
             try {
                 const [data, progressData] = await Promise.all([
                     problemsApi.getProblems(controller.signal),
-                    problemsApi.getAllProgress(controller.signal),
+                    problemsApi.getProblemStatuses(controller.signal),
                 ]);
                 if (controller.signal.aborted) return;
                 setProblems(data);
@@ -104,13 +104,20 @@ const ProblemList: FC = () => {
     const handleDelete = async (e: React.MouseEvent, problemId: string, title: string) => {
         e.stopPropagation();
         if (deleting.has(problemId)) return;
-        const confirmed = window.confirm(`Are you sure you want to delete "${title}"?`);
+        const confirmed = window.confirm(`Delete "${title}" and its drafts and submission history?`);
         if (!confirmed) return;
         setDeleting(previous => new Set(previous).add(problemId));
         setError(null);
         try {
             await problemsApi.deleteProblem(problemId);
-            if (mountedRef.current) setProblems(prev => prev.filter(p => p.id !== problemId));
+            if (mountedRef.current) {
+                setProblems(prev => prev.filter(p => p.id !== problemId));
+                setProgress(previous => {
+                    const next = { ...previous };
+                    delete next[problemId];
+                    return next;
+                });
+            }
         } catch (error) {
             if (mountedRef.current) setError(getApiErrorMessage(error, 'Failed to delete problem.'));
         } finally {
@@ -170,10 +177,10 @@ const ProblemList: FC = () => {
                         {problems.map((problem) => (
                             <tr key={problem.id} onClick={() => handleProblemClick(problem.id)}>
                                 <td className="col-status">
-                                    {progress[problem.id]?.status === 'solved' && (
+                                    {progress[problem.id] === 'solved' && (
                                         <span className="status-icon status-solved" title="Solved">✓</span>
                                     )}
-                                    {progress[problem.id]?.status === 'attempted' && (
+                                    {progress[problem.id] === 'attempted' && (
                                         <span className="status-icon status-attempted" title="Attempted">◐</span>
                                     )}
                                 </td>

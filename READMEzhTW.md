@@ -4,7 +4,7 @@
 
 JustCode 是在自己電腦上執行的刷題練習工具。你可以選擇題目，在瀏覽器撰寫 Java 或 Python3 解答，再用本機測資檢查答案。**測資**就是一組輸入，以及程式應該回傳的正確答案。
 
-React 前端是你操作的網頁；Express 後端負責讀取題目檔案與執行程式。題目和進度都存放在 `problems/`，一般本機使用不需要帳號、資料庫、API key 或雲端服務。
+React 前端提供編輯器。Express 後端執行程式，並從 `problems/` 讀取題庫。各語言的草稿與提交紀錄儲存在本機 SQLite 資料庫 `data/justcode.sqlite`，使用時無須註冊帳號。
 
 ![JustCode](https://img.shields.io/badge/JustCode-v1.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -35,7 +35,7 @@ React 前端是你操作的網頁；Express 後端負責讀取題目檔案與執
 - 使用 Monaco 編輯器撰寫 Java 或 Python3，切換語言時保留另一份程式碼，也能還原範本、調整字級。
 - 執行可見測資、嘗試自訂 JSON 輸入，或提交並執行可見與隱藏測資。
 - 顯示答案通過、答案錯誤、語法／編譯錯誤、執行錯誤、逾時、編輯器錯誤標記，以及可見測資的詳細結果。
-- 自動儲存各題程式碼與通過提交的計時紀錄，儲存失敗時提供訊息與重試操作。
+- 保存各語言草稿與每次正式提交。可在 **Activity** 依日期、語言或題目查詢練習紀錄。
 - 匯入 LeetCode 公開題目敘述、範例、限制條件、Java／Python3 範本與範例測資。
 - 下載 Markdown 題目摘要；從貼上的 JSON、瀏覽器選取的檔案或專案相對路徑匯入隱藏測資。
 - 閱讀 Markdown 題解，支援表格、相鄰程式碼區塊的語言分頁與複製按鈕；可調整題目、編輯器及主控台面板大小。
@@ -48,7 +48,7 @@ React 前端是你操作的網頁；Express 後端負責讀取題目檔案與執
 
 | 工具 | 何時需要 |
 | --- | --- |
-| Node.js 與 npm | 必備，用來執行 App。請使用 Node.js `20.x` 或 `>=22`，本機以 Node.js 22 驗證。React Router v7 與瀏覽器測試工具需要 Node.js 20+，鎖定的 Vite 版本不接受 Node.js 21；`install.sh` 會檢查此範圍。 |
+| Node.js 與 npm | 使用 Node.js 22 或更新版本。安裝專案相依套件時會一併安裝 SQLite 驅動程式，`install.sh` 會檢查 Node.js 版本。 |
 | JDK 11 或更新版本 | 本機執行 Java 時需要。JDK 同時包含 `javac` 編譯器與 `java` 執行環境。 |
 | Python 3.9 或更新版本 | 本機執行 Python3 時需要。可執行指令必須叫做 `python3`；排序題範本使用 `list[int]` 型別註記。 |
 | Docker | 選用，可取代本機 Java／Python 安裝。使用前請先啟動 Docker，並依[設定章節](#設定與執行限制)下載所需映像檔（image）。 |
@@ -87,8 +87,17 @@ cd JustCode
 
 如果已經下載，請在**專案根目錄**開啟終端機，也就是同時包含 `package.json`、`frontend/`、`backend/`、`problems/` 的資料夾。除非另有說明，後續指令都在這裡執行。
 
+macOS 與 Linux 可執行以下指令。
+
 ```bash
 npm install
+npm run dev
+```
+
+Windows 請使用已更新至最新修訂版的 Node.js 22 LTS 或更新版本。下列指令使用指定版本的 npm，會依照專案設定載入套件內附的 Windows SQLite 二進位檔。[npm 安裝問題紀錄](https://github.com/npm/cli/issues/9837)
+
+```powershell
+npx --yes npm@11.20.0 ci
 npm run dev
 ```
 
@@ -149,7 +158,7 @@ class Solution:
 | --- | --- | --- |
 | 選取 **Case** 分頁後按 **Run** | 所有可見測資，而非只跑畫面上那一筆 | 回傳值符合這些可見答案，不會把題目標為已通過。 |
 | **Testcase → Custom Input → Run** | 你輸入的一筆資料 | 程式成功執行並回傳值。沒有預期答案可供比對，即使摘要顯示 **Accepted** 也一樣。 |
-| **Submit** | 所有可見測資，加上目前本機隱藏測資 | 全部通過後標記已解題並新增 AC 紀錄；不使用 Custom Input 文字框。 |
+| **Submit** | 所有可見測資與本機隱藏測資 | 保存提交的程式碼快照和判題結果，AC 時將題目標成已解題。 |
 
 Add Two Integers 的 **Custom Input** 可以填：
 
@@ -181,11 +190,13 @@ Sort an Array 則可以填：
 
 - 語言選單會分別保留 Java 與 Python3 程式碼。**Reset** 會立刻以範本覆寫並儲存目前語言的程式碼，但保留另一種語言及既有解題紀錄；重設前請先複製想保留的內容。
 - **A−／A+** 可將字級調整為 12 至 24。拖曳分隔線可調整題目／編輯器、編輯器／主控台的比例。**Description** 顯示題目，**Editorial** 顯示解說與可複製的程式碼。
-- 停止編輯約一秒後會自動儲存。切換語言與新增 AC 紀錄會立即發出儲存請求，切換頁面也會嘗試送出尚未儲存的內容。若出現 **Changes have not been saved**，請保留頁面、先複製程式碼、恢復後端連線，再按 **Retry save**。失敗草稿只暫存在瀏覽器記憶體，不是可長期保存的離線資料。
+- 停止編輯約一秒後會自動儲存。切換語言會立即儲存草稿，切換頁面也會嘗試送出尚未儲存的內容。若出現 **Changes have not been saved**，請保留頁面、先複製程式碼、恢復後端連線，再按 **Retry save**。失敗草稿只暫存在瀏覽器記憶體，不是可長期保存的離線資料。
 - 未開始的題目沒有狀態圖示；編輯後為已嘗試（**◐**），Submit 通過後為已解題（**✓**）。後續修改或提交失敗不會清除已解題狀態。
 - **Stats → Current** 計算從開啟題目或上次提交通過起的實際經過時間，包含閒置時間。重新整理／重開題目會重新計時；**Best Total** 是已儲存通過紀錄中最短的解題總時間。
 - **Latest Submit** 是最近一筆 AC 提交在瀏覽器量到的請求耗時，包含編譯、程序啟動、測試與請求往返。**Latest Rank** 先依這項耗時，再依解題總時間與時間戳記排列本題的本機 AC 紀錄；它不是全球排名或受控的演算法效能測試。
-- 紀錄包含時間、語言、時間戳記與通過／總測資數。每種語言只保存最新草稿，不會保存每次提交的完整程式碼歷史。
+- **Activity** 預設顯示最近 30 個日曆日，依瀏覽器當地時區計算。輸入題目 ID、語言及日期後按 **Apply filters**。清空起訖日期可查詢所有時間。在題目頁按 **Submission history** 可直接查看該題紀錄。
+- 每日及區間統計包含提交次數、AC 次數、練習題數及通過題數。後兩者依不同題目計算，Run 或未受理的請求不列入。新紀錄依後端受理時間歸日，舊版紀錄依原有的通過時間歸日。裝置時區改變時，日期歸屬會隨之調整。
+- 按 **View** 可查看當次提交的程式碼與結果，並用 **Copy** 複製程式碼。伺服器判題與瀏覽器往返分別計時，排名只採計有瀏覽器量測的紀錄。即使瀏覽器斷線，後端仍保存已受理提交的結果。
 
 ## 匯入題目與隱藏測資
 
@@ -235,8 +246,7 @@ problems/<problem-id>/
 ├── template.py
 ├── testcases_visible.json
 ├── testcases_hidden.json
-├── editorial.md
-└── progress.json
+└── editorial.md
 ```
 
 | 檔案 | 用途與要求 |
@@ -246,20 +256,20 @@ problems/<problem-id>/
 | `testcases_visible.json` | 必備，非空 JSON 陣列，每項為 `{ "input": {...}, "output": ... }`；Run 與 Submit 都會使用。 |
 | `testcases_hidden.json` | 選用，格式同上，可以是 `[]`，只有 Submit 使用。匯入題目時建立空檔。 |
 | `editorial.md` | 選用的 Markdown 題解。語言標記不同且相鄰的 fenced code blocks，可顯示為語言分頁。 |
-| `progress.json` | App 管理的狀態、各語言程式碼、選用語言、AC `solveRecords` 與 `lastUpdated`。儲存進度時建立／更新，不是範本或測資檔。 |
+| `progress.json`（舊版） | 首次遷移時讀取，往後練習進度寫入 SQLite。 |
 
 `problem.json` 的顯示用範例與真正執行的測資是分開的。修改敘述中的範例不會改變判題內容，還要同步修改測資檔。
 
-### 備份、還原或重新開始
+### 遷移、備份與還原
 
-1. 等待儲存完成、關閉 App 分頁，再用 `Ctrl+C` 停止伺服器。
-2. 使用 Finder／檔案總管，把整個 **`problems/` 資料夾**複製到另一個備份位置。這會保留匯入題目、範本、題解、可見／隱藏測資、程式碼與紀錄。`node_modules/`、`dist/`、`temp/` 不是進度資料。
-3. 還原時保持 App 停止，先另外保留需要的新資料，再將要還原的題目資料夾放回 `problems/`，執行 `npm run dev` 重新啟動。
-4. 若只想重做一題，先備份，再於 App 停止時刪除**該題的 `progress.json`** 即可。重開後會使用範本，不再有已儲存狀態或紀錄；這和編輯器的 Reset 不同。
+更新後第一次啟動後端會驗證舊版進度 JSON，並在 `data/backups/legacy-*/` 留存副本。草稿、選用語言、練習狀態及通過紀錄以同一筆交易匯入。檔案損毀時，啟動訊息會指出需要修復的檔案。成功後以資料庫版本標記避免重複匯入，原 JSON 保留於原處。舊版只記錄 AC 摘要，因此 **Imported** 紀錄可能缺少程式碼及瀏覽器耗時。
 
-`npm run clean` 與 `./uninstall.sh` 會移除相依套件、建置結果和暫存檔，但保留 `problems/` 及 `package-lock.json`，不會清空練習紀錄。所有清理入口都會在刪除前拒絕符號連結形式的 `frontend`／`backend`；個別產物若為符號連結，只會移除連結，不會進入其指向的目錄。
+1. 等候草稿與提交儲存完成，在專案根目錄執行 `npm run data:backup`。指令會顯示 SQLite 一致快照的路徑。初次啟動成功後，後端執行中或已關閉均可備份。
+2. 將快照和對應的整個 `problems/` 題庫複製到另一個備份位置。複製期間請暫停匯入、修改及刪除題目。快照含有個人的程式碼，Git 會忽略 `data/` 與非內建題目。
+3. 還原時先停止後端，把現有的 `data/` 和 `problems/` 整個移到專案外妥善保存。將備份題庫放回 `problems/`，建立新的 `data/`，把快照以 `justcode.sqlite` 的檔名放入。重新啟動後，開啟一題核對草稿與歷史。原資料庫與其 WAL、SHM 檔一起保留，可避免混用不同版本的檔案。
+4. 刪除匯入的題目會一併刪除該題檔案、草稿與提交歷史。若仍在判題，請等判題完成。重新匯入同一題會從空白進度開始。編輯器的 **Reset** 只改目前語言的草稿。
 
-目前 `.gitignore` 忽略額外題目資料夾，但保留兩個內建題目。**內建題目的 `progress.json` 已被 Git 追蹤**，因此練習後可能出現已追蹤檔案變更，下載的版本也可能帶有作者儲存的進度。匯入題目不會自動包含在 Git 備份中；發布專案或建立 commit 前，請查看 `git status`，明確選擇要納入的題目資料與個人程式碼。
+`npm run clean` 和 `./uninstall.sh` 會保留 `data/`、其中的備份與題庫。
 
 ### 不透過 LeetCode 建立自己的題目
 
@@ -353,11 +363,12 @@ Docker 容器移除失敗時，錯誤會指出容器名稱，並保留執行工�
 
 | 指令 | 用途 |
 | --- | --- |
-| `npm install` | 安裝 workspace 相依套件。 |
+| `npm install`（macOS／Linux）或 `npx --yes npm@11.20.0 ci`（Windows） | 安裝 workspace 相依套件。 |
 | `npm run dev` | 啟動兩個開發伺服器。 |
 | `npm run dev:backend`／`npm run dev:frontend` | 只啟動其中一個開發伺服器。 |
 | `npm test` | 執行既有回歸測試；請安裝本機 Java 和 Python，才能涵蓋所有語言案例。 |
-| `npm run test:ui` | 使用模擬 API 執行 Chromium 互動回歸；需要 Node.js 20+ 及 `npx playwright install chromium`。 |
+| `npm run test:ui` | 執行 Chromium 互動測試，包含經過獨立後端與 SQLite 的真實 Python 提交。需要 Python3 與 `npx playwright install chromium`。 |
+| `npm run data:backup` | 建立一致的 SQLite 快照，存放於 `data/backups/`。 |
 | `npm run typecheck` | 檢查前端、後端及 Vite 設定型別，不產生建置檔。 |
 | `npm run build` | 將前後端分別建置至 `frontend/dist/`、`backend/dist/`。 |
 | `npm run build:frontend`／`npm run build:backend` | 只建置其中一個套件。 |
@@ -402,7 +413,7 @@ Vite preview 用來在本機檢查建置結果。後端不提供前端靜態檔�
 
 ## 目前限制
 
-- 適用於單一本機使用者，沒有登入、雲端同步、共享進度、資料庫或全球排行榜。請使用一個後端，避免多個分頁同時編輯同一題；目前沒有跨分頁或跨程序的衝突解決機制。
+- 適用於單一本機使用者，沒有登入、雲端同步、共享進度或全球排行榜。請使用一個後端，避免多個分頁同時編輯同一題；目前沒有跨分頁或跨程序的衝突解決機制。
 - 導覽列的 **Explore** 與 **Discuss** 是停用的占位項目，尚未實作功能。
 - 只實作 Java 與 Python3 runner，會呼叫 `Solution` 的方法並判斷回傳值；尚未實作自訂節點結構、設計類別 API 或 `void`／只原地修改資料的判題模式。
 - Java 輸入轉換支援特定的基本型別、陣列與 list，Python 接收 JSON 形式的值；不是所有匯入型別名稱都能執行。擴充型別前請參考 [Java 型別對應](backend/src/services/javaExecutor.ts)。
@@ -440,6 +451,7 @@ JustCode/
 │   ├── index.html
 │   ├── vite.config.ts            # 開發／預覽 API 代理
 │   └── package.json
+├── data/                         # 本機 SQLite 與備份，Git 忽略此目錄
 ├── problems/
 │   ├── add-two-integers/
 │   └── sort-array/
@@ -468,12 +480,16 @@ JustCode/
 | `POST` | `/api/submit` | 執行可見與隱藏測資並判題。 |
 | `POST` | `/api/import-problem` | 匯入公開 LeetCode 題目 URL。 |
 | `POST` | `/api/problems/:id/hidden-testcases` | 從 JSON 內容或專案相對路徑追加／取代隱藏測資。 |
-| `GET` | `/api/progress` | 讀取各題儲存的進度。 |
-| `GET` | `/api/progress/:id` | 讀取單題進度；缺檔或隨附的空白進度占位資料會回傳 `null`。 |
-| `PUT` | `/api/progress/:id` | 儲存經驗證的進度，並設定更新時間戳記。 |
+| `GET` | `/api/progress` | 讀取各題儲存的進度。題目列表使用 `?view=status` 只取狀態。 |
+| `GET` | `/api/progress/:id` | 讀取單題草稿、狀態與通過摘要，尚無進度時回傳 `null`。 |
+| `PUT` | `/api/progress/:id` | 儲存草稿、選用語言和 `none`／`attempted` 狀態。通過紀錄與已解題狀態由後端判題寫入。 |
+| `GET` | `/api/submissions` | 由新到舊查詢提交摘要。可用 `problemId`、`language`、`from`、`to`、`timezone`、`page`（從 1 開始）及 `limit`（預設 50，上限 100）。 |
+| `GET` | `/api/submissions/:id` | 讀取單筆程式碼快照、已遮蔽的判題結果、耗時與執行狀態。 |
+| `PATCH` | `/api/submissions/:id/timing` | 為已完成的提交補存 `submitDurationMs` 與選填的 `durationMs`。各量測保留第一次寫入的值。 |
+| `GET` | `/api/stats/daily` | 依同樣的題目、語言及日期條件取得每日與區間統計。日期包含起訖日，使用指定的 IANA 時區，API 預設 UTC。 |
 | `DELETE` | `/api/problems/:id` | 刪除非內建題目與其資料。 |
 
-直接呼叫 API 時，`/api/submit` 只回傳判題結果；瀏覽器收到 AC 後，才建立紀錄並另外透過進度端點儲存。讀取損毀進度會回報錯誤，不會悄悄改成空白進度。請求格式請參考[後端型別](backend/src/types.ts)及[請求驗證](backend/src/requestValidation.ts)。
+每次正式提交可在 `POST /api/submit` 帶入新的 UUID `submissionId`。同一識別碼與相同內容重試時會回傳已存結果，執行中則回傳 HTTP 202。同一識別碼用於不同內容會回傳 409。省略識別碼時由後端產生。後端受理後先保存快照再判題，重啟時將尚未完成的紀錄標記為 `interrupted`。Run 不列入歷史。詳見[介面型別](backend/src/shared/activity.ts)。
 
 ## 疑難排解
 
@@ -491,7 +507,7 @@ JustCode/
 | 自訂輸入／隱藏測資被拒絕 | 確認 JSON 格式及參數名稱。隱藏測資匯入需要非空陣列；Project Path 須指向專案內既有一般檔案，也請檢查 10／64 MiB 限制。 |
 | 題目沒出現在列表 | 檢查資料夾名稱、相同的 metadata `id`、有效題目資料及非空可見測資；後端會略過無效資料夾並印出警告。 |
 | 編輯器空白或範本不能執行 | 範本可能缺檔，或方法內容刻意未完成；可先試第一題範例，自訂題目則補上對應語言範本。 |
-| 進度無法載入／儲存 | 先複製編輯器內容、查看錯誤／伺服器紀錄，再用 Retry／Retry save。若 `progress.json` 損毀，先備份再修復，或移除以重新開始；後端刻意不覆寫損毀進度。 |
+| 進度無法載入／儲存 | 先複製尚未儲存的編輯器內容，恢復連線後按 **Retry save**。若遷移出錯，先備份訊息所指的舊檔再修復、重啟。資料庫復原請依上方的備份還原步驟。 |
 | Run 可用，Submit 卻無法讀取測資 | 備份並檢查 `testcases_hidden.json`。缺檔代表沒有隱藏測資，但 JSON 損毀會報錯；請修復，或確認後透過 Add Hidden Tests 取代。 |
 | AC 時看不到除錯輸出 | 成功執行會刻意隱藏除錯輸出，請查看回傳值；只在失敗的可見測資顯示除錯內容。 |
 
@@ -504,12 +520,13 @@ JustCode/
 | 全端練習介面 | React／TypeScript、Monaco 編輯器、各語言草稿、可調面板、Markdown 題解與統計 | [ProblemDetail](frontend/src/pages/ProblemDetail.tsx)、[元件](frontend/src/components/)、[前端相依套件](frontend/package.json) |
 | Java／Python 判題 | 依函式資料產生 runner，編譯／檢查語法、執行測資、比較 JSON 值並回傳診斷 | [執行器工廠](backend/src/services/codeExecutorFactory.ts)、[Java](backend/src/services/javaExecutor.ts)、[Python](backend/src/services/pythonExecutor.ts)、[共用結果邏輯](backend/src/services/executionUtils.ts) |
 | 執行控制 | 本機／Docker 切換、執行期限、輸出上限、程序清理及同時請求數限制 | [沙盒 runner](backend/src/services/sandboxRunner.ts)、[路由](backend/src/routes/problemRoutes.ts) |
-| 檔案式儲存 | 驗證資料、在單一後端程序內依題目依序寫入，先寫入並同步暫存 JSON，再重新命名替換正式檔案 | [儲存工具](backend/src/services/storage.ts)、[題目服務](backend/src/services/problemService.ts) |
+| 題庫檔案儲存 | 驗證資料、在單一後端程序內依題目依序寫入，先寫入並同步暫存 JSON，再重新命名替換正式檔案 | [儲存工具](backend/src/services/storage.ts)、[題目服務](backend/src/services/problemService.ts) |
 | 題目匯入 | 驗證 URL／題目／測資，轉換 LeetCode 公開資料，完整寫好暫存資料夾後才加入題庫，且不覆寫既有題目 | [匯入器](backend/src/services/leetcodeService.ts)、[驗證](backend/src/services/problemValidation.ts)、[題目服務](backend/src/services/problemService.ts) |
+| SQLite 提交歷史 | 判題前保存程式碼，交易同步更新結果與狀態，依瀏覽器時區查詢練習紀錄 | [資料庫](backend/src/services/practiceDatabase.ts)、[統計查詢](backend/src/services/activityQueries.ts) |
 | 進度保存可靠性 | 依題目排列儲存順序、在記憶體保留失敗草稿、提供重試及切頁時送出儲存 | [進度儲存](frontend/src/services/progressPersistence.ts)、[題目工作區](frontend/src/pages/ProblemDetail.tsx) |
 | 回歸驗證 | API、資料完整性、同時操作、語言執行、沙盒處理、前端狀態與可執行題解案例 | [測試](tests/)、[指令設定](package.json) |
 
-> 使用 React、TypeScript、Express 與 Monaco 開發本機刷題工具，支援 Java／Python3 執行、LeetCode 公開範例匯入、自訂／隱藏測資及進度自動儲存。實作檔案式資料保存、具選用 Docker 隔離的執行限制，並以回歸測試驗證判題、資料完整性與進度處理。
+> 使用 React、TypeScript、Express 與 Monaco 開發本機刷題工具，支援 Java／Python3 執行、LeetCode 公開範例匯入、自訂／隱藏測資及進度自動儲存。實作 SQLite 提交歷史與每日統計、具選用 Docker 隔離的執行限制，並以回歸測試驗證判題、資料完整性與進度處理。
 
 
 ## 授權資訊

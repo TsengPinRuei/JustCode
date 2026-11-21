@@ -10,4 +10,5 @@ problems/**
 !problems/sort-array/**
 !problems/add-two-integers/
 !problems/add-two-integers/**
+/data/
 *.tsbuildinfo
