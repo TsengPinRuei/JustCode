@@ -43,7 +43,7 @@ export function validateProgress(body: unknown): ProblemProgress {
             if (!isRecord(record) || typeof record.id !== 'string' || !record.id ||
                 ids.has(record.id) || typeof record.solvedAt !== 'string' ||
                 !Number.isFinite(Date.parse(record.solvedAt)) || !isLanguage(record.language) ||
-                !isNonNegativeNumber(record.durationMs) ||
+                (record.durationMs !== undefined && !isNonNegativeNumber(record.durationMs)) ||
                 (record.submitDurationMs !== undefined && !isNonNegativeNumber(record.submitDurationMs)) ||
                 !isNonNegativeNumber(record.passedTestcases) || !Number.isInteger(record.passedTestcases) ||
                 !isNonNegativeNumber(record.totalTestcases) || !Number.isInteger(record.totalTestcases) ||

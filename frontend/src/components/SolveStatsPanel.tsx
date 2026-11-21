@@ -6,7 +6,8 @@ interface SolveStatsPanelProps {
     attemptStartedAt: number;
 }
 
-const formatDuration = (durationMs: number): string => {
+const formatDuration = (durationMs?: number): string => {
+    if (durationMs === undefined) return '—';
     const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -20,12 +21,12 @@ const formatDuration = (durationMs: number): string => {
 
 const formatSubmitDuration = (durationMs?: number): string => {
     // Older progress files have no request timing; display a placeholder instead of inventing one.
-    if (durationMs === undefined) return '-';
+    if (durationMs === undefined) return '—';
     return `${Math.max(1, Math.round(durationMs))}ms`;
 };
 
 const getSubmitDuration = (record: SolveRecord): number => {
-    // Keep records without request timings in history, after records with measured timings.
+    // Browser request timings and server judge durations are independent measurements.
     return record.submitDurationMs ?? Number.POSITIVE_INFINITY;
 };
 
@@ -45,10 +46,10 @@ const formatSolvedAt = (value: string): string => {
 const rankRecords = (records: SolveRecord[]) => {
     // Rank by browser request duration, then total attempt time, then timestamp.
     // Request duration includes compilation, process startup, tests, and HTTP overhead.
-    return [...records]
+    return records.filter(record => record.submitDurationMs !== undefined)
         .sort((a, b) =>
             getSubmitDuration(a) - getSubmitDuration(b) ||
-            a.durationMs - b.durationMs ||
+            (a.durationMs ?? Infinity) - (b.durationMs ?? Infinity) ||
             a.solvedAt.localeCompare(b.solvedAt)
         )
         .map((record, index) => ({
@@ -77,7 +78,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
         let maxSubmitDuration = 1;
 
         for (const record of records) {
-            if (!bestTotalRecord || record.durationMs < bestTotalRecord.durationMs) {
+            if (record.durationMs !== undefined && record.durationMs < (bestTotalRecord?.durationMs ?? Infinity)) {
                 bestTotalRecord = record;
             }
             const submitDuration = getSubmitDuration(record);
@@ -87,7 +88,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
         }
 
         const latestRank = latestRecord
-            ? rankedRecords.find((entry) => entry.record.id === latestRecord.id)?.rank ?? rankedRecords.length
+            ? rankedRecords.find((entry) => entry.record.id === latestRecord.id)?.rank ?? null
             : null;
 
         return {
@@ -120,7 +121,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
             >
                 <span className="solve-stats-toggle-title">Stats</span>
                 <span className="solve-stats-toggle-summary">
-                    Submit {latestRecord ? formatSubmitDuration(latestRecord.submitDurationMs) : '-'} · Rank {latestRank ? `#${latestRank}` : '-'}
+                    Submit {formatSubmitDuration(latestRecord?.submitDurationMs)} · Rank {latestRank ? `#${latestRank}` : '—'}
                 </span>
                 <span className="solve-stats-toggle-icon" aria-hidden="true">
                     {expanded ? '−' : '+'}
@@ -136,15 +137,15 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
                         </div>
                         <div className="solve-stat-item">
                             <span className="solve-stat-label">Best Total</span>
-                            <strong>{bestTotalRecord ? formatDuration(bestTotalRecord.durationMs) : '-'}</strong>
+                            <strong>{formatDuration(bestTotalRecord?.durationMs)}</strong>
                         </div>
                         <div className="solve-stat-item">
                             <span className="solve-stat-label">Latest Submit</span>
-                            <strong>{latestRecord ? formatSubmitDuration(latestRecord.submitDurationMs) : '-'}</strong>
+                            <strong>{formatSubmitDuration(latestRecord?.submitDurationMs)}</strong>
                         </div>
                         <div className="solve-stat-item">
                             <span className="solve-stat-label">Latest Rank</span>
-                            <strong>{latestRank ? `#${latestRank}` : '-'}</strong>
+                            <strong>{latestRank ? `#${latestRank}` : '—'}</strong>
                         </div>
                         <div className="solve-stat-item">
                             <span className="solve-stat-label">Records</span>
@@ -157,11 +158,8 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
                             {rankedRecords.map(({ record, rank }) => {
                                 const isLatest = latestRecord?.id === record.id;
                                 const submitDuration = getSubmitDuration(record);
-                                // Keep every bar at least 10% wide, including records with no measured duration.
-                                // The minimum is a visibility aid, so very short bars are not exactly proportional.
-                                const width = Number.isFinite(submitDuration)
-                                    ? Math.max(10, Math.round((submitDuration / maxSubmitDuration) * 100))
-                                    : 10;
+                                // Give even a short, measured duration a visible bar.
+                                const width = Math.max(10, Math.round((submitDuration / maxSubmitDuration) * 100));
                                 return (
                                     <div
                                         key={record.id}
@@ -186,7 +184,7 @@ const SolveStatsPanel: FC<SolveStatsPanelProps> = ({ progress, attemptStartedAt 
                         </div>
                     ) : (
                         <div className="solve-stats-empty">
-                            Submit an accepted solution to create your first solve record.
+                            {records.length ? 'No browser request timings available for ranking.' : 'Submit an accepted solution to create your first solve record.'}
                         </div>
                     )}
                 </>

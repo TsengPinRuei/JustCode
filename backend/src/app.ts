@@ -2,11 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import { STATUS_CODES } from 'node:http';
 import { parseJson, stringifyJson } from './shared/json';
-import problemRoutes from './routes/problemRoutes';
 
 const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
-export function createApp(routes = problemRoutes): express.Express {
+export function createApp(routes: express.Router): express.Express {
     const app = express();
     app.disable('x-powered-by');
 

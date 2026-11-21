@@ -8,7 +8,7 @@ import { ExecutionResult, Testcase, TestcaseResult } from '../types';
 import { MAX_OUTPUT_LENGTH, RESULT_SEPARATOR, RESULT_END_SEPARATOR, TESTCASE_TIMEOUT_MS } from '../constants';
 import { deferWorkspaceCleanup, hasPendingContainer, SandboxCommandResult } from './sandboxRunner';
 
-export type ExecutionSummary = ExecutionResult & { totalTestcases: number; passedTestcases: number };
+export type ExecutionSummary = ExecutionResult & { totalTestcases: number; passedTestcases: number; judgeError?: true };
 export type TestcaseExecution = { result: TestcaseResult; debugOutput: string; infrastructureError?: string };
 
 export async function createWorkspace(): Promise<string> {
@@ -96,7 +96,7 @@ export async function executeTestcases(
     run: (testcase: Testcase, timeoutMs: number) => Promise<TestcaseExecution>
 ): Promise<ExecutionSummary> {
     if (testcases.length === 0) {
-        return { status: 'RE', message: 'No testcases available', testcaseResults: [], totalTestcases: 0, passedTestcases: 0 };
+        return { status: 'RE', judgeError: true, message: 'No testcases available', testcaseResults: [], totalTestcases: 0, passedTestcases: 0 };
     }
     // Visible testcases must precede hidden testcases; this count marks their boundary.
     const hiddenStart = Math.max(0, Math.min(visibleTestcaseCount, testcases.length));
@@ -176,6 +176,7 @@ export async function executeTestcases(
         testcaseResults: results,
         totalTestcases: testcases.length,
         passedTestcases: passed,
+        ...(infrastructureFailure && { judgeError: true as const }),
         debugOutput: debugOutputs.length ? debugOutputs.join('') : undefined,
     };
 }

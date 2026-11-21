@@ -60,7 +60,7 @@ function deferredRoute() {
     let resolve!: () => void;
     const ready = new Promise<void>(res => { resolve = res; });
     let pending!: Route;
-    return { ready, handle: async (route: Route) => { pending = route; resolve(); }, finish: (status = 400) => pending.fulfill({ status, json: { error: 'Old request failed' } }) };
+    return { ready, handle: async (route: Route) => { pending = route; resolve(); }, abort: () => pending.abort('failed'), succeed: (body: object) => pending.fulfill({ json: body }), finish: (status = 400) => pending.fulfill({ status, json: { error: 'Old request failed' } }) };
 }
 
 test('keyboard links enter bundled problems; delete keeps the list route', async ({ page }) => {
@@ -193,15 +193,52 @@ test('Submit alone shows its busy state and a stale server error is ignored', as
     await expect(page.getByText('Old request failed')).toHaveCount(0);
 });
 
+test('retry uses the same submission ID and an accepted response preserves edits made while judging', async ({ page }) => {
+    const saves = await setup(page);
+    const attempts: { code: string; submissionId: string }[] = [];
+    const judge = deferredRoute();
+    let finished = false;
+    await page.route('**/api/submit', route => {
+        attempts.push(route.request().postDataJSON());
+        return attempts.length === 1 ? route.abort('failed') : judge.handle(route);
+    });
+    await page.route('**/api/progress/add-two-integers', route => {
+        if (!finished || route.request().method() !== 'GET') return route.fallback();
+        return route.fulfill({ json: { status: 'solved', selectedLanguage: 'java', code: { java: attempts[0].code },
+            solveRecords: [{ id: attempts[0].submissionId, language: 'java', solvedAt: '2024-03-01T00:00:00Z',
+                passedTestcases: 1, totalTestcases: 1 }], lastUpdated: '2024-03-01T00:00:00Z' } });
+    });
+    await openWorkspace(page);
+    const submit = page.getByRole('button', { name: 'Submit', exact: true });
+    await submit.click();
+    await page.getByRole('button', { name: 'Retry submission' }).click();
+    await judge.ready;
+    expect(attempts[1]).toEqual(attempts[0]);
+    expect(attempts[0].submissionId).toMatch(/^[0-9a-f-]{36}$/);
+    const edited = 'class Solution { /* next version */ }';
+    await monacoAction(page, 'edit', edited);
+    finished = true;
+    await judge.succeed({ ...accepted, state: 'completed', submissionId: attempts[0].submissionId });
+    await expect(submit).toBeEnabled();
+    expect(await monacoAction(page, 'value')).toBe(edited);
+    await expect(page.locator('.result-title')).toHaveCount(0);
+    await page.getByRole('button', { name: /^Stats/ }).click();
+    await expect(page.locator('.solve-stat-item').filter({ hasText: 'Records' }).locator('strong')).toHaveText('1');
+    await expect.poll(() => saves.at(-1)?.code.java).toBe(edited);
+    expect(saves.at(-1)).not.toHaveProperty('solveRecords');
+    expect(saves.at(-1).status).toBe('attempted');
+});
+
 test('network errors from an old language do not replace current results', async ({ page }) => {
     await setup(page);
-    let fail!: () => Promise<void>;
-    await page.route('**/api/run', route => { fail = () => route.abort('failed'); });
+    const pending = deferredRoute();
+    await page.route('**/api/run', pending.handle);
     await openWorkspace(page);
     await page.getByRole('button', { name: 'Run', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Running...' })).toBeVisible();
     await page.getByLabel('Language', { exact: true }).selectOption('python3');
-    await fail();
+    await pending.ready;
+    await pending.abort();
     await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
     await expect(page.getByText('Network Error', { exact: true })).toHaveCount(0);
 });

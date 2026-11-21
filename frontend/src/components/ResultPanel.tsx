@@ -11,7 +11,7 @@ const DEBUG_SECTION_SPLIT_REGEX = /\n\n(?=\[Testcase \d+\])/;
 const DEBUG_SECTION_HEADER_REGEX = /^\[Testcase (\d+)\]/;
 // Keep labels exhaustive for the frontend ExecutionResult status union.
 // Update the separate backend and frontend contracts together.
-const STATUS_LABELS: Record<ExecutionResult['status'], string> = {
+export const STATUS_LABELS: Record<ExecutionResult['status'], string> = {
     AC: 'Accepted',
     WA: 'Wrong Answer',
     CE: 'Compile Error',

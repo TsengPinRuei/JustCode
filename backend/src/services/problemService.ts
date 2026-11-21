@@ -3,7 +3,10 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { isProblemId, isRecord, validateMetadata, validateTestcases } from './problemValidation';
 import { hasErrorCode, invalidInput, mapInBatches, MAX_DATA_BYTES, readTextFile, withStorageLock, writeJsonAtomic } from './storage';
-import { validateProgress } from '../requestValidation';
+import { RequestError } from '../requestValidation';
+import { PracticeDatabase, IdentifiedSubmit } from './practiceDatabase';
+import { PROJECT_ROOT } from './practiceSchema';
+import { PROTECTED_PROBLEMS } from '../constants';
 import {
     HiddenTestcaseImportRequest,
     HiddenTestcaseImportResponse,
@@ -13,15 +16,28 @@ import {
     Testcase,
 } from '../types';
 
-// Store problem files and progress under the project's problems directory.
+// The catalog lives on disk; user practice data lives in SQLite.
 export class ProblemService {
     private readonly projectRoot: string;
     private readonly problemsDir: string;
 
     // Source and compiled service files resolve to the same project root, regardless of cwd.
-    constructor(projectRoot = path.resolve(__dirname, '../../..')) {
+    constructor(projectRoot: string, readonly practice: PracticeDatabase) {
         this.projectRoot = path.resolve(projectRoot);
         this.problemsDir = path.join(this.projectRoot, 'problems');
+    }
+
+    static async open(root = PROJECT_ROOT): Promise<ProblemService> {
+        const practice = await PracticeDatabase.open(root);
+        const service = new ProblemService(root, practice);
+        try {
+            practice.interruptUnfinished();
+            for (const { problemId, token } of practice.pendingDeletes()) await service.finishDeletion(problemId, token);
+            return service;
+        } catch (error) {
+            practice.close();
+            throw error;
+        }
     }
 
     // Require lowercase IDs to prevent path traversal and aliases on case-insensitive filesystems.
@@ -33,7 +49,12 @@ export class ProblemService {
 
     private getProblemDir(problemId: string): string {
         this.validateProblemId(problemId);
+        this.assertAvailable(problemId);
         return path.join(this.problemsDir, problemId);
+    }
+
+    private assertAvailable(problemId: string): void {
+        if (this.practice.deletionToken(problemId)) throw new RequestError('Problem deletion is pending', 409);
     }
 
     private async assertProblemDirectory(problemDir: string): Promise<void> {
@@ -300,6 +321,7 @@ export class ProblemService {
             throw invalidInput(error instanceof Error ? error.message : 'Invalid problem data');
         }
         await withStorageLock(problemDir, async () => {
+            this.assertAvailable(problemId);
             await fs.mkdir(this.problemsDir, { recursive: true });
             await this.assertProblemDirectory(this.problemsDir);
             try {
@@ -325,74 +347,72 @@ export class ProblemService {
         });
     }
 
-    // Return null for missing progress; report corrupt files so autosave cannot overwrite recoverable data.
     async getProgress(problemId: string): Promise<ProblemProgress | null> {
-        const problemDir = this.getProblemDir(problemId);
-        await this.assertProblemDirectory(problemDir);
-        const progressPath = path.join(problemDir, 'progress.json');
-        try {
-            const value = await this.readJsonFile<unknown>(progressPath);
-            // Empty bundled progress uses blank language and timestamp fields to mean no saved attempt.
-            if (isRecord(value) && value.status === 'none' && isRecord(value.code) && Object.keys(value.code).length === 0 &&
-                value.selectedLanguage === '' && value.lastUpdated === '' &&
-                (value.solveRecords === undefined || (Array.isArray(value.solveRecords) && value.solveRecords.length === 0))) return null;
-            try {
-                validateProgress(value);
-                if (!isRecord(value) || typeof value.lastUpdated !== 'string' || !Number.isFinite(Date.parse(value.lastUpdated))) {
-                    throw new Error('Invalid progress timestamp');
-                }
-            } catch {
-                throw new Error(`Invalid saved progress for problem: ${problemId}`);
-            }
-            return value as unknown as ProblemProgress;
-        } catch (error) {
-            if (hasErrorCode(error, 'ENOENT')) return null;
-            throw error;
-        }
+        await this.assertProblemDirectory(this.getProblemDir(problemId));
+        return this.practice.progress(problemId)[problemId] ?? null;
     }
 
     async saveProgress(problemId: string, progress: ProblemProgress): Promise<void> {
-        const problemDir = this.getProblemDir(problemId);
-        await withStorageLock(problemDir, async () => {
-            await this.assertProblemDirectory(problemDir);
-            // Refuse to overwrite corrupt progress because it may contain recoverable solve history.
-            await this.getProgress(problemId);
-            await writeJsonAtomic(path.join(problemDir, 'progress.json'), progress);
+        const dir = this.getProblemDir(problemId);
+        await withStorageLock(dir, async () => {
+            this.assertAvailable(problemId);
+            await this.assertProblemDirectory(dir);
+            this.practice.saveDrafts(problemId, progress);
         });
     }
 
-    // Collect existing progress and propagate read or validation errors instead of hiding damaged history.
     async getAllProgress(): Promise<Record<string, ProblemProgress>> {
-        await this.assertProblemDirectory(this.problemsDir);
-        const entries = await fs.readdir(this.problemsDir, { withFileTypes: true });
-        const result: Record<string, ProblemProgress> = Object.create(null);
-
-        const progressReads = await mapInBatches(
-            entries.filter((entry) => entry.isDirectory() && isProblemId(entry.name)),
-            async (entry): Promise<[string, ProblemProgress] | null> => {
-                const progress = await this.getProgress(entry.name);
-                if (progress) {
-                    return [entry.name, progress];
-                }
-                return null;
-            });
-
-        for (const progressEntry of progressReads) {
-            if (progressEntry) {
-                const [problemId, progress] = progressEntry;
-                result[problemId] = progress;
-            }
-        }
-
-        return result;
+        return this.practice.progress();
     }
 
-    // Delete the entire problem directory; callers must enforce the protected-problem policy first.
+    async admitSubmission(request: IdentifiedSubmit, takeSlot: () => void) {
+        const dir = this.getProblemDir(request.problemId);
+        return withStorageLock(dir, async () => {
+            this.assertAvailable(request.problemId);
+            const existing = this.practice.replay(request);
+            if (existing) return { existing };
+            takeSlot();
+            const problem = await this.getProblemForExecution(request.problemId);
+            if (!problem.metadata.supportedLanguages.includes(request.language)) throw new RequestError('Language is not supported by this problem');
+            if (!problem.visibleTestcases.length && !problem.hiddenTestcases?.length) throw new RequestError('Problem has no testcases');
+            // Another problem may have used the same request ID while its files were being read.
+            const concurrent = this.practice.replay(request);
+            if (concurrent) return { existing: concurrent };
+            this.practice.begin(request);
+            return { problem };
+        });
+    }
+
+    private async finishDeletion(id: string, token: string): Promise<void> {
+        this.validateProblemId(id);
+        if (PROTECTED_PROBLEMS.has(id) || !/^[0-9a-f-]{36}$/.test(token)) throw new Error('Invalid deletion journal');
+        await this.assertProblemDirectory(this.problemsDir);
+        const source = path.join(this.problemsDir, id);
+        const staged = path.join(this.problemsDir, '.delete-' + token);
+        const inspect = async (dir: string) => {
+            try { await this.assertProblemDirectory(dir); return true; }
+            catch (error) { if (hasErrorCode(error, 'ENOENT')) return false; throw error; }
+        };
+        if (await inspect(source)) {
+            if (await inspect(staged)) throw new Error(`Conflicting directories while deleting ${id}`);
+            await fs.rename(source, staged);
+        }
+        this.practice.deleteProgress(id);
+        if (await inspect(staged)) await fs.rm(staged, { recursive: true });
+        this.practice.finishDeletion(id);
+    }
+
     async deleteProblem(problemId: string): Promise<void> {
-        const problemDir = this.getProblemDir(problemId);
-        await withStorageLock(problemDir, async () => {
-            await this.assertProblemDirectory(problemDir);
-            await fs.rm(problemDir, { recursive: true });
+        this.validateProblemId(problemId);
+        if (PROTECTED_PROBLEMS.has(problemId)) throw new RequestError('Cannot delete built-in problems', 403);
+        const dir = path.join(this.problemsDir, problemId);
+        await withStorageLock(dir, async () => {
+            let token = this.practice.deletionToken(problemId);
+            if (!token) {
+                await this.assertProblemDirectory(dir);
+                token = this.practice.beginDeletion(problemId);
+            }
+            await this.finishDeletion(problemId, token);
         });
     }
 }

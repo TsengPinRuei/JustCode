@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { ActivityFilter, DailyActivity, SubmissionDetail, SubmissionPage } from '../../../backend/src/shared/activity';
 import { parseJson, stringifyJson } from '../../../backend/src/shared/json';
 import {
     ExecutionResult,
@@ -23,7 +24,8 @@ const apiClient = axios.create({
 });
 
 const progressPersistence = createProgressPersistence(async (id, progress) => {
-    await apiClient.put(`/progress/${encodeURIComponent(id)}`, progress);
+    const { code, selectedLanguage, status } = progress;
+    await apiClient.put(`/progress/${encodeURIComponent(id)}`, { code, selectedLanguage, status: status === 'none' ? 'none' : 'attempted' });
 });
 
 export function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -31,6 +33,14 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
         return error.response.data.error;
     }
     return error instanceof Error && error.message ? error.message : fallback;
+}
+
+class RecordedSubmissionError extends Error {}
+
+export function canRetrySubmission(error: unknown): boolean {
+    if (error instanceof RecordedSubmissionError) return false;
+    if (!axios.isAxiosError(error) || !error.response) return true;
+    return !error.response.data?.state && (error.response.status === 429 || error.response.status >= 500);
 }
 
 export const problemsApi = {
@@ -60,13 +70,42 @@ export const problemsApi = {
         return response.data;
     },
 
-    async submitCode(
-        problemId: string, code: string, language: Language, signal?: AbortSignal
-    ): Promise<ExecutionResult> {
-        const response = await apiClient.post('/submit', {
-            problemId, code, language,
-        }, { signal, timeout: 75000 });
-        return response.data;
+    async submitCode(problemId: string, code: string, language: Language, submissionId: string, signal: AbortSignal): Promise<ExecutionResult> {
+        const response = await apiClient.post('/submit', { problemId, code, language, submissionId }, { signal, timeout: 75000 });
+        if (response.data.status) return response.data;
+        if (response.data.state === 'running') {
+            const deadline = Date.now() + 75000;
+            while (!signal.aborted && Date.now() < deadline) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const detail = await this.submission(submissionId, signal);
+                if (detail.result) return detail.result;
+                if (detail.state !== 'running') throw new RecordedSubmissionError(detail.error ?? detail.state);
+            }
+        }
+        if (response.data.state === 'error' || response.data.state === 'interrupted') {
+            throw new RecordedSubmissionError(response.data.error ?? response.data.state);
+        }
+        throw new Error('Submission has not completed. Check Activity or retry.');
+    },
+
+    async saveTiming(id: string, submitDurationMs: number, durationMs?: number): Promise<void> {
+        await apiClient.patch(`/submissions/${encodeURIComponent(id)}/timing`, { submitDurationMs, durationMs });
+    },
+
+    async submission(id: string, signal?: AbortSignal): Promise<SubmissionDetail> {
+        return (await apiClient.get(`/submissions/${encodeURIComponent(id)}`, { signal })).data;
+    },
+
+    async submissions(filter: ActivityFilter, page: number, signal: AbortSignal): Promise<SubmissionPage> {
+        return (await apiClient.get('/submissions', { params: { ...filter, page }, signal })).data;
+    },
+
+    async daily(filter: ActivityFilter, signal: AbortSignal): Promise<DailyActivity> {
+        return (await apiClient.get('/stats/daily', { params: filter, signal })).data;
+    },
+
+    async savedProgress(id: string, signal?: AbortSignal): Promise<ProblemProgress | null> {
+        return (await apiClient.get(`/progress/${encodeURIComponent(id)}`, { signal })).data;
     },
 
     async importProblem(url: string): Promise<{ success: boolean; problemId: string; title: string }> {
@@ -83,15 +122,12 @@ export const problemsApi = {
     },
 
     async getProgress(id: string, signal?: AbortSignal): Promise<ProblemProgress | null> {
-        return progressPersistence.read(id, async () => {
-            const response = await apiClient.get(`/progress/${encodeURIComponent(id)}`, { signal });
-            return response.data;
-        });
+        return progressPersistence.read(id, () => this.savedProgress(id, signal));
     },
 
-    async getAllProgress(signal?: AbortSignal): Promise<Record<string, ProblemProgress>> {
-        return progressPersistence.readAll(async () => {
-            const response = await apiClient.get('/progress', { signal });
+    async getProblemStatuses(signal?: AbortSignal): Promise<Record<string, ProblemProgress['status']>> {
+        return progressPersistence.readStatuses(async () => {
+            const response = await apiClient.get('/progress', { params: { view: 'status' }, signal });
             return response.data;
         });
     },
