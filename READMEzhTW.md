@@ -48,7 +48,7 @@ React 前端提供編輯器。Express 後端執行程式，並從 `problems/` �
 
 | 工具 | 何時需要 |
 | --- | --- |
-| Node.js 與 npm | 使用 Node.js 22 或更新版本。`npm install` 會一併安裝 SQLite 驅動程式，`install.sh` 會檢查 Node.js 版本。 |
+| Node.js 與 npm | 使用 Node.js 22 或更新版本。安裝專案相依套件時會一併安裝 SQLite 驅動程式，`install.sh` 會檢查 Node.js 版本。 |
 | JDK 11 或更新版本 | 本機執行 Java 時需要。JDK 同時包含 `javac` 編譯器與 `java` 執行環境。 |
 | Python 3.9 或更新版本 | 本機執行 Python3 時需要。可執行指令必須叫做 `python3`；排序題範本使用 `list[int]` 型別註記。 |
 | Docker | 選用，可取代本機 Java／Python 安裝。使用前請先啟動 Docker，並依[設定章節](#設定與執行限制)下載所需映像檔（image）。 |
@@ -87,8 +87,17 @@ cd JustCode
 
 如果已經下載，請在**專案根目錄**開啟終端機，也就是同時包含 `package.json`、`frontend/`、`backend/`、`problems/` 的資料夾。除非另有說明，後續指令都在這裡執行。
 
+macOS 與 Linux 可執行以下指令。
+
 ```bash
 npm install
+npm run dev
+```
+
+Windows 請使用已更新至最新修訂版的 Node.js 22 LTS 或更新版本。下列指令使用指定版本的 npm，會依照專案設定載入套件內附的 Windows SQLite 二進位檔。[npm 安裝問題紀錄](https://github.com/npm/cli/issues/9837)
+
+```powershell
+npx --yes npm@11.20.0 ci
 npm run dev
 ```
 
@@ -354,7 +363,7 @@ Docker 容器移除失敗時，錯誤會指出容器名稱，並保留執行工�
 
 | 指令 | 用途 |
 | --- | --- |
-| `npm install` | 安裝 workspace 相依套件。 |
+| `npm install`（macOS／Linux）或 `npx --yes npm@11.20.0 ci`（Windows） | 安裝 workspace 相依套件。 |
 | `npm run dev` | 啟動兩個開發伺服器。 |
 | `npm run dev:backend`／`npm run dev:frontend` | 只啟動其中一個開發伺服器。 |
 | `npm test` | 執行既有回歸測試；請安裝本機 Java 和 Python，才能涵蓋所有語言案例。 |
