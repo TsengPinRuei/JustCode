@@ -48,7 +48,7 @@ Start with [Quick Start](#quick-start), then follow [Your First Solution](#your-
 
 | Tool | When you need it |
 | --- | --- |
-| Node.js and npm | Use Node.js 22 or later. `npm install` includes the SQLite driver. `install.sh` checks the Node.js version. |
+| Node.js and npm | Use Node.js 22 or later. The workspace install includes the SQLite driver. `install.sh` checks the Node.js version. |
 | JDK 11 or newer | To run Java locally. A JDK includes both `javac` (compiler) and `java` (runtime). |
 | Python 3.9 or newer | To run Python3 locally. The executable must be named `python3`; the sorting template uses `list[int]` annotations. |
 | Docker | Optional alternative to installing Java/Python locally. Start Docker and download the images in [Configuration](#configuration-and-execution-limits) before using it. |
@@ -87,8 +87,17 @@ cd JustCode
 
 If you already downloaded it, open a terminal in the **project root**: the folder containing `package.json`, `frontend/`, `backend/`, and `problems/`. Run commands there unless stated otherwise.
 
+Run these commands on macOS and Linux.
+
 ```bash
 npm install
+npm run dev
+```
+
+On Windows, use an up-to-date Node.js 22 LTS or later. The pinned npm command honors this project's SQLite install setting and loads the bundled Windows binary. [npm install issue](https://github.com/npm/cli/issues/9837)
+
+```powershell
+npx --yes npm@11.20.0 ci
 npm run dev
 ```
 
@@ -352,7 +361,7 @@ Run from the project root. A **workspace** here means one of the frontend/backen
 
 | Command | Purpose |
 | --- | --- |
-| `npm install` | Install workspace dependencies. |
+| `npm install` (macOS/Linux) or `npx --yes npm@11.20.0 ci` (Windows) | Install workspace dependencies. |
 | `npm run dev` | Start both development servers. |
 | `npm run dev:backend` / `npm run dev:frontend` | Start one development server. |
 | `npm test` | Run the existing regression suite. Install both local Java and Python to exercise all language cases. |

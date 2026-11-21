@@ -18,7 +18,13 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      - name: Install locked dependencies
+        if: runner.os != 'Windows'
+        run: npm ci
+      # npm 10 synthesizes a node-gyp build even when the package ships a Windows binding.
+      - name: Install locked dependencies on Windows
+        if: runner.os == 'Windows'
+        run: npx --yes npm@11.20.0 ci
       - run: node --import tsx --test tests/practice.test.ts
   checks:
     runs-on: ubuntu-latest

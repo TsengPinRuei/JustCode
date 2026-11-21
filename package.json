@@ -36,6 +36,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "allowScripts": {
+    "better-sqlite3": false
+  },
   "overrides": {
     "dompurify": "^3.4.18",
     "vite": "^6.4.4"
