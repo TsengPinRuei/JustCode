@@ -20,8 +20,8 @@ const progress: ProblemProgress = {
 
 test('storage protects existing data and serializes concurrent mutations', async t => {
     const root = await fs.mkdtemp(path.join(tmpdir(), 'justcode-storage-'));
-    const service = new ProblemService(root);
-    const secondService = new ProblemService(root);
+    const service = await ProblemService.open(root);
+    const secondService = new ProblemService(root, service.practice);
     const problemDir = path.join(root, 'problems', 'example');
     const hiddenFile = path.join(problemDir, 'testcases_hidden.json');
     const progressFile = path.join(problemDir, 'progress.json');
@@ -38,9 +38,11 @@ test('storage protects existing data and serializes concurrent mutations', async
         });
         await t.test('duplicate imports retain hidden cases, templates, and progress', async () => {
             await service.saveProgress('example', progress);
-            const before = await Promise.all([hiddenFile, progressFile, path.join(problemDir, 'template.py')].map(file => fs.readFile(file, 'utf-8')));
+            const files = [hiddenFile, path.join(problemDir, 'template.py')];
+            const before = await Promise.all(files.map(file => fs.readFile(file, 'utf-8')));
             await assert.rejects(service.saveProblem('example', data), { code: 'EEXIST' });
-            assert.deepEqual(await Promise.all([hiddenFile, progressFile, path.join(problemDir, 'template.py')].map(file => fs.readFile(file, 'utf-8'))), before);
+            assert.deepEqual(await Promise.all(files.map(file => fs.readFile(file, 'utf-8'))), before);
+            assert.deepEqual(await service.getProgress('example'), progress);
         });
         await t.test('invalid imports do not publish partial problem directories', async () => {
             await assert.rejects(service.saveProblem('invalid', { ...data, metadata: { ...metadata, id: 'invalid' }, visibleTestcases: [] }), { code: 'EINVAL' });
@@ -72,17 +74,11 @@ test('storage protects existing data and serializes concurrent mutations', async
             await service.importHiddenTestcases('example', { mode: 'replace', sourceType: 'content', content: '[{"input":{"n":2},"output":2}]' });
             assert.equal((await service.getProblemForExecution('example')).hiddenTestcases?.length, 1);
         });
-        await t.test('corrupt progress is reported and cannot be overwritten by autosave', async () => {
-            for (const value of ['{broken', '{"status":"solved","code":{},"selectedLanguage":"python3","lastUpdated":"invalid","solveRecords":[{}]}']) {
-                await fs.writeFile(progressFile, value);
-                await assert.rejects(service.getProgress('example'));
-                await assert.rejects(service.saveProgress('example', progress));
-                assert.equal(await fs.readFile(progressFile, 'utf-8'), value);
-            }
-            await fs.writeFile(progressFile, JSON.stringify({ status: 'none', code: {}, selectedLanguage: '', lastUpdated: '', solveRecords: [] }));
-            assert.equal(await service.getProgress('example'), null);
+        await t.test('after migration only SQLite changes when saving progress', async () => {
+            await fs.writeFile(progressFile, 'original snapshot');
             await service.saveProgress('example', progress);
             assert.deepEqual(await service.getProgress('example'), progress);
+            assert.equal(await fs.readFile(progressFile, 'utf-8'), 'original snapshot');
         });
         await t.test('unrelated directories do not prevent listing valid progress', async () => {
             await fs.mkdir(path.join(root, 'problems', 'NOT-A-PROBLEM'));
@@ -111,6 +107,7 @@ test('storage protects existing data and serializes concurrent mutations', async
             }));
         });
     } finally {
+        service.practice.close();
         await fs.rm(root, { recursive: true, force: true });
     }
 });
@@ -133,7 +130,7 @@ test('failed atomic replacement keeps the previous file and removes temporary ou
 
 test('storage and hidden imports preserve exact large integer tokens', async () => {
     const root = await fs.mkdtemp(path.join(tmpdir(), 'justcode-exact-storage-'));
-    const service = new ProblemService(root);
+    const service = await ProblemService.open(root);
     const largeMetadata = { ...metadata, params: [{ name: 'n', type: 'long' }], returnType: 'long' };
     const testcase = parseJson('{"input":{"n":9223372036854775807},"output":9223372036854775807}');
     try {
@@ -146,5 +143,5 @@ test('storage and hidden imports preserve exact large integer tokens', async () 
         assert.equal(loaded.hiddenTestcases?.[0].output, 9007199254740993n);
         assert.match(await fs.readFile(path.join(root, 'problems/example/testcases_hidden.json'), 'utf8'), /9007199254740993/);
         assert.deepEqual(parseJson(stringifyJson(loaded.visibleTestcases)), loaded.visibleTestcases);
-    } finally { await fs.rm(root, { recursive: true, force: true }); }
+    } finally { service.practice.close(); await fs.rm(root, { recursive: true, force: true }); }
 });

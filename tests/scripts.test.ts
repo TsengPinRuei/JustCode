@@ -16,6 +16,9 @@ test('uninstall preserves sources and lockfiles and refuses symlinked workspaces
         await writeFile(join(project, 'package.json'), '{}');
         await writeFile(join(project, 'package-lock.json'), '{"keep":true}');
         await mkdir(join(project, 'backend'));
+        await mkdir(join(project, 'data', 'backups'), { recursive: true });
+        await writeFile(join(project, 'data', 'justcode.sqlite'), 'practice');
+        await writeFile(join(project, 'data', 'backups', 'saved.sqlite'), 'backup');
         await symlink(external, join(project, 'frontend'));
         await mkdir(join(external, 'dist'));
         await writeFile(join(external, 'dist', 'keep.txt'), 'keep');
@@ -29,6 +32,8 @@ test('uninstall preserves sources and lockfiles and refuses symlinked workspaces
         execFileSync('bash', ['uninstall.sh', '--yes'], { cwd: project });
         assert.equal(await readFile(join(project, 'package-lock.json'), 'utf8'), '{"keep":true}');
         assert.equal(await readFile(join(project, 'frontend', 'source.ts'), 'utf8'), 'keep');
+        assert.equal(await readFile(join(project, 'data', 'justcode.sqlite'), 'utf8'), 'practice');
+        assert.equal(await readFile(join(project, 'data', 'backups', 'saved.sqlite'), 'utf8'), 'backup');
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -77,10 +82,12 @@ test('npm cleanup removes only the selected generated artifacts and unlinks targ
             const external = join(root, mode + '-external');
             await mkdir(join(project, 'scripts'), { recursive: true });
             await mkdir(join(project, 'problems'));
+            await mkdir(join(project, 'data', 'backups'), { recursive: true });
+            const preserved = ['package.json', 'package-lock.json', 'problems/progress.json', 'data/justcode.sqlite', 'data/backups/saved.sqlite'];
             await mkdir(external);
             await writeFile(join(external, 'keep.txt'), 'external');
             await copyFile(new URL('../scripts/clean.cjs', import.meta.url), join(project, 'scripts/clean.cjs'));
-            for (const file of ['package.json', 'package-lock.json', 'problems/progress.json']) {
+            for (const file of preserved) {
                 await writeFile(join(project, file), '{"keep":true}');
             }
             for (const dir of [...modules, ...builds, 'temp', 'backend/temp']) {
@@ -95,7 +102,7 @@ test('npm cleanup removes only the selected generated artifacts and unlinks targ
             for (const file of removed) {
                 await assert.rejects(readFile(join(project, file)), { code: 'ENOENT' });
             }
-            for (const file of ['package.json', 'package-lock.json', 'problems/progress.json']) {
+            for (const file of preserved) {
                 assert.equal(await readFile(join(project, file), 'utf8'), '{"keep":true}');
             }
             assert.equal(await readFile(join(project, 'frontend/source.ts'), 'utf8'), 'source');

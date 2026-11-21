@@ -93,10 +93,10 @@ export type ProblemStatus = 'none' | 'attempted' | 'solved';
 // Timing and result summary of an accepted submission; source code is not stored in the record.
 export interface SolveRecord {
     id: string;
-    // Browser timestamp when the accepted response was received, in ISO format.
+    // UTC completion time of the accepted submission.
     solvedAt: string;
     // Wall-clock attempt time, including idle time and the accepted submission request.
-    durationMs: number;
+    durationMs?: number;
     // Browser request duration, including compilation, tests, and HTTP overhead.
     // Optional for compatibility with older progress files.
     submitDurationMs?: number;

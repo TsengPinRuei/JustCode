@@ -45,7 +45,7 @@ export class PythonExecutor {
         try {
             testcases = normalizeTestcases(testcases, metadata, 'python3');
         } catch (error) {
-            return { status: 'RE', message: `Invalid testcase data: ${error instanceof Error ? error.message : String(error)}`,
+            return { status: 'RE', judgeError: true, message: `Invalid testcase data: ${error instanceof Error ? error.message : String(error)}`,
                 testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0 };
         }
         const deadline = performance.now() + EXECUTION_TIMEOUT_MS;
@@ -69,6 +69,7 @@ export class PythonExecutor {
                     message: compiled.infrastructureError || (compiled.timedOut ? 'Compilation time limit exceeded' : compiled.stderr.slice(0, 4096)),
                     testcaseResults: [], totalTestcases: testcases.length, passedTestcases: 0,
                     compilationErrors,
+                    ...(compiled.infrastructureError && { judgeError: true as const }),
                 };
             }
             return await executeTestcases(testcases, showHiddenInputs, visibleTestcaseCount, deadline,

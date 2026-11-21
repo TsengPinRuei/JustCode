@@ -16,6 +16,7 @@ const Navbar: FC = () => {
                             Problems
                         </Link>
                     </li>
+                    <li><Link to="/activity" className={location.pathname === '/activity' ? 'active' : ''}>Activity</Link></li>
                     {/* Explore and Discuss are placeholders with no routes yet. */}
                     <li className="navbar-disabled-item">
                         <span className="navbar-link-disabled" aria-disabled="true">

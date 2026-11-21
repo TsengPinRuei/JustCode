@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, lazy, Suspense, type FC } from 'react';
 import { useParams } from 'react-router-dom';
-import { getApiErrorMessage, problemsApi } from '../services/apiClient';
+import { canRetrySubmission, getApiErrorMessage, problemsApi } from '../services/apiClient';
 import { Problem, ExecutionResult, Language, ProblemProgress } from '../types';
 import ProblemDescription from '../components/ProblemDescription';
 import ConsolePanel from '../components/ConsolePanel';
@@ -16,6 +16,8 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [loadRevision, setLoadRevision] = useState(0);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [retrySubmission, setRetrySubmission] = useState<string | null>(null);
+    const [historyNotice, setHistoryNotice] = useState<string | null>(null);
     const [executionKind, setExecutionKind] = useState<'run' | 'submit' | null>(null);
     const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
     const [activeTab, setActiveTab] = useState<'testcase' | 'result'>('testcase');
@@ -141,6 +143,7 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
 
     const handleCodeChange = (value: string) => {
         if (!progressRef.current) return;
+        setRetrySubmission(null);
         setCode(value);
         setExecutionResult(null);
         updateProgress({
@@ -154,19 +157,21 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
         const codeMap = { ...progressRef.current.code, [selectedLanguage]: code };
         const nextCode = codeMap[language] ?? problem.templates[language];
         codeMap[language] = nextCode;
+        setRetrySubmission(null);
         setSelectedLanguage(language);
         setCode(nextCode);
         setExecutionResult(null);
         updateProgress({ code: codeMap, selectedLanguage: language }, true);
     };
 
-    const execute = async (submit: boolean, inputMode: 'visible' | 'custom' = 'visible', customInput?: string) => {
+    const execute = async (submit: boolean, inputMode: 'visible' | 'custom' = 'visible', customInput?: string, retryId?: string) => {
         // A ref closes the interval before React disables the buttons.
         if (executionRef.current) return;
         const controller = new AbortController();
         executionRef.current = controller;
         const submittedCode = code;
         const submittedLanguage = selectedLanguage;
+        const submissionId = submit ? retryId ?? crypto.randomUUID() : null;
         const submitStartedAt = Date.now();
         const startedAt = attemptStartedAtRef.current;
         const ownsCurrentBuffer = () => {
@@ -174,49 +179,56 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
             return !controller.signal.aborted && current?.selectedLanguage === submittedLanguage
                 && (current.code[submittedLanguage] ?? problem?.templates[submittedLanguage]) === submittedCode;
         };
+        setRetrySubmission(null);
+        setHistoryNotice(null);
         setExecutionKind(submit ? 'submit' : 'run');
         setExecutionResult(null);
         setActiveTab('result');
         void flushProgress();
         try {
-            const result = submit
-                ? await problemsApi.submitCode(id, submittedCode, submittedLanguage, controller.signal)
+            const result = submissionId
+                ? await problemsApi.submitCode(id, submittedCode, submittedLanguage, submissionId, controller.signal)
                 : await problemsApi.runCode(id, submittedCode, submittedLanguage, inputMode, customInput, controller.signal);
             if (controller.signal.aborted) return;
 
-            const current = progressRef.current;
             // Diagnostics belong to the executed buffer; edits made while the
             // request was running must not receive stale compiler markers.
             if (ownsCurrentBuffer()) {
                 setExecutionResult(result);
             }
 
-            // Record an accepted submission even if the editor changed while it ran.
-            // Preserve the newest draft; solve records contain timing and results, not a code snapshot.
-            if (submit && result.status === 'AC' && current) {
+            if (submissionId) {
                 const completedAt = Date.now();
-                const solvedAt = new Date(completedAt).toISOString();
-                const records = current.solveRecords ?? [];
-                updateProgress({
-                    status: 'solved',
-                    code: { ...current.code, [submittedLanguage]: current.code[submittedLanguage] ?? submittedCode },
-                    solveRecords: [...records, {
-                        id: `${solvedAt}-${records.length + 1}`,
-                        solvedAt,
-                        // Measure attempt time from problem load or the previous acceptance, including idle time.
-                        durationMs: Math.max(1000, completedAt - startedAt),
-                        // Measure submission time from the browser request, not from testcase execution alone.
-                        submitDurationMs: Math.max(1, completedAt - submitStartedAt),
-                        language: submittedLanguage,
-                        passedTestcases: result.passedTestcases,
-                        totalTestcases: result.totalTestcases,
-                    }],
-                }, true);
-                attemptStartedAtRef.current = completedAt;
-                setAttemptStartedAt(completedAt);
+                const accepted = result.status === 'AC';
+                if (accepted) {
+                    attemptStartedAtRef.current = completedAt;
+                    setAttemptStartedAt(completedAt);
+                }
+                if (!retryId) {
+                    try {
+                        await problemsApi.saveTiming(submissionId, Math.max(1, completedAt - submitStartedAt),
+                            accepted ? Math.max(1000, completedAt - startedAt) : undefined);
+                    } catch {
+                        if (!controller.signal.aborted) setHistoryNotice('Submission saved. Browser timing could not be saved.');
+                    }
+                }
+                // The database owns solve history. Merge its view into the current buffer without queuing a draft write.
+                if (accepted && !controller.signal.aborted) {
+                    try {
+                        const saved = await problemsApi.savedProgress(id, controller.signal);
+                        if (!controller.signal.aborted && saved && progressRef.current) {
+                            const next = { ...progressRef.current, status: saved.status, solveRecords: saved.solveRecords };
+                            progressRef.current = next;
+                            setProgressSnapshot(next);
+                        }
+                    } catch {
+                        if (!controller.signal.aborted) setHistoryNotice('Submission saved. Reopen the problem to refresh its statistics.');
+                    }
+                }
             }
         } catch (error) {
             if (ownsCurrentBuffer()) {
+                if (submissionId && canRetrySubmission(error)) setRetrySubmission(submissionId);
                 setExecutionResult({
                     status: 'RE',
                     message: getApiErrorMessage(error, `Failed to ${submit ? 'submit' : 'run'} code. Please try again.`),
@@ -264,6 +276,9 @@ const ProblemWorkspace: FC<{ id: string }> = ({ id }) => {
                         defaultTopHeight={65}
                         top={
                             <div className="code-editor-section">
+                                {retrySubmission && <button type="button" className="problem-header-action-btn"
+                                    onClick={() => void execute(true, 'visible', undefined, retrySubmission)}>Retry submission</button>}
+                                {historyNotice && <p role="status">{historyNotice}</p>}
                                 {saveError && (
                                     <div className="error-message" role="alert">
                                         Changes have not been saved: {saveError}

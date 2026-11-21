@@ -6,6 +6,26 @@ on:
 permissions:
   contents: read
 jobs:
+  sqlite:
+    name: SQLite storage (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        if: runner.os != 'Windows'
+        run: npm ci
+      # npm 10 synthesizes a node-gyp build even when the package ships a Windows binding.
+      - name: Install locked dependencies on Windows
+        if: runner.os == 'Windows'
+        run: npx --yes npm@11.20.0 ci
+      - run: node --import tsx --test tests/practice.test.ts
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 15

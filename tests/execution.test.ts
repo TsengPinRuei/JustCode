@@ -203,6 +203,7 @@ test('unconfirmed container cleanup stops the remaining testcases', async () => 
     assert.equal(calls, 1);
     assert.equal(summary.status, 'RE');
     assert.match(summary.message || '', /justcode-test/);
+    assert.equal(summary.judgeError, true);
 });
 
 
