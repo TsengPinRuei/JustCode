@@ -2,60 +2,41 @@
 
 **English** · [繁體中文](READMEzhTW.md)
 
-JustCode is a coding practice app for one person on one computer. Pick a problem, write a Java or Python solution in your browser, and get feedback from local tests. You can close the app, come back to your draft, and review the exact code you submitted. No account is required.
+Practice Java and Python on your own computer with JustCode. Solve problems in a browser editor, test your code, and revisit the code and result of each attempt you submit. No account is required. After setup, both bundled problems work offline.
 
-[Quick start](#quick-start) · [Your first solution](#your-first-solution) · [Practice history](#practice-history) · [Add problems and tests](#add-problems-and-tests) · [Back up your work](#back-up-your-work) · [Developer guide](#developer-guide)
+**Practice** · [Quick start](#quick-start) · [Solve your first problem](#solve-your-first-problem) · [Drafts and history](#drafts-results-and-history)
+
+**Maintain and develop** · [Add problems and tests](#add-problems-and-tests) · [Back up and restore](#back-up-and-restore) · [Development](#development) · [Troubleshooting](#troubleshooting)
 
 ## Quick start
 
-### 1. Install the tools
+Install Node.js with npm. For local execution, install **either Python or the JDK**. The editor and SQLite driver come with the app. Use the default mode for code you write or trust. If Docker or the language image is unavailable, it runs solutions with your user account’s file permissions. To require a container, use a language image and set `JUSTCODE_SANDBOX_MODE=docker`. [Execution modes](#execution-modes)
 
-Install Node.js and **one** of the two languages below. SQLite and the browser editor come with the app. Open Terminal on macOS/Linux or PowerShell on Windows to check your installation.
-
-| To do this | Install | Check in your terminal |
+| Tool | Version | Check in your terminal |
 | --- | --- | --- |
-| Start JustCode | Node.js 22 or newer with npm. [Download Node.js](https://nodejs.org/en/download) | `node --version` and `npm --version` |
-| Solve in Python | Python 3.9 or newer with a `python3` command, including on Windows. [Download Python](https://www.python.org/downloads/) | `python3 --version` |
-| Solve in Java | JDK 11 or newer, which includes the compiler and runtime. [Download a JDK](https://adoptium.net/temurin/releases/) | `javac --version` and `java --version` |
+| [Node.js](https://nodejs.org/en/download) | 22 or later | `node --version` and `npm --version` |
+| [Python](https://www.python.org/downloads/) | 3.9 or later, for Python solutions | `python3 --version` · [Windows setup](#python-on-windows) |
+| [Java Development Kit](https://adoptium.net/temurin/releases/) | JDK 11 or later, for Java solutions | `javac --version` and `java --version` |
 
-If you already use Docker, you can run Java or Python in a container. The images and startup commands are under [execution modes](#technical-reference).
+1. Get the project. With Git, run the commands below. You can also choose **Code → Download ZIP** on GitHub, extract it, and open a terminal in the folder containing `package.json`.
 
-### 2. Get the project and install dependencies
+   ```sh
+   git clone https://github.com/TsengPinRuei/JustCode.git
+   cd JustCode
+   ```
 
-If you have Git, run the following commands. You can also choose **Code → Download ZIP** on GitHub, extract it, and open a terminal in the folder containing `package.json`. Run the remaining commands from that folder.
+2. Install dependencies from that folder. On **macOS or Linux**, run `npm ci`. On **Windows PowerShell**, use an up-to-date Node.js 22.x release and run `npx --yes npm@11.20.0 ci`.
+3. Start the app.
 
-```bash
-git clone https://github.com/TsengPinRuei/JustCode.git
-cd JustCode
-```
+   ```sh
+   npm run dev
+   ```
 
-**macOS or Linux**
+In a desktop browser, open the **Local** address printed in the terminal, usually [localhost:5173](http://localhost:5173). **Problems** lists two exercises on a fresh install. Keep the terminal running. To stop, wait for saves and submissions to finish, then press `Ctrl+C`. Start again with `npm run dev`.
 
-```bash
-npm ci
-```
+## Solve your first problem
 
-**Windows PowerShell**
-
-Use an up-to-date Node.js 22.x release and the npm command below to match the Windows checks and install the bundled SQLite driver.
-
-```powershell
-npx --yes npm@11.20.0 ci
-```
-
-### 3. Open the app
-
-```bash
-npm run dev
-```
-
-Leave the terminal running and open the **Local** URL printed by Vite, usually [http://localhost:5173](http://localhost:5173). You should see **Problems** with two bundled exercises on a fresh install. Use a desktop browser window of at least 1200 × 720 for the full workspace. Once dependencies are installed, you can practice the bundled problems offline.
-
-When you finish, let saves and submissions complete, then press `Ctrl+C` in the terminal. Next time, run `npm run dev` again.
-
-## Your first solution
-
-Open **-27. Add Two Integers**. For the first example, the inputs are `12` and `5`, so your method should return `17`. In **Language**, choose **Python3** or **Java** and replace the editor contents with the matching solution. JustCode calls `Solution.sum` for you and checks the value you `return`.
+Open **-27. Add Two Integers**. The first example gives you `12` and `5` and expects `17`. JustCode calls `Solution.sum` and checks its return value. In **Language**, choose **Python3** or **Java** and replace the editor contents with the matching solution.
 
 **Python3**
 
@@ -75,46 +56,38 @@ class Solution {
 }
 ```
 
-1. Under **Testcase**, select **Case 1** and click **Run**. A test case pairs an input with its expected answer. **Result** should show **Accepted** and **2 / 2** because Run checks every visible case.
-2. Click **Submit**. With the bundled tests, the result should be **Accepted**, **52 / 52**. The problem now has a ✓ in **Problems**.
-3. Click the **Submission history** icon to the right of **Download Description** in the problem header, then **View** to see the code and result you just saved.
+| Try it | What happens with the bundled tests |
+| --- | --- |
+| Select **Case 1** under **Testcase** and click **Run**. | Run checks all visible examples. **Result** shows **Accepted**, **2 / 2**. |
+| Return to **Testcase**, choose **Custom Input**, enter `{"num1": -3, "num2": 8}`, and click **Run**. | **Actual** shows `5`. In this mode **Accepted** means the code ran successfully. You check the answer. |
+| Click **Submit**. | The judge runs visible and hidden tests. You’ll see **Accepted**, **52 / 52**, and the problem is marked solved. Only Submit records attempts in history, including failed ones. |
+| Open **Submission history** beside the problem title, then **View**. | You can read or copy the exact code saved for that attempt. |
 
-Both bundled problems have starter code and an **Editorial** tab with worked solutions.
+### Drafts, results, and history
+
+- Each problem **autosaves** separate Java and Python drafts about a second after you stop typing. **Reset** replaces the current language’s draft with its starter code.
+- For **Wrong Answer**, compare **Expected** and **Actual** on a visible case. **Console Output** shows debug text from failed visible cases. Hidden tests report totals and the first failure’s case number, status, and time.
+- **Activity** shows submissions, accepted attempts, and distinct problems practiced or solved. It opens on the last 30 days in your time zone. Filter by problem, language, or dates, then click **Apply filters**. Clear both dates for all time.
+- In the problem’s **Stats**, **Best Total** is your shortest time to solve it. **Latest Submit** measures the browser request for your latest accepted attempt. **Server judge** in submission details measures judging time.
+
+Both bundled problems include an **Editorial** with worked Java and Python solutions.
 
 | Problem | Difficulty | Visible / hidden tests | Editorial |
 | --- | --- | --- | --- |
-| [-27. Add Two Integers](problems/add-two-integers/problem.json) | Easy | 2 / 50 | [Addition and a bitwise approach](problems/add-two-integers/editorial.md) |
+| [-27. Add Two Integers](problems/add-two-integers/problem.json) | Easy | 2 / 50 | [Direct addition and bit manipulation](problems/add-two-integers/editorial.md) |
 | [-09. Sort an Array](problems/sort-array/problem.json) | Medium | 3 / 69 | [Five sorting algorithms and their trade-offs](problems/sort-array/editorial.md) |
-
-## Everyday practice
-
-| What you want to do | Action | What to look for |
-| --- | --- | --- |
-| Check the visible examples | Select any **Case** under **Testcase** and click **Run**. | Compare **Expected** with **Actual** for each case. |
-| Try your own input | Select **Custom Input**, enter `{"num1": -3, "num2": 8}` for the addition problem, and click **Run**. | Look for `5` under **Actual**. Here **Accepted** means the code ran successfully. You check the answer yourself. |
-| Record an attempt | Click **Submit** to run the visible and local hidden tests. | JustCode saves the submitted code even when a test fails. A passing submission marks the problem solved. |
-
-The editor saves your draft about one second after you stop typing. Each problem keeps separate Java and Python drafts. **Reset** immediately replaces the current language's draft with its starter code. You can also resize the panes, change the editor font size, and copy code from the editorial.
-
-If a test fails, **Wrong Answer** points to a return value that differs from the expected answer. **Compile Error** covers Java compilation and Python syntax errors. For **Runtime Error**, read the error details. For **Time Limit Exceeded**, check loops and the amount of work per input. **Console Output** shows debug text from failing visible cases. For hidden cases, the result includes totals and at most the first failure's case number, status, and time.
-
-### Practice history
-
-Open **Activity** to see the last 30 calendar days in your browser's time zone. Filter by **Problem ID**, **Language**, or dates, then click **Apply filters**. Clear both date fields and apply to see all time. Daily and period totals show submissions, accepted submissions, distinct problems practiced, and distinct problems solved. Only **Submit** creates a history entry and counts toward these totals once the backend admits the request.
-
-Use **View** to inspect a submission or copy its code. Open **Stats** on a problem to compare your accepted attempts. **Current** measures elapsed time since opening the problem or your last accepted submission, including idle time. **Best Total** is your shortest recorded time to solve it. **Latest Submit** and **Latest Rank** use browser request time, which includes compilation, process startup and the round trip to the backend. **Server judge** in the submission details measures judging separately.
 
 ## Add problems and tests
 
-### Import a LeetCode problem
+### Import from LeetCode
 
-In **Problems → Import from LeetCode**, paste a public URL such as `https://leetcode.com/problems/two-sum/` and click **Import**. The importer saves the statement, constraints, available Java/Python3 templates and public examples. The examples become visible tests. The hidden-test file starts empty, so an accepted submission initially covers only those examples. LeetCode's private judge tests and official editorials stay on LeetCode. You can add your own hidden tests and editorial.
+While online, open **Problems → Import from LeetCode**, paste a public problem URL, and click **Import**. The statement, available Java/Python templates, and public examples are saved locally. The public examples become the visible tests. The hidden set starts empty.
 
-Imports require internet access. JustCode rejects an existing problem ID with HTTP 409. Choose problems with a single method on `Solution` that returns a JSON-compatible value. Design-class problems, custom node types such as `TreeNode`, and tasks judged solely by in-place changes are outside the runners' current scope.
+Choose a problem with one `Solution` method that returns a JSON-compatible value. Design classes, custom nodes such as `TreeNode`, and answers judged solely by in-place changes need a different runner. [Try Binary Search on LeetCode](https://leetcode.com/problems/binary-search/)
 
-### Add hidden tests
+### Add a hidden test
 
-The **Download Description** icon beside the problem title saves a Markdown brief with the parameters and an example test. Prepare a non-empty JSON array and check the expected answers. For **Sort an Array**, this case checks duplicates and a negative number.
+On **Sort an Array**, open **Testcase → Add Hidden Tests**. Choose **Append** to keep the existing cases or **Replace** to overwrite the hidden set. Paste this JSON array, click **Import Hidden Tests**, then **Submit** to use the updated set.
 
 ```json
 [
@@ -122,138 +95,103 @@ The **Download Description** icon beside the problem title saves a Markdown brie
 ]
 ```
 
-In the **Testcase** panel, click **Add Hidden Tests** beside **Custom Input**. Choose **Append** to keep existing cases or **Replace** to overwrite the hidden set. Under **Paste JSON**, paste the array or use **Choose File**. **Project Path** reads an existing file relative to the project folder. Click **Import Hidden Tests**, then **Submit** to judge against the updated set. Existing submission results describe the tests used at the time.
+Each `input` uses the problem’s parameter names and each `output` is the expected return value. **Choose File** loads a JSON file, and **Project Path** reads an existing file relative to the project root. **Download Description** beside the title exports the parameters and a sample case as Markdown.
 
 <details>
-<summary>Author a problem directly in the repository</summary>
+<summary>Write a problem from scratch</summary>
 
-1. Copy the [bundled addition folder](problems/add-two-integers/) to `problems/my-addition/`.
-2. In `problem.json`, set `id` to `my-addition` and give the problem a title. The ID must match the folder name, start with a lowercase letter or digit, and contain only lowercase letters, digits, hyphens or underscores (up to 200 characters). Keep `functionName`, `params` and `returnType` in sync with the displayed signatures and each language's `template.java` or `template.py`.
-3. Put at least one case in `testcases_visible.json`. Each `input` object must use exactly the parameter names, and each `output` is the expected return value. The examples in `problem.json` are for display. Add `testcases_hidden.json` and `editorial.md` as needed.
-4. Refresh **Problems**, open the new problem, and check it with **Run** and **Submit**. The backend logs skipped folders when metadata or visible tests are invalid.
+1. Copy the [bundled addition folder](problems/add-two-integers/) to `problems/my-addition/`. In `problem.json`, set `id` to the folder name. Use lowercase letters, digits, hyphens, or underscores, beginning with a letter or digit (up to 200 characters).
+2. Edit the title, statement, and examples. Match `functionName`, `params`, and `returnType` to the signatures and each language’s `template.java` or `template.py`.
+3. Put at least one input/output pair in `testcases_visible.json`. The examples in `problem.json` are for readers. Replace the copied `testcases_hidden.json` and `editorial.md` with your own cases and solution, or omit these optional files.
+4. Refresh **Problems**, open the new entry, and try **Run** and **Submit**. If the entry is missing, the backend terminal identifies skipped problem folders.
 
 </details>
 
-## Back up your work
+## Back up and restore
 
-| Where it lives | What it contains |
+JustCode stores the problem catalog in `problems/`. Drafts, solve status, submitted code, and results live in `data/justcode.sqlite`. Git ignores personal practice data and locally added problems.
+
+1. After the first successful startup, let saves and submissions finish. Pause catalog edits and imports, then run `npm run data:backup` from the project root. It prints the snapshot path in `data/backups/`. The backend can stay running.
+2. **Copy the snapshot and the matching `problems/` folder together** to your backup location. Resume catalog changes after the copy finishes.
+3. To restore, **stop the backend**. Move the current `data/` and `problems/` folders aside. Restore the saved catalog as `problems/`, create a fresh `data/`, and copy the snapshot into it as `justcode.sqlite`. Restart and open a saved draft and its submission history.
+
+Deleting an added problem from **Problems** removes its files, drafts, and history together. Back up first if you want to keep them. The two bundled problems are protected.
+
+When upgrading from an older version, JustCode backs up legacy `progress.json` files in `data/backups/legacy-*/` before importing them. **Imported** entries contain the accepted summaries recorded by those versions.
+
+## Development
+
+The React workspace uses the Monaco editor. Vite forwards `/api` requests to Express at `127.0.0.1:3000`. One backend owns the practice database. On Submit, it reads the problem’s tests, saves the code in SQLite, and runs the Java or Python solution in a temporary directory. It writes the verdict and solve status together. On restart, pending submissions appear as **Interrupted**.
+
+| To change | Start here |
 | --- | --- |
-| `problems/<id>/` | Statements, templates, editorials, and visible and hidden tests |
-| `data/justcode.sqlite` | Language drafts, selected language, solve status, submitted code and results |
-
-1. After the app has started successfully at least once, let pending saves and submissions finish. From the project root, run `npm run data:backup`. It prints the path of a consistent SQLite snapshot in `data/backups/` and works while the backend is running.
-2. Copy the snapshot **and the matching `problems/` folder** to your backup location. Keep the catalog unchanged during the copy. Git ignores `data/` and problems you add locally.
-3. To restore, stop the backend and move the current `data/` and `problems/` folders aside together. Restore the saved catalog to `problems/`, create a fresh `data/`, and copy the snapshot into it as `justcode.sqlite`. Restart and check a draft and its submission history.
-
-**Upgrading from JSON progress files.** On first migration, the backend copies legacy `progress.json` files into `data/backups/legacy-*/` and imports them in one transaction. A malformed file stops migration and the error identifies it. **Imported** history entries represent the accepted summaries older versions saved. Source code for those submissions was never recorded.
-
-Deleting a non-bundled problem from **Problems** removes its folder, drafts and submission history. Back it up first if you need them. If a submission is running for that problem, let it finish before deleting. The two bundled problems are protected.
-
-## Developer guide
-
-### Follow a submission through the code
-
-```mermaid
-flowchart LR
-    editor["React + Monaco"] --> proxy["Vite"]
-    proxy -->|/api| api["Express"]
-    catalog["problems/"] --> api
-    api --> runner["Java / Python3"]
-    api --> db[(SQLite)]
-```
-
-One Express backend owns the practice database and listens on `127.0.0.1:3000`. On `POST /api/submit`, it loads the problem's tests and saves the submitted code before judging. The runner calls the solution in a temporary directory and compares return values. The backend commits the result and solve status together. After a restart, unfinished submissions appear as **Interrupted**.
-
-| If you are changing… | Start here |
-| --- | --- |
-| Editor behavior or draft saving | [Problem workspace](frontend/src/pages/ProblemDetail.tsx) · [Save ordering and retries](frontend/src/services/progressPersistence.ts) |
-| Import, problem files or validation | [LeetCode importer](backend/src/services/leetcodeService.ts) · [Problem service](backend/src/services/problemService.ts) · [Validation](backend/src/services/problemValidation.ts) |
-| How a solution runs or is judged | [Java runner](backend/src/services/javaExecutor.ts) · [Python runner](backend/src/services/pythonExecutor.ts) · [Result comparison and hidden data](backend/src/services/executionUtils.ts) |
-| History, migration or daily statistics | [Activity page](frontend/src/pages/Activity.tsx) · [Database](backend/src/services/practiceDatabase.ts) · [Schema and backups](backend/src/services/practiceSchema.ts) · [Activity queries](backend/src/services/activityQueries.ts) |
-| Browser/API integration | [API client](frontend/src/services/apiClient.ts) · [Express routes](backend/src/routes/problemRoutes.ts) · [Submission and activity types](backend/src/shared/activity.ts) |
+| Editor, drafts, or history views | [Problem workspace](frontend/src/pages/ProblemDetail.tsx) · [Draft saving](frontend/src/services/progressPersistence.ts) · [Activity](frontend/src/pages/Activity.tsx) |
+| Problem import and validation | [LeetCode importer](backend/src/services/leetcodeService.ts) · [Problem files](backend/src/services/problemService.ts) · [Validation](backend/src/services/problemValidation.ts) |
+| Execution and judging | [Java runner](backend/src/services/javaExecutor.ts) · [Python runner](backend/src/services/pythonExecutor.ts) · [Result comparison](backend/src/services/executionUtils.ts) |
+| API, practice data, or backups | [Routes](backend/src/routes/problemRoutes.ts) · [Practice database](backend/src/services/practiceDatabase.ts) · [Schema and backups](backend/src/services/practiceSchema.ts) |
 
 ### Build and test
 
-Run these commands from the project root. For the full test suite, install both local language runtimes. Some executor tests skip when a runtime is missing.
+Run these commands from the project root. Install both language runtimes for the full suite. CI runs it on Linux with Node.js 22, JDK 17, and Python 3.11, and tests SQLite storage on Linux, macOS, and Windows.
 
-| Task | Command |
+| Task | Commands |
 | --- | --- |
-| Check TypeScript, run regression tests, and build | `npm run typecheck`, `npm test`, `npm run build` |
-| Run browser tests, including a real Python submission | `npx playwright install chromium` once, then `npm run test:ui` |
-| Run one development server | `npm run dev:frontend` or `npm run dev:backend` |
-| Preview a build locally | After `npm run build`, run `npm run start:backend` in one terminal and `npm run preview --workspace=frontend` in another. Open Vite's printed URL, usually `http://localhost:4173`. |
-| Use the macOS/Linux helper scripts | `./install.sh` checks Node.js and runs `npm install`. `./uninstall.sh` asks before cleaning installed and generated files. |
-| Clean dependencies, builds and temporary files | `npm run clean`. The catalog and practice database are kept. |
+| Check types, run regression tests, and build | `npm run typecheck`, `npm test`, then `npm run build` |
+| Run browser tests | Install Chromium once with `npx playwright install chromium`, then run `npm run test:ui` |
+| Start one development server | `npm run dev:frontend` or `npm run dev:backend` |
+| Preview the build | After building, run `npm run start:backend` in one terminal and `npm run preview --workspace=frontend` in another. Open the URL Vite prints. |
+| Clean installed packages, builds, and temporary files | `npm run clean` |
+| Use the macOS/Linux helpers | [Install dependencies](install.sh) · [Interactive cleanup](uninstall.sh) |
 
-CI runs type checks, the regression suite, builds, and Chromium tests on Linux with Node.js 22, JDK 17 and Python 3.11. A separate job exercises SQLite storage on Linux, macOS and Windows. Import tests use fixtures and mocked responses, and sandbox tests cover Docker command construction and cleanup with a mocked process. [CI workflow](.github/workflows/verify.yml) · [Test suites](tests/) · [All npm scripts](package.json)
+For a pull request, describe the change and the checks you ran. To enable the optional pre-push check for local practice files in your clone, run `git config --local core.hooksPath .githooks`. [CI workflow](.github/workflows/verify.yml) · [Tests](tests/) · [npm scripts](package.json) · [Pre-push check](.githooks/pre-push)
 
-### Technical reference
+### Execution modes
 
-<details>
-<summary>Execution modes, configuration and limits</summary>
+`JUSTCODE_SANDBOX_MODE` defaults to `auto`. It uses Docker when the daemon and the language image are ready, and otherwise uses the host runtime. In `local` mode, solutions run with your OS user’s file access. Use `docker` to require a container with networking disabled and a read-only root filesystem.
 
-Set environment variables in the terminal before starting the backend. `JUSTCODE_SANDBOX_MODE` defaults to `auto`. It selects Docker when the daemon and the configured language image are available, and otherwise uses the host runtime. In `local` mode, solutions run with your operating-system user's file access. Set `docker` to require containers for every run. Containers have networking disabled, a read-only root filesystem and a mount for the execution workspace.
+Start Docker and pull the image for each language you use.
 
-Start Docker and pull the images for the languages you need. Then start the app with the mode set.
-
-```bash
+```sh
 docker pull eclipse-temurin:17-jdk
 docker pull python:3.11-slim
 ```
 
-- On macOS/Linux, run `JUSTCODE_SANDBOX_MODE=docker npm run dev`.
-- In PowerShell, set `$env:JUSTCODE_SANDBOX_MODE = "docker"`, then run `npm run dev`.
-
-| Setting | Default |
-| --- | --- |
-| `PORT` | `3000` on loopback. If changed, update the `/api` target in the [Vite config](frontend/vite.config.ts). |
-| `JUSTCODE_JAVA_SANDBOX_IMAGE` / `JUSTCODE_PYTHON_SANDBOX_IMAGE` | `eclipse-temurin:17-jdk` / `python:3.11-slim` |
-| `JUSTCODE_DOCKER_MEMORY` / `JUSTCODE_DOCKER_CPUS` / `JUSTCODE_DOCKER_PIDS_LIMIT` | `256m` / `1` / `64` |
-| Compilation or Python syntax check / each test / shared execution budget | 10 s / 1 s / 60 s. The browser allows 75 s for the initial request. |
-| Concurrent executions | Two Run/Submit requests combined. Additional requests receive HTTP 429. |
-| Output / request body / project file | 10 MiB combined stdout and stderr per process, 10 MiB per JSON request, 64 MiB per local data file. |
-
-If Docker cleanup fails, the backend reports the container name and keeps the execution directory until cleanup succeeds. [Execution limits](backend/src/constants.ts) · [Sandbox runner](backend/src/services/sandboxRunner.ts) · [Local access and request limits](backend/src/app.ts)
-
-</details>
+On macOS/Linux, start with `JUSTCODE_SANDBOX_MODE=docker npm run dev`. In PowerShell, set `$env:JUSTCODE_SANDBOX_MODE = "docker"` before running `npm run dev`.
 
 <details>
-<summary>Local HTTP API and submission retries</summary>
+<summary>API, judge limits, and configuration</summary>
 
-| Purpose | Endpoints |
-| --- | --- |
-| Health and catalog | `GET /health`, `GET /api/problems`, `GET /api/problems/:id` |
-| Judge | `POST /api/run`, `POST /api/submit` |
-| Change the catalog | `POST /api/import-problem`, `POST /api/problems/:id/hidden-testcases`, `DELETE /api/problems/:id` |
-| Progress and drafts | `GET /api/progress` (add `?view=status` for the list), `GET /api/progress/:id`, `PUT /api/progress/:id` |
-| Submission history and timing | `GET /api/submissions`, `GET /api/submissions/:id`, `PATCH /api/submissions/:id/timing` |
-| Daily and period totals | `GET /api/stats/daily` |
-
-For a retryable Submit, send a new UUID as `submissionId`. Retrying the same problem, language and code with that ID returns the stored outcome, or HTTP 202 while judging. Changing the payload under that ID returns 409. When the ID is omitted, the server generates one. Only Submit can assign a solved status.
-
-History and daily stats accept `problemId`, `language`, inclusive `from` and `to` dates, and an IANA `timezone` (default `UTC`). History also accepts `page` (starts at 1) and `limit` (default 50, maximum 100).
-
-</details>
-
-<details>
-<summary>How the judge compares values</summary>
-
-The judge compares JSON return values. Array order matters, object key order is ignored, and floating-point values use exact comparison. Tasks with multiple valid outputs need an expected value compatible with these rules. The sorting exercise specifies an algorithmic complexity. The judge checks outputs and execution time.
-
-Integer tokens stay exact across disk and HTTP, including values beyond JavaScript's safe integer range. API clients handling large integers need a lossless JSON parser. Java `int` and `long` use signed 32- and 64-bit ranges. Python integers can exceed both within the execution and data limits. Metadata `float` is an alias for finite `double`, including `float[]` → Java `double[]`. Supported boxed list elements can be `null`. Primitive array elements require values. [Numeric validation](backend/src/services/numericContract.ts) · [JSON handling](backend/src/shared/json.ts)
+- To use the **HTTP API**, start with `GET /health` for readiness, `GET /api/problems` for the catalog, `POST /api/run` for visible or custom input, and `POST /api/submit` to record an attempt. Query history with `GET /api/submissions` and daily totals with `GET /api/stats/daily`. [All routes](backend/src/routes/problemRoutes.ts) · [Client request examples](frontend/src/services/apiClient.ts)
+- For **retryable submissions**, supply a new UUID as `submissionId` for each attempt. Retry the same problem, language, and code with the same ID to retrieve the stored result. HTTP 202 means judging is in progress. Reusing an ID with different content returns 409.
+- The **judge** compares arrays in order, accepts object keys in any order, and compares floating-point values exactly. The API preserves integers beyond JavaScript’s safe range. Use a lossless JSON parser to read them. Java uses signed 32-bit `int` and 64-bit `long`. Metadata `float` maps to a finite `double`. [Numeric rules](backend/src/services/numericContract.ts) · [JSON handling](backend/src/shared/json.ts)
+- Run and Submit share **two execution slots**. HTTP 429 means both are busy. Compilation or syntax checking gets up to 10 seconds, each case up to 1 second, and the whole compile-and-test sequence shares a 60-second budget. [Judge and Docker defaults](backend/src/constants.ts)
+- If you change the **backend port** with `PORT`, update Vite’s `/api` target too. Override the images with `JUSTCODE_JAVA_SANDBOX_IMAGE` or `JUSTCODE_PYTHON_SANDBOX_IMAGE`. [Vite proxy](frontend/vite.config.ts) · [Container settings](backend/src/services/sandboxRunner.ts)
 
 </details>
 
 ## Troubleshooting
 
-| If you see this | Try this |
+| Symptom | What to do |
 | --- | --- |
-| The app opens but cannot load problems | Open the [backend health check](http://localhost:3000/health) and look for `"status":"ok"`. If it fails, check the backend terminal. If it succeeds, check the Vite proxy and use the frontend URL printed at startup. |
-| Java or Python fails to start | Run the version checks in Quick start from the same terminal. Java needs both `javac` and `java`. Python needs `python3`. In Docker mode, check `docker info` and the image for that language, then restart the backend after changing either. |
-| **Changes have not been saved** | Keep the tab open and copy your code. Reconnect the backend and click **Retry save**. Unsaved edits are held in that tab's memory. |
-| Submit loses its connection | Check **Submission history** or use **Retry submission** when offered. The retry reuses the original submission ID. |
-| A custom input or hidden test is rejected | Match every parameter name and use valid JSON. Custom Input takes one object. Hidden tests take an array of input/output pairs. For **Project Path**, choose an existing file inside the project. |
+| The page opens but the problem list fails to load | Check for `"status":"ok"` at the [backend health endpoint](http://127.0.0.1:3000/health). If it fails, read the backend terminal. If it succeeds, check the Vite proxy. |
+| Java or Python fails to start | Run the version checks from Quick start in the terminal that starts JustCode. For Docker, check `docker info` and the language image, then restart the backend. |
+| **Changes have not been saved** | Keep the tab open, copy your code, reconnect the backend, and click **Retry save**. |
+| The connection drops during Submit | Check **Submission history**. If **Retry submission** appears, it reuses the original submission ID. |
+
+For a practice error, include the problem ID, language, error message, and a small input that reproduces it. [JustCode issues](https://github.com/TsengPinRuei/JustCode/issues)
+
+### Python on Windows
+
+JustCode starts `python3.exe` directly. If PowerShell finds only `py` or `python`, install the Python install manager and run `pymanager install 3.11`. Enable the **Python (default)** aliases in **Manage app execution aliases**, then check that your user `Path` contains `%LOCALAPPDATA%\Microsoft\WindowsApps`. [Python’s Windows setup guide](https://docs.python.org/3/using/windows.html#python-install-manager)
+
+Open a new PowerShell. This command prints the Python version if Node.js can launch the interpreter.
+
+```powershell
+node -e "require('node:child_process').execFileSync('python3', ['--version'], { stdio: 'inherit' })"
+```
+
+In the same window, start `npm run dev`. With the [first problem’s Python solution](#solve-your-first-problem), **Run** shows **2 / 2**.
 
 ## License
 
-Copyright © 2026 Pin Ruei Tseng. The source and bundled materials use the MIT License. Dependencies and imported content keep their respective licenses and terms. [MIT License](LICENSE)
+Copyright © 2026 Pin Ruei Tseng. The source code and bundled materials use the MIT License. Dependencies and imported problems retain their respective terms. [MIT License](LICENSE)
