@@ -10,5 +10,17 @@ problems/**
 !problems/sort-array/**
 !problems/add-two-integers/
 !problems/add-two-integers/**
+
+# Practice history, drafts, database backups, and old per-problem records.
 /data/
+*.sqlite
+*.sqlite-*
+/problems/**/progress.json
+
+# Local captures and portfolio exports can include code and submission history.
+/screenshots/
+/JustCode-Portfolio/
+/output/playwright/
+/.playwright-cli/
+
 *.tsbuildinfo

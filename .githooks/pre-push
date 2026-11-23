@@ -1,0 +1,59 @@
+#!/usr/bin/env node
+// Enable this check in a clone with: git config --local core.hooksPath .githooks
+const { spawnSync } = require('node:child_process');
+const { readFileSync } = require('node:fs');
+
+const zero = /^0+$/;
+const privateDirectory = /^(?:data|screenshots|JustCode-Portfolio|output\/playwright|\.playwright-cli)\/|(?:^|\/)temp\//i;
+const database = /(?:^|\/)[^/]*\.sqlite(?:-[^/]*)?$/i;
+const legacyProgress = /^problems\/(?:[^/]+\/)*progress\.json$/i;
+
+function git(args, input) {
+    const result = spawnSync('git', ['--no-replace-objects', ...args], { input, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    if (result.status !== 0) throw new Error('git ' + args[0] + ' could not verify the files in this push.');
+    return result.stdout;
+}
+
+function lines(text) {
+    return text.trim().split('\n').filter(Boolean);
+}
+
+function checkPush() {
+    const updates = lines(readFileSync(0, 'utf8')).map(line => line.split(' '));
+    const outgoing = updates.filter(([, local]) => !zero.test(local));
+    if (!outgoing.length) return;
+
+    const tips = new Set(outgoing.map(([, local]) => git(['rev-parse', '--verify', local + '^{commit}']).trim()));
+    const remoteIds = new Set(updates.map(([, , , old]) => old).filter(id => !zero.test(id)));
+    if (outgoing.some(([, , , old]) => zero.test(old))) {
+        // New branches and tags have no old tip. Use the actual destination, including on first push.
+        for (const ref of lines(git(['ls-remote', '--refs', '--', process.argv[3]]))) {
+            remoteIds.add(ref.split('\t')[0]);
+        }
+    }
+
+    const revisions = [...tips];
+    if (remoteIds.size) {
+        const names = [...remoteIds].map(id => id + '^{commit}').join('\n') + '\n';
+        for (const object of lines(git(['cat-file', '--batch-check=%(objectname) %(objecttype)'], names))) {
+            const [id, type] = object.split(' ');
+            if (type === 'commit') revisions.push('^' + id);
+        }
+    }
+
+    // Check every new snapshot, including merge commits and files removed again before the tip.
+    // Also check every published tip, even if the destination already has that commit.
+    const commits = new Set([...tips, ...lines(git(['rev-list', '--stdin'], revisions.join('\n') + '\n'))]);
+    for (const commit of commits) {
+        const paths = git(['ls-tree', '-r', '-z', '--full-tree', '--name-only', commit]).split('\0');
+        const record = paths.find(path => privateDirectory.test(path) || database.test(path) || legacyProgress.test(path));
+        if (record) throw new Error('Local practice file ' + JSON.stringify(record) + ' in commit ' + commit.slice(0, 12) + '.');
+    }
+}
+
+try {
+    checkPush();
+} catch (error) {
+    console.error('JustCode blocked this push. ' + error.message);
+    process.exitCode = 1;
+}
