@@ -6,7 +6,6 @@ import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkGfm from 'remark-gfm';
 import remarkCodeGroup from '../plugins/remarkCodeGroup';
 import { Problem, ProblemProgress } from '../types';
-import HiddenTestcaseModal from './HiddenTestcaseModal';
 import SolveStatsPanel from './SolveStatsPanel';
 
 interface ProblemDescriptionProps {
@@ -192,7 +191,6 @@ const downloadTextFile = (filename: string, content: string) => {
 
 const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progress, attemptStartedAt }) => {
     const [activeTab, setActiveTab] = useState<'description' | 'editorial'>('description');
-    const [showHiddenTestModal, setShowHiddenTestModal] = useState(false);
 
     const handleDownloadDescription = () => {
         // Remove characters that should not become part of the downloaded filename.
@@ -205,34 +203,41 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progre
             <div className="problem-header">
                 <div className="problem-title-row">
                     <h1 className="problem-title-text">{problem.metadata.title}</h1>
-                    <div className="problem-header-actions">
-                        <button
-                            type="button"
-                            className="problem-header-action-btn"
-                            onClick={handleDownloadDescription}
-                        >
-                            Download Description
-                        </button>
-                        <button
-                            type="button"
-                            className="problem-header-action-btn primary"
-                            onClick={() => setShowHiddenTestModal(true)}
-                        >
-                            Add Hidden Tests
-                        </button>
-                    </div>
+                    <button
+                        type="button"
+                        className="problem-icon-action"
+                        aria-label="Download Description"
+                        title="Download Description"
+                        onClick={handleDownloadDescription}
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" />
+                        </svg>
+                    </button>
+                    <Link
+                        className="problem-icon-action"
+                        to={`/activity?problemId=${encodeURIComponent(problem.metadata.id)}`}
+                        aria-label="Submission history"
+                        title="Submission history"
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path d="M3 4v5h5M3.7 9a8.5 8.5 0 1 1-.2 6M12 7v5l3.5 2" />
+                        </svg>
+                    </Link>
                 </div>
-                <div className="problem-meta">
-                    <Link className="history-link" to={`/activity?problemId=${encodeURIComponent(problem.metadata.id)}`}>Submission history</Link>
-                    <span className={`difficulty-badge difficulty-${problem.metadata.difficulty.toLowerCase()}`}>
-                        {problem.metadata.difficulty}
-                    </span>
-                    {problem.metadata.tags.slice(0, 4).map((tag, index) => (
-                        <span key={index} className="tag">
-                            {tag}
-                        </span>
-                    ))}
-                </div>
+                <span className={`difficulty-badge difficulty-${problem.metadata.difficulty.toLowerCase()}`}>
+                    {problem.metadata.difficulty}
+                </span>
+                {problem.metadata.tags.length > 0 && (
+                    <details className="problem-topic-disclosure" key={problem.metadata.id}>
+                        <summary>Tags</summary>
+                        <ul className="problem-topic-list" aria-label="Problem tags">
+                            {problem.metadata.tags.map((tag, index) => (
+                                <li key={index} className="tag">{tag}</li>
+                            ))}
+                        </ul>
+                    </details>
+                )}
             </div>
 
             <SolveStatsPanel progress={progress} attemptStartedAt={attemptStartedAt} />
@@ -311,13 +316,6 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, progre
                     </div>
                 )}
             </div>
-
-            {showHiddenTestModal && (
-                <HiddenTestcaseModal
-                    problem={problem}
-                    onClose={() => setShowHiddenTestModal(false)}
-                />
-            )}
         </>
     );
 };

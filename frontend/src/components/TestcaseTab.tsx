@@ -1,6 +1,7 @@
 import { stringifyJson } from '../../../backend/src/shared/json';
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { Problem } from '../types';
+import HiddenTestcaseModal from './HiddenTestcaseModal';
 
 interface TestcaseTabProps {
     problem: Problem;
@@ -19,6 +20,7 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
 }) => {
     // This selection controls display only; Run executes all visible testcases.
     const [selectedTestcase, setSelectedTestcase] = useState(0);
+    const [showHiddenTests, setShowHiddenTests] = useState(false);
     const selectedVisibleTestcase = problem.visibleTestcases[selectedTestcase];
     const selectedInputRows = useMemo(() => {
         if (!selectedVisibleTestcase) return [];
@@ -54,19 +56,29 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
                         Case {index + 1}
                     </button>
                 ))}
-                <button
-                    aria-pressed={inputMode === 'custom'}
-                    className={`testcase-tab ${inputMode === 'custom' ? 'active' : ''}`}
-                    onClick={() => {
-                        // Seed an empty custom input from the first visible case to show the required JSON shape.
-                        if (!customInput && problem.visibleTestcases.length > 0) {
-                            onCustomInputChange(stringifyJson(problem.visibleTestcases[0].input, 2));
-                        }
-                        onInputModeChange('custom');
-                    }}
-                >
-                    Custom Input
-                </button>
+                <div className="testcase-input-actions">
+                    <button
+                        aria-pressed={inputMode === 'custom'}
+                        className={`testcase-tab ${inputMode === 'custom' ? 'active' : ''}`}
+                        onClick={() => {
+                            // Seed an empty custom input from the first visible case to show the required JSON shape.
+                            if (!customInput && problem.visibleTestcases.length > 0) {
+                                onCustomInputChange(stringifyJson(problem.visibleTestcases[0].input, 2));
+                            }
+                            onInputModeChange('custom');
+                        }}
+                    >
+                        Custom Input
+                    </button>
+                    <button
+                        type="button"
+                        className="testcase-tab"
+                        aria-haspopup="dialog"
+                        onClick={() => setShowHiddenTests(true)}
+                    >
+                        Add Hidden Tests
+                    </button>
+                </div>
             </div>
 
             {inputMode === 'visible' ? (
@@ -103,6 +115,10 @@ const TestcaseTab: FC<TestcaseTabProps> = ({
                         placeholder='{"param1": value1, "param2": value2}'
                     />
                 </div>
+            )}
+
+            {showHiddenTests && (
+                <HiddenTestcaseModal problem={problem} onClose={() => setShowHiddenTests(false)} />
             )}
         </div>
     );

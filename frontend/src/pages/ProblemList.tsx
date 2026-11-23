@@ -7,6 +7,8 @@ import { ProblemMetadata, ProblemProgress } from '../types';
 // Hide deletion controls for bundled problems; the backend enforces the same protected IDs.
 const PROTECTED_PROBLEMS = new Set(['sort-array', 'add-two-integers']);
 
+const STATUS_LABELS = { none: 'Not started', attempted: 'Attempted', solved: 'Solved' };
+
 const ProblemList: FC = () => {
     const [problems, setProblems] = useState<ProblemMetadata[]>([]);
     const [progress, setProgress] = useState<Record<string, ProblemProgress['status']>>({});
@@ -138,6 +140,7 @@ const ProblemList: FC = () => {
         );
     }
 
+    const showActions = problems.some(problem => !PROTECTED_PROBLEMS.has(problem.id));
     return (
         <div className="problem-list-container">
             <div className="problem-list-header-row">
@@ -163,55 +166,58 @@ const ProblemList: FC = () => {
                 </div>
             )}
             <div className="problem-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th className="col-status">Status</th>
-                            <th>Title</th>
-                            <th className="col-difficulty">Difficulty</th>
-                            <th className="col-tags">Tags</th>
-                            <th className="col-actions">Actions</th>
+                {/* Explicit roles retain table navigation when narrow layouts display rows as cards. */}
+                <table role="table" aria-label="Problems">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col" className="col-status">Status</th>
+                            <th role="columnheader" scope="col">Title</th>
+                            <th role="columnheader" scope="col" className="col-difficulty">Difficulty</th>
+                            <th role="columnheader" scope="col" className="col-tags">Tags</th>
+                            {showActions && <th role="columnheader" scope="col" className="col-actions">Actions</th>}
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         {problems.map((problem) => (
-                            <tr key={problem.id} onClick={() => handleProblemClick(problem.id)}>
-                                <td className="col-status">
+                            <tr role="row" key={problem.id} onClick={() => handleProblemClick(problem.id)}>
+                                <td role="cell" className="col-status" aria-label={STATUS_LABELS[progress[problem.id] ?? 'none']}>
                                     {progress[problem.id] === 'solved' && (
-                                        <span className="status-icon status-solved" title="Solved">✓</span>
+                                        <span aria-hidden="true" className="status-icon status-solved" title="Solved">✓</span>
                                     )}
                                     {progress[problem.id] === 'attempted' && (
-                                        <span className="status-icon status-attempted" title="Attempted">◐</span>
+                                        <span aria-hidden="true" className="status-icon status-attempted" title="Attempted">◐</span>
                                     )}
                                 </td>
-                                <td className="problem-title"><Link to={`/problems/${problem.id}`} onClick={(event) => event.stopPropagation()}>{problem.title}</Link></td>
-                                <td className="problem-difficulty">
+                                <td role="cell" className="problem-title"><Link to={`/problems/${problem.id}`} onClick={(event) => event.stopPropagation()}>{problem.title}</Link></td>
+                                <td role="cell" className="problem-difficulty">
                                     <span className={`difficulty-badge difficulty-${problem.difficulty.toLowerCase()}`}>
                                         {problem.difficulty}
                                     </span>
                                 </td>
-                                <td className="problem-tags">
+                                <td role="cell" className="problem-tags">
                                     {problem.tags.slice(0, 3).map((tag, index) => (
                                         <span key={index} className="tag">
                                             {tag}
                                         </span>
                                     ))}
                                 </td>
-                                <td className="problem-actions">
-                                    {!PROTECTED_PROBLEMS.has(problem.id) && (
-                                        <button
-                                            className="delete-btn"
-                                            title="Delete problem"
-                                            aria-label={`Delete ${problem.title}`}
-                                            disabled={deleting.has(problem.id)}
-                                            onClick={(e) => handleDelete(e, problem.id, problem.title)}
-                                        >
-                                            <svg className="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                                <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" />
-                                            </svg>
-                                        </button>
-                                    )}
-                                </td>
+                                {showActions && (
+                                    <td role="cell" className="problem-actions">
+                                        {!PROTECTED_PROBLEMS.has(problem.id) && (
+                                            <button
+                                                className="delete-btn"
+                                                title="Delete problem"
+                                                aria-label={`Delete ${problem.title}`}
+                                                disabled={deleting.has(problem.id)}
+                                                onClick={(e) => handleDelete(e, problem.id, problem.title)}
+                                            >
+                                                <svg className="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                    <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>

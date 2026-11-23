@@ -33,7 +33,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
     onLanguageChange
 }) => {
     const [instance, setInstance] = useState<{ editor: editor.IStandaloneCodeEditor; monaco: typeof MonacoApi } | null>(null);
-    const [fontSize, setFontSize] = useState(14);
+    const [fontSize, setFontSize] = useState(15);
     const MIN_FONT_SIZE = 12;
     const MAX_FONT_SIZE = 24;
 
@@ -42,11 +42,11 @@ const CodeEditor: FC<CodeEditorProps> = ({
     };
 
     const increaseFontSize = () => {
-        setFontSize(prev => Math.min(prev + 2, MAX_FONT_SIZE));
+        setFontSize(prev => Math.min(prev + 1, MAX_FONT_SIZE));
     };
 
     const decreaseFontSize = () => {
-        setFontSize(prev => Math.max(prev - 2, MIN_FONT_SIZE));
+        setFontSize(prev => Math.max(prev - 1, MIN_FONT_SIZE));
     };
 
     const modelPath = `justcode:///${encodeURIComponent(problemId)}/${selectedLanguage === 'java' ? 'Solution.java' : 'solution.py'}`;
@@ -98,6 +98,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
     // Keep editor options stable between renders unless the font size changes.
     const editorOptions = useMemo<editor.IStandaloneEditorConstructionOptions>(() => ({
         fontSize,
+        fontFamily: "Menlo, Consolas, 'Liberation Mono', monospace",
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
         automaticLayout: true,
@@ -135,7 +136,7 @@ const CodeEditor: FC<CodeEditorProps> = ({
                     </button>
                 </div>
                 <div className="editor-toolbar-right">
-                    <span className="font-size-display">{fontSize} pt</span>
+                    <span className="font-size-display">{fontSize} px</span>
                     <button
                         className="editor-btn"
                         onClick={decreaseFontSize}

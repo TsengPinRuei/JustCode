@@ -77,7 +77,7 @@ class Solution {
 
 1. 在 **Testcase** 選 **Case 1**，按 **Run**。一筆測資包含一組輸入與預期答案。Run 會檢查所有可見測資，所以 **Result** 應顯示 **Accepted** 和 **2 / 2**。
 2. 按 **Submit**。使用隨附測資時，應看到 **Accepted** 和 **52 / 52**。題目在 **Problems** 清單中也會標上 ✓。
-3. 在題目頁點 **Submission history**，再點 **View**，即可看到剛才提交的程式碼與結果。
+3. 在題目標頭點 **Download Description** 右側的 **Submission history** 圖示，再點 **View**，即可看到剛才提交的程式碼與結果。
 
 兩道內建題目都有起始範本，**Editorial** 分頁則提供解法與程式碼。
 
@@ -114,7 +114,7 @@ class Solution {
 
 ### 新增隱藏測資
 
-在題目頁按 **Download Description**，可以下載 Markdown 題目說明，裡面列有參數和測資範例。請準備一個非空的 JSON 陣列，並確認預期答案。以下這筆 **Sort an Array** 測資同時檢查重複值與負數。
+點題名旁的 **Download Description** 圖示，可以下載 Markdown 題目說明，裡面列有參數和測資範例。請準備一個非空的 JSON 陣列，並確認預期答案。以下這筆 **Sort an Array** 測資同時檢查重複值與負數。
 
 ```json
 [
@@ -122,7 +122,7 @@ class Solution {
 ]
 ```
 
-開啟 **Add Hidden Tests**。選 **Append** 會保留既有測資並追加，選 **Replace** 會覆蓋整組隱藏測資。在 **Paste JSON** 貼上內容或用 **Choose File** 選檔，也可以選 **Project Path**，填入專案資料夾內既有檔案的相對路徑。按 **Import Hidden Tests** 後，再按 **Submit** 即可用新版測資判題。先前的提交紀錄仍反映當時使用的測資。
+在 **Testcase** 面板點 **Custom Input** 右側的 **Add Hidden Tests**。選 **Append** 會保留既有測資並追加，選 **Replace** 會覆蓋整組隱藏測資。在 **Paste JSON** 貼上內容或用 **Choose File** 選檔，也可以選 **Project Path**，填入專案資料夾內既有檔案的相對路徑。按 **Import Hidden Tests** 後，再按 **Submit** 即可用新版測資判題。先前的提交紀錄仍反映當時使用的測資。
 
 <details>
 <summary>直接在專案內建立自己的題目</summary>

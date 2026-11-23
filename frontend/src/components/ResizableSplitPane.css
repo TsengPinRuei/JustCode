@@ -65,7 +65,7 @@
 }
 
 .split-pane-divider.dragging {
-    background-color: rgba(0, 117, 190, 0.2);
+    background-color: var(--accent-soft);
 }
 
 .divider-line {
@@ -83,10 +83,8 @@
     height: 2px;
 }
 
-.split-pane-divider:hover .divider-line {
-    background-color: #0075be;
-}
-
+.split-pane-divider:hover .divider-line,
+.split-pane-divider:focus-visible .divider-line,
 .split-pane-divider.dragging .divider-line {
-    background-color: #0075be;
+    background-color: var(--accent-primary);
 }

@@ -84,6 +84,17 @@ test('keyboard links enter bundled problems; delete keeps the list route', async
     await expect(page.locator('.delete-icon')).toHaveCount(0);
 });
 
+test('mobile problem cards retain column names and readable practice status', async ({ page }) => {
+    await setup(page);
+    await page.goto('/problems');
+    const list = page.getByRole('table', { name: 'Problems' });
+    for (const width of [320, 390]) {
+        await page.setViewportSize({ width, height: 800 });
+        await expect(list.getByRole('columnheader')).toHaveText(['Status', 'Title', 'Difficulty', 'Tags']);
+        await expect(list.getByRole('cell', { name: 'Not started' })).toHaveCount(1);
+    }
+});
+
 test('successful import with failed refresh retries GET without a second POST', async ({ page }) => {
     await setup(page);
     let gets = 0, posts = 0;
@@ -125,6 +136,9 @@ test('dialogs contain focus, restore it, block busy Escape, and keyboard file se
     await expect(trigger).toBeFocused();
     await openWorkspace(page);
     const hiddenTrigger = page.getByRole('button', { name: 'Add Hidden Tests' });
+    await page.getByRole('button', { name: 'Custom Input' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(hiddenTrigger).toBeFocused();
     // Arm Chromium's file chooser interception before opening the dialog.
     const chooserPromise = page.waitForEvent('filechooser');
     await hiddenTrigger.click();
@@ -403,6 +417,27 @@ test('imported explanation images and links render safely and remain in download
     expect(text).toContain('[diagram source](https://example.com/source)');
 });
 
+test('header actions follow keyboard order and topic tags start collapsed', async ({ page }) => {
+    await setup(page);
+    await openWorkspace(page);
+    const header = page.locator('.problem-header');
+    const titleRow = header.locator('.problem-title-row');
+    const download = titleRow.getByRole('button', { name: 'Download Description' });
+    const history = titleRow.getByRole('link', { name: 'Submission history' });
+    await download.focus();
+    await page.keyboard.press('Tab');
+    await expect(history).toBeFocused();
+    const topics = header.locator('summary');
+    const tag = header.getByText('Math', { exact: true });
+    await expect(tag).toBeHidden();
+    await page.keyboard.press('Tab');
+    await expect(topics).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(tag).toBeVisible();
+    await page.keyboard.press('Space');
+    await expect(tag).toBeHidden();
+});
+
 test('desktop minimum and doubled interface zoom keep controls reachable; text contrast meets 4.5', async ({ page }) => {
     await setup(page);
     const errors: string[] = [];
@@ -411,7 +446,8 @@ test('desktop minimum and doubled interface zoom keep controls reachable; text c
     await openWorkspace(page);
     expect(await page.title()).toContain('JustCode');
     await expect(page.locator('vite-error-overlay')).toHaveCount(0);
-    for (const zoom of ['1.15', '2.3']) {
+    await expect(page.locator('body')).toHaveCSS('zoom', '1');
+    for (const zoom of ['1', '2']) {
         await page.evaluate(zoom => { document.body.style.zoom = zoom; }, zoom);
         const run = page.getByRole('button', { name: 'Run', exact: true });
         await run.focus();
@@ -422,7 +458,7 @@ test('desktop minimum and doubled interface zoom keep controls reachable; text c
         await expect(page.getByLabel('Language', { exact: true })).toBeInViewport();
     }
     await page.setViewportSize({ width: 600, height: 360 });
-    await page.evaluate(() => { document.body.style.zoom = '1.15'; });
+    await page.evaluate(() => { document.body.style.removeProperty('zoom'); });
     await expect(page.locator('.problem-title-text')).toHaveCSS('flex-basis', 'auto');
     expect((await page.locator('.problem-title-text').boundingBox())!.height).toBeLessThan(100);
     await page.getByRole('button', { name: 'Run', exact: true }).focus();
@@ -433,7 +469,7 @@ test('desktop minimum and doubled interface zoom keep controls reachable; text c
             const values = hex.trim().replace('#', '').match(/../g)!.map(c => parseInt(c, 16) / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4);
             return values[0] * .2126 + values[1] * .7152 + values[2] * .0722;
         };
-        return ['--text-tertiary', '--accent-blue'].flatMap(fg => ['--bg-secondary', '--bg-tertiary', '--bg-hover'].map(bg => {
+        return ['--text-tertiary', '--accent-primary'].flatMap(fg => ['--bg-secondary', '--bg-tertiary', '--bg-hover'].map(bg => {
             const l1 = luminance(style.getPropertyValue(fg)), l2 = luminance(style.getPropertyValue(bg));
             return (Math.max(l1, l2) + .05) / (Math.min(l1, l2) + .05);
         }));

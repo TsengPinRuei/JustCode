@@ -77,7 +77,7 @@ class Solution {
 
 1. Under **Testcase**, select **Case 1** and click **Run**. A test case pairs an input with its expected answer. **Result** should show **Accepted** and **2 / 2** because Run checks every visible case.
 2. Click **Submit**. With the bundled tests, the result should be **Accepted**, **52 / 52**. The problem now has a ✓ in **Problems**.
-3. Click **Submission history** on the problem, then **View** to see the code and result you just saved.
+3. Click the **Submission history** icon to the right of **Download Description** in the problem header, then **View** to see the code and result you just saved.
 
 Both bundled problems have starter code and an **Editorial** tab with worked solutions.
 
@@ -114,7 +114,7 @@ Imports require internet access. JustCode rejects an existing problem ID with HT
 
 ### Add hidden tests
 
-On the problem, **Download Description** saves a Markdown brief with the parameters and an example test. Prepare a non-empty JSON array and check the expected answers. For **Sort an Array**, this case checks duplicates and a negative number.
+The **Download Description** icon beside the problem title saves a Markdown brief with the parameters and an example test. Prepare a non-empty JSON array and check the expected answers. For **Sort an Array**, this case checks duplicates and a negative number.
 
 ```json
 [
@@ -122,7 +122,7 @@ On the problem, **Download Description** saves a Markdown brief with the paramet
 ]
 ```
 
-Open **Add Hidden Tests**. Choose **Append** to keep existing cases or **Replace** to overwrite the hidden set. Under **Paste JSON**, paste the array or use **Choose File**. **Project Path** reads an existing file relative to the project folder. Click **Import Hidden Tests**, then **Submit** to judge against the updated set. Existing submission results describe the tests used at the time.
+In the **Testcase** panel, click **Add Hidden Tests** beside **Custom Input**. Choose **Append** to keep existing cases or **Replace** to overwrite the hidden set. Under **Paste JSON**, paste the array or use **Choose File**. **Project Path** reads an existing file relative to the project folder. Click **Import Hidden Tests**, then **Submit** to judge against the updated set. Existing submission results describe the tests used at the time.
 
 <details>
 <summary>Author a problem directly in the repository</summary>
